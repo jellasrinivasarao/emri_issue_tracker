@@ -1,0 +1,185 @@
+/* Tablet */
+
+@media(max-width:992px){
+
+    .navbar{
+
+        display:none;
+
+    }
+
+    .logo img{
+
+        height:48px;
+
+    }
+
+}
+
+/* Mobile */
+
+@media(max-width:768px){
+
+    .header{
+
+        height:70px;
+
+    }
+
+    body{
+
+        padding-top:70px;
+
+    }
+
+    .login-btn{
+
+        width:110px;
+
+        height:42px;
+
+        font-size:14px;
+
+    }
+
+}
+@media(max-width:992px){
+
+    .hero-wrapper{
+
+        flex-direction:column;
+
+        text-align:center;
+
+    }
+
+    .hero-right{
+
+        text-align:center;
+
+    }
+
+    .hero h1{
+
+        font-size:42px;
+
+    }
+
+    .hero-buttons{
+
+        justify-content:center;
+
+    }
+
+}
+/* Statistics */
+
+@media(max-width:992px){
+
+    .stats-grid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+@media(max-width:576px){
+
+    .stats-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+}
+/* Features */
+
+@media(max-width:992px){
+
+    .feature-grid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+@media(max-width:600px){
+
+    .feature-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+}
+/* Workflow */
+
+@media(max-width:992px){
+
+    .workflow-wrapper{
+
+        flex-direction:column;
+
+    }
+
+    .workflow-arrow{
+
+        transform:rotate(90deg);
+
+    }
+
+}
+/* Modules */
+
+@media(max-width:1200px){
+
+    .module-grid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+}
+
+@media(max-width:768px){
+
+    .module-grid{
+
+        grid-template-columns:1fr;
+
+    }
+
+}
+/* Footer */
+
+@media(max-width:992px){
+
+    .footer-grid{
+
+        grid-template-columns:1fr 1fr;
+
+    }
+
+}
+
+@media(max-width:768px){
+
+    .footer-grid{
+
+        grid-template-columns:1fr;
+
+        text-align:center;
+
+    }
+
+    .footer-bottom{
+
+        flex-direction:column;
+
+        gap:10px;
+
+    }
+
+}

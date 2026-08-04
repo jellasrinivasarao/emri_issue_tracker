@@ -1,0 +1,1518 @@
+User Roles
+Central Admin
+State Admin
+HO Admin
+Vendor Admin
+Modules
+Authentication
+Role & Permission Management
+State Management
+Vendor Management
+HO Users
+Issue Tracker
+Issue Assignment
+Vendor Mapping
+Workflow Engine
+Comments
+Attachments
+Notifications
+Dashboard
+Reports
+Audit Log
+
+app
+ ├── Models
+ │      User.php
+ │      Issue.php
+ │      Vendor.php
+ │      State.php
+ │      Role.php
+ │      Project.php
+ │
+ ├── Http
+ │      Controllers
+ │             AuthController
+ │             DashboardController
+ │             IssueController
+ │             VendorController
+ │             StateController
+ │             UserController
+ │             ReportController
+ │
+ ├── Middleware
+ │             CentralAdmin.php
+ │             StateAdmin.php
+ │             HOAdmin.php
+ │             VendorAdmin.php
+ 
+ 
+Install Laravel Breeze
+composer require laravel/breeze:^2.2 --dev
+
+
+php artisan breeze:install bootstrap
+
+npm install
+npm run dev
+
+php artisan migrate 
+
+
+composer create-project laravel/laravel:^10.0 issue_tracker_central
+composer require laravel/breeze:^2.0 --dev
+
+php artisan breeze:install
+php artisan migrate
+npm install
+npm run build
+
+composer install --ignore-platform-reqs
+composer update --ignore-platform-reqs
+
+
+composer create-project laravel/laravel issue_tracker_central "10.*"
+composer create-project laravel/laravel issue-tracker "10.*" --ignore-platform-reqs
+
+composer require laravel/breeze --dev
+npm install
+sudo yum install -y nodejs
+yum list installed | grep node
+
+
+
+
+##########################
+
+php artisan make:model State -m
+
+Schema::create('states', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->boolean('status')->default(true);
+    $table->timestamps();
+});
+php artisan migrate
+
+
+php artisan make:model Vendor -m
+Schema::create('vendors', function (Blueprint $table) {
+    $table->id();
+    $table->string('name');
+    $table->string('email')->nullable();
+    $table->string('phone')->nullable();
+    $table->boolean('status')->default(true);
+    $table->timestamps();
+});
+php artisan migrate
+
+
+php artisan make:migration add_state_vendor_to_users_table
+
+public function up(): void
+{
+    Schema::table('users', function (Blueprint $table) {
+
+        $table->foreignId('state_id')
+            ->nullable()
+            ->after('email')
+            ->constrained()
+            ->nullOnDelete();
+
+        $table->foreignId('vendor_id')
+            ->nullable()
+            ->after('state_id')
+            ->constrained()
+            ->nullOnDelete();
+
+    });
+}
+
+
+
+
+php artisan make:middleware RoleMiddleware
+
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class RoleMiddleware
+{
+    public function handle(Request $request, Closure $next, ...$roles)
+    {
+        if (! auth()->check()) {
+            return redirect('/login');
+        }
+
+        if (! auth()->user()->hasAnyRole($roles)) {
+            abort(403);
+        }
+
+        return $next($request);
+    }
+}
+
+#bootstrap/app.php (Laravel 11/12)
+->withMiddleware(function ($middleware) {
+    $middleware->alias([
+        'role' => \App\Http\Middleware\RoleMiddleware::class,
+    ]);
+})
+
+#Role Seeder
+DB::table('roles')->insert([
+    ['id'=>1,'role_name'=>'Central Admin'],
+    ['id'=>2,'role_name'=>'State Admin'],
+    ['id'=>3,'role_name'=>'HO Admin'],
+    ['id'=>4,'role_name'=>'Vendor Admin'],
+]);
+
+#users migration
+$table->foreignId('role_id')->constrained('roles');
+
+#User Model
+public function role()
+{
+    return $this->belongsTo(Role::class);
+}
+
+
+Schema::create('mst_user', function (Blueprint $table) {
+
+    $table->id();
+
+    $table->foreignId('role_id')
+          ->constrained('mst_role');
+
+    $table->foreignId('state_id')
+          ->nullable()
+          ->constrained('mst_state');
+
+    $table->foreignId('vendor_id')
+          ->nullable()
+          ->constrained('mst_vendor');
+
+    $table->string('name');
+    $table->string('email')->unique();
+    $table->string('password');
+
+    $table->boolean('is_active')->default(1);
+
+    $table->timestamps();
+});
+
+class User extends Authenticatable
+{
+    protected $table = 'mst_user';
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role_id',
+        'state_id',
+        'vendor_id',
+    ];
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    public function state()
+    {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+}
+
+class Role extends Model
+{
+    protected $table = 'mst_role';
+
+    protected $primaryKey = 'role_id';
+
+    public $timestamps = false;
+}
+
+
+
+app/Constants/Role.php
+
+<?php
+
+namespace App\Constants;
+
+class Role
+{
+    const CENTRAL_ADMIN = 1;
+
+    const STATE_ADMIN = 2;
+    const STATE_IT = 3;
+
+    const HO_ADMIN = 4;
+    const HO_IT_MANAGER = 5;
+    const HO_IT_ENGINEER = 6;
+
+    const VENDOR_ADMIN = 7;
+    const VENDOR_MANAGER = 8;
+    const VENDOR_ENGINEER = 9;
+
+    const REPORT_VIEWER = 10;
+}
+
+class RoleMiddleware
+{
+    public function handle($request, Closure $next, ...$roles)
+    {
+        if (!auth()->check()) {
+            return redirect('/login');
+        }
+
+        if (!in_array(auth()->user()->role_id, $roles)) {
+            abort(403);
+        }
+
+        return $next($request);
+    }
+}
+
+
+
+use App\Constants\Role;
+
+Route::middleware(['auth','role:1'])->group(function () {
+
+    Route::resource('states', StateController::class);
+
+    Route::resource('vendors', VendorController::class);
+
+    Route::resource('users', UserController::class);
+
+});
+
+Route::middleware(['auth','role:'.Role::CENTRAL_ADMIN])->group(function () {
+
+});
+
+
+app/Http/Controllers/DashboardController.php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Constants\Role;
+
+class DashboardController extends Controller
+{
+    public function index()
+    {
+        $user = auth()->user();
+
+        switch ($user->role_id) {
+
+            case Role::CENTRAL_ADMIN:
+                return redirect()->route('central.dashboard');
+
+            case Role::STATE_ADMIN:
+                return redirect()->route('state.dashboard');
+
+            case Role::STATE_IT:
+                return redirect()->route('state.it.dashboard');
+
+            case Role::HO_ADMIN:
+                return redirect()->route('ho.dashboard');
+
+            case Role::HO_IT_MANAGER:
+                return redirect()->route('ho.manager.dashboard');
+
+            case Role::HO_IT_ENGINEER:
+                return redirect()->route('ho.engineer.dashboard');
+
+            case Role::VENDOR_ADMIN:
+                return redirect()->route('vendor.dashboard');
+
+            case Role::VENDOR_MANAGER:
+                return redirect()->route('vendor.manager.dashboard');
+
+            case Role::VENDOR_ENGINEER:
+                return redirect()->route('vendor.engineer.dashboard');
+
+            case Role::REPORT_VIEWER:
+                return redirect()->route('report.dashboard');
+
+            default:
+                abort(403,'Access Denied');
+        }
+    }
+}
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\DashboardController;
+
+use App\Http\Controllers\CentralAdmin\DashboardController as CentralDashboardController;
+use App\Http\Controllers\StateAdmin\DashboardController as StateDashboardController;
+use App\Http\Controllers\StateIT\DashboardController as StateITDashboardController;
+use App\Http\Controllers\HOAdmin\DashboardController as HODashboardController;
+use App\Http\Controllers\HOManager\DashboardController as HOManagerDashboardController;
+use App\Http\Controllers\HOEngineer\DashboardController as HOEngineerDashboardController;
+use App\Http\Controllers\VendorAdmin\DashboardController as VendorDashboardController;
+use App\Http\Controllers\VendorManager\DashboardController as VendorManagerDashboardController;
+use App\Http\Controllers\VendorEngineer\DashboardController as VendorEngineerDashboardController;
+use App\Http\Controllers\ReportViewer\DashboardController as ReportDashboardController;
+
+use App\Constants\Role;
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+require __DIR__.'/auth.php';
+
+Route::middleware('auth')->group(function () {
+
+    Route::get('/dashboard', [DashboardController::class,'index'])
+        ->name('dashboard');
+
+    /*
+    |--------------------------------------------------------------------------
+    | CENTRAL ADMIN
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('central')
+        ->name('central.')
+        ->middleware('role:'.Role::CENTRAL_ADMIN)
+        ->group(function () {
+
+            Route::get('/dashboard',[CentralDashboardController::class,'index'])
+                ->name('dashboard');
+
+            Route::resource('states',StateController::class);
+            Route::resource('vendors',VendorController::class);
+            Route::resource('users',UserController::class);
+            Route::resource('projects',ProjectController::class);
+            Route::resource('services',ServiceController::class);
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | STATE ADMIN
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('state')
+        ->name('state.')
+        ->middleware('role:'.Role::STATE_ADMIN)
+        ->group(function () {
+
+            Route::get('/dashboard',[StateDashboardController::class,'index'])
+                ->name('dashboard');
+
+            Route::resource('issues',IssueController::class);
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | STATE IT
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('state-it')
+        ->name('state.it.')
+        ->middleware('role:'.Role::STATE_IT)
+        ->group(function () {
+
+            Route::get('/dashboard',[StateITDashboardController::class,'index'])
+                ->name('dashboard');
+
+            Route::resource('issues',IssueController::class);
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | HO ADMIN
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('ho')
+        ->name('ho.')
+        ->middleware('role:'.Role::HO_ADMIN)
+        ->group(function () {
+
+            Route::get('/dashboard',[HODashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | HO IT MANAGER
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('ho-manager')
+        ->name('ho.manager.')
+        ->middleware('role:'.Role::HO_IT_MANAGER)
+        ->group(function () {
+
+            Route::get('/dashboard',[HOManagerDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | HO IT ENGINEER
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('ho-engineer')
+        ->name('ho.engineer.')
+        ->middleware('role:'.Role::HO_IT_ENGINEER)
+        ->group(function () {
+
+            Route::get('/dashboard',[HOEngineerDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | VENDOR ADMIN
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('vendor')
+        ->name('vendor.')
+        ->middleware('role:'.Role::VENDOR_ADMIN)
+        ->group(function () {
+
+            Route::get('/dashboard',[VendorDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | VENDOR MANAGER
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('vendor-manager')
+        ->name('vendor.manager.')
+        ->middleware('role:'.Role::VENDOR_MANAGER)
+        ->group(function () {
+
+            Route::get('/dashboard',[VendorManagerDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | VENDOR ENGINEER
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('vendor-engineer')
+        ->name('vendor.engineer.')
+        ->middleware('role:'.Role::VENDOR_ENGINEER)
+        ->group(function () {
+
+            Route::get('/dashboard',[VendorEngineerDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | REPORT VIEWER
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('reports')
+        ->name('report.')
+        ->middleware('role:'.Role::REPORT_VIEWER)
+        ->group(function () {
+
+            Route::get('/dashboard',[ReportDashboardController::class,'index'])
+                ->name('dashboard');
+
+        });
+
+});
+
+php artisan make:controller CentralAdmin/DashboardController
+
+<?php
+
+namespace App\Http\Controllers\CentralAdmin;
+
+use App\Http\Controllers\Controller;
+
+class DashboardController extends Controller
+{
+    public function index()
+    {
+        return view('central.dashboard');
+    }
+}
+
+php artisan make:controller StateAdmin/DashboardController
+php artisan make:controller StateIT/DashboardController
+php artisan make:controller HOAdmin/DashboardController
+php artisan make:controller HOManager/DashboardController
+php artisan make:controller HOEngineer/DashboardController
+php artisan make:controller VendorAdmin/DashboardController
+php artisan make:controller VendorManager/DashboardController
+php artisan make:controller VendorEngineer/DashboardController
+php artisan make:controller ReportViewer/DashboardController
+
+return view('state.dashboard');
+return view('state_it.dashboard');
+return view('ho.dashboard');
+return view('ho_manager.dashboard');
+return view('ho_engineer.dashboard');
+return view('vendor.dashboard');
+return view('vendor_manager.dashboard');
+return view('vendor_engineer.dashboard');
+return view('report.dashboard');
+
+
+
+
+
+php artisan make:model State
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class State extends Model
+{
+    protected $table = 'mst_state';
+
+    protected $primaryKey = 'state_id';
+
+    public $timestamps = false;
+
+
+    protected $fillable = [
+        'state_code',
+        'state_name',
+        'description',
+        'is_active',
+        'created_by',
+        'created_date',
+        'updated_by',
+        'updated_date'
+    ];
+
+
+    protected $casts = [
+        'is_active'=>'boolean'
+    ];
+}
+
+php artisan make:controller CentralAdmin/StateController --resource
+
+
+<?php
+
+namespace App\Http\Controllers\CentralAdmin;
+
+use App\Http\Controllers\Controller;
+use App\Models\State;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+
+
+class StateController extends Controller
+{
+
+    public function index()
+    {
+        $states = State::orderBy('state_name')
+                ->paginate(10);
+
+        return view(
+            'central.states.index',
+            compact('states')
+        );
+    }
+
+
+
+    public function create()
+    {
+        return view('central.states.create');
+    }
+
+
+
+
+    public function store(Request $request)
+    {
+
+        $request->validate([
+
+            'state_code'=>'required|max:10|unique:mst_state,state_code',
+
+            'state_name'=>'required|max:100',
+
+        ]);
+
+
+
+        State::create([
+
+            'state_code'=>$request->state_code,
+
+            'state_name'=>$request->state_name,
+
+            'description'=>$request->description,
+
+            'is_active'=>1,
+
+            'created_by'=>auth()->id(),
+
+            'created_date'=>Carbon::now()
+
+        ]);
+
+
+
+        return redirect()
+        ->route('central.states.index')
+        ->with('success','State created successfully');
+
+    }
+
+
+
+
+
+    public function edit(State $state)
+    {
+        return view(
+            'central.states.edit',
+            compact('state')
+        );
+    }
+
+
+
+
+
+    public function update(Request $request, State $state)
+    {
+
+
+        $request->validate([
+
+            'state_code'
+            =>
+            'required|max:10|unique:mst_state,state_code,'.$state->state_id.',state_id',
+
+
+            'state_name'
+            =>
+            'required|max:100'
+
+        ]);
+
+
+
+        $state->update([
+
+            'state_code'=>$request->state_code,
+
+            'state_name'=>$request->state_name,
+
+            'description'=>$request->description,
+
+            'updated_by'=>auth()->id(),
+
+            'updated_date'=>Carbon::now()
+
+        ]);
+
+
+
+        return redirect()
+        ->route('central.states.index')
+        ->with('success','State updated successfully');
+
+    }
+
+
+
+
+
+    public function destroy(State $state)
+    {
+
+        $state->update([
+
+            'is_active'=>0
+
+        ]);
+
+
+        return redirect()
+        ->route('central.states.index')
+        ->with('success','State deactivated');
+
+    }
+
+}
+
+routes/web.php
+use App\Http\Controllers\CentralAdmin\StateController;
+
+
+Route::prefix('central')
+->name('central.')
+->middleware('role:1')
+->group(function(){
+
+
+    Route::resource(
+        'states',
+        StateController::class
+    );
+
+
+});
+
+resources/views/
+
+central/
+
+ └── states/
+
+       index.blade.php
+
+       create.blade.php
+
+       edit.blade.php
+	   
+	   
+	   
+@extends('layouts.app')
+
+
+@section('content')
+
+
+<div class="container">
+
+
+<h3>
+State Management
+</h3>
+
+
+<a href="{{route('central.states.create')}}"
+class="btn btn-primary">
+
+Add State
+
+</a>
+
+
+
+<table class="table table-bordered mt-3">
+
+
+<tr>
+
+<th>#</th>
+
+<th>Code</th>
+
+<th>Name</th>
+
+<th>Status</th>
+
+<th>Action</th>
+
+</tr>
+
+
+
+@foreach($states as $state)
+
+
+<tr>
+
+<td>
+{{$loop->iteration}}
+</td>
+
+
+<td>
+{{$state->state_code}}
+</td>
+
+
+<td>
+{{$state->state_name}}
+</td>
+
+
+
+<td>
+
+@if($state->is_active)
+
+<span class="badge bg-success">
+Active
+</span>
+
+@else
+
+<span class="badge bg-danger">
+Inactive
+</span>
+
+@endif
+
+</td>
+
+
+
+<td>
+
+
+<a href="{{route('central.states.edit',$state->state_id)}}"
+class="btn btn-warning btn-sm">
+
+Edit
+
+</a>
+
+
+
+<form method="POST"
+action="{{route('central.states.destroy',$state->state_id)}}"
+style="display:inline">
+
+@csrf
+
+@method('DELETE')
+
+
+<button class="btn btn-danger btn-sm">
+
+Deactivate
+
+</button>
+
+
+</form>
+
+
+</td>
+
+
+</tr>
+
+
+@endforeach
+
+
+</table>
+
+
+
+{{$states->links()}}
+
+
+</div>
+
+
+@endsection	   
+
+
+
+@extends('layouts.app')
+
+
+@section('content')
+
+<div class="container">
+
+
+<h3>Add State</h3>
+
+
+<form method="POST"
+action="{{route('central.states.store')}}">
+
+@csrf
+
+
+<div class="mb-3">
+
+<label>
+State Code
+</label>
+
+<input 
+name="state_code"
+class="form-control">
+
+</div>
+
+
+
+<div class="mb-3">
+
+<label>
+State Name
+</label>
+
+<input 
+name="state_name"
+class="form-control">
+
+</div>
+
+
+
+<div class="mb-3">
+
+<label>
+Description
+</label>
+
+<textarea
+name="description"
+class="form-control">
+</textarea>
+
+</div>
+
+
+
+<button class="btn btn-success">
+
+Save
+
+</button>
+
+
+</form>
+
+
+</div>
+
+@endsection
+
+
+
+
+
+
+
+
+app/Models/User.php
+    public function role()
+    {
+        return $this->belongsTo(
+            Role::class,
+            'role_id'
+        );
+    }
+
+
+
+    public function state()
+    {
+        return $this->belongsTo(
+            State::class,
+            'state_id'
+        );
+    }
+
+
+
+    public function vendor()
+    {
+        return $this->belongsTo(
+            Vendor::class,
+            'vendor_id'
+        );
+    }
+
+
+app/Models/Role.php
+<?php
+
+namespace App\Models;
+
+
+use Illuminate\Database\Eloquent\Model;
+
+
+class Role extends Model
+{
+
+    protected $table='mst_role';
+
+
+    protected $primaryKey='role_id';
+
+
+    public $timestamps=false;
+
+
+}    
+
+php artisan make:controller CentralAdmin/UserController --resource
+
+<?php
+
+namespace App\Http\Controllers\CentralAdmin;
+
+
+use App\Http\Controllers\Controller;
+
+use App\Models\User;
+
+use App\Models\Role;
+
+use App\Models\State;
+
+use App\Models\Vendor;
+
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Hash;
+
+use Carbon\Carbon;
+
+
+
+class UserController extends Controller
+{
+
+
+public function index()
+{
+
+    $users=User::with([
+        'role',
+        'state',
+        'vendor'
+    ])
+    ->orderBy('name')
+    ->paginate(15);
+
+
+    return view(
+        'central.users.index',
+        compact('users')
+    );
+
+}
+
+
+
+
+
+public function create()
+{
+
+    $roles=Role::where('is_active',1)
+                ->get();
+
+
+    $states=State::where('is_active',1)
+                 ->get();
+
+
+    $vendors=Vendor::where('is_active',1)
+                   ->get();
+
+
+
+    return view(
+        'central.users.create',
+        compact(
+            'roles',
+            'states',
+            'vendors'
+        )
+    );
+
+}
+
+
+
+
+
+public function store(Request $request)
+{
+
+
+$request->validate([
+
+
+'name'=>'required',
+
+'email'=>'required|email|unique:mst_user,email',
+
+'role_id'=>'required',
+
+
+]);
+
+
+
+User::create([
+
+
+'employee_code'=>$request->employee_code,
+
+
+'name'=>$request->name,
+
+
+'email'=>$request->email,
+
+
+'mobile'=>$request->mobile,
+
+
+'role_id'=>$request->role_id,
+
+
+'state_id'=>$request->state_id,
+
+
+'vendor_id'=>$request->vendor_id,
+
+
+'password'=>Hash::make(
+    'Password@123'
+),
+
+
+'is_active'=>1,
+
+
+'created_by'=>auth()->id(),
+
+
+'created_date'=>Carbon::now()
+
+
+]);
+
+
+
+return redirect()
+->route('central.users.index')
+->with(
+'success',
+'User created successfully. Default password Password@123'
+);
+
+
+}
+
+
+
+
+
+
+public function edit(User $user)
+{
+
+
+$roles=Role::where('is_active',1)
+           ->get();
+
+
+$states=State::where('is_active',1)
+             ->get();
+
+
+$vendors=Vendor::where('is_active',1)
+               ->get();
+
+
+
+return view(
+'central.users.edit',
+compact(
+'user',
+'roles',
+'states',
+'vendors'
+)
+);
+
+
+}
+
+
+
+
+
+
+public function update(Request $request,User $user)
+{
+
+
+$request->validate([
+
+'name'=>'required',
+
+'email'=>'required|email'
+
+]);
+
+
+
+$user->update([
+
+
+'name'=>$request->name,
+
+'email'=>$request->email,
+
+'mobile'=>$request->mobile,
+
+'role_id'=>$request->role_id,
+
+'state_id'=>$request->state_id,
+
+'vendor_id'=>$request->vendor_id,
+
+
+'updated_by'=>auth()->id(),
+
+
+'updated_date'=>Carbon::now()
+
+
+]);
+
+
+
+return redirect()
+->route('central.users.index')
+->with(
+'success',
+'User updated'
+);
+
+
+}
+
+
+
+
+
+
+
+public function destroy(User $user)
+{
+
+
+$user->update([
+
+'is_active'=>0,
+
+'updated_by'=>auth()->id(),
+
+'updated_date'=>Carbon::now()
+
+]);
+
+
+
+return redirect()
+->route('central.users.index')
+->with(
+'success',
+'User deactivated'
+);
+
+
+}
+
+
+
+}
+
+use App\Http\Controllers\CentralAdmin\UserController;
+
+
+Route::prefix('central')
+->name('central.')
+->middleware('role:1')
+->group(function(){
+
+
+Route::resource(
+'users',
+UserController::class
+);
+
+
+});
+
+if(in_array($request->role_id,[2,3]))
+{
+    // State users require state
+    if(!$request->state_id)
+    {
+        return back()
+        ->withErrors(
+        'State required'
+        );
+    }
+}
+
+
+if(in_array($request->role_id,[7,8,9]))
+{
+    // Vendor users require vendor
+    if(!$request->vendor_id)
+    {
+        return back()
+        ->withErrors(
+        'Vendor required'
+        );
+    }
+}
+
+
+
+
+php artisan make:middleware CentralAdmin
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+class CentralAdmin
+{
+    /**
+     * Handle an incoming request.
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+
+        // Check login
+        if (!auth()->check()) {
+
+            return redirect()
+                ->route('login');
+        }
+
+
+        // Central Admin Role ID = 1
+        if (auth()->user()->role_id != 1) {
+
+            abort(403, 'Access denied. Central Admin only.');
+
+        }
+
+
+        return $next($request);
+    }
+}
+
+use App\Http\Middleware\CentralAdmin;
+
+->withMiddleware(function ($middleware) {
+
+    $middleware->alias([
+
+        'central.admin' => CentralAdmin::class,
+
+    ]);
+
+})
+
+use App\Http\Controllers\CentralAdmin\DashboardController;
+
+
+Route::middleware([
+    'auth',
+    'central.admin'
+])
+->prefix('central')
+->name('central.')
+->group(function(){
+
+
+    Route::get(
+        '/dashboard',
+        [DashboardController::class,'index']
+    )
+    ->name('dashboard');
+
+
+});
+
+Middleware
+│
+├── CentralAdmin.php       role_id = 1
+├── StateAdmin.php         role_id = 2
+├── StateIT.php            role_id = 3
+├── HOAdmin.php            role_id = 4
+├── HOManager.php          role_id = 5
+├── HOEngineer.php         role_id = 6
+├── VendorAdmin.php        role_id = 7
+├── VendorManager.php      role_id = 8
+├── VendorEngineer.php     role_id = 9
+└── ReportViewer.php       role_id = 10
+
+
+public function handle(Request $request, Closure $next)
+{
+
+    if(!auth()->check()){
+
+        return redirect('/login');
+
+    }
+
+
+    if(auth()->user()->role_id != 2){
+
+        abort(403);
+
+    }
+
+
+    return $next($request);
+
+}
