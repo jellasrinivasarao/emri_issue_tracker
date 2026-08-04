@@ -15,7 +15,7 @@ class CalendarHoliday extends Model
 
     protected $primaryKey = 'holiday_id';
 
-    public $incrementing = true;
+    //public $incrementing = true;
 
     protected $keyType = 'int';
 
@@ -24,7 +24,7 @@ class CalendarHoliday extends Model
     protected $fillable = [
         'calendar_id',
         'holiday_date',
-        'holiday_code',
+        // 'holiday_code',
         'holiday_name',
         'holiday_type',
         'description',

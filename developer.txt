@@ -92,10 +92,13 @@ php artisan make:controller Admin/ServiceController
 php artisan make:request Admin/ApplicationModuleRequest
 php artisan make:controller Admin/ApplicationModuleController
 
+php artisan view:clear
+php artisan cache:clear
 
 php artisan route:list --path=admin
 php artisan optimize:clear
 php artisan route:list --path=admin/states
+
 
 
 

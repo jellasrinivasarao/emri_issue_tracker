@@ -346,6 +346,7 @@ Route::middleware(['auth'])->group(function () {
 
 
     Route::resource('/calendar-holidays', CalendarHolidayController::class)->parameters(['calendar-holidays' => 'holiday'])->names('calendar-holidays');
+    
     Route::post('/{holiday_id}/toggle',[CalendarHolidayController::class, 'toggle'])->name('calendar-holidays.toggle');
 });
 

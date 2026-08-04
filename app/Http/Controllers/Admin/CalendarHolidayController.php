@@ -345,13 +345,12 @@ class CalendarHolidayController extends Controller
     /**
      * Display holiday.
      */
-    public function show($holiday_id)
+    public function show(CalendarHoliday $holiday)
     {
         $holiday =
             CalendarHoliday::query()
                 ->with('calendar')
-                ->findOrFail($holiday_id);
-
+                ->findOrFail($holiday->holiday_id);
 
         return view(
             'admin.calendar-holidays.show',
@@ -369,14 +368,11 @@ class CalendarHolidayController extends Controller
     /**
      * Update holiday.
      */
-    public function update(
-        Request $request,
-        $holiday_id
-    ) {
+    public function update(Request $request, CalendarHoliday $holiday) {
 
         $holiday =
             CalendarHoliday::findOrFail(
-                $holiday_id
+                $holiday->holiday_id
             );
 
 
