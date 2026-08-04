@@ -9,6 +9,13 @@ use App\Http\Controllers\Admin\StateMasterController;
 use App\Http\Controllers\Admin\SupportGroupMasterController;
 use App\Http\Controllers\Admin\UserMasterController;
 use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\Admin\MenuMasterController;
+use App\Http\Controllers\Admin\PrivilegeMasterController;
+use App\Http\Controllers\Admin\RoleMenuMappingController;
+use App\Http\Controllers\Admin\RolePrivilegeMappingController;
+use App\Http\Controllers\Admin\UserRoleMappingController;
+use App\Http\Controllers\Admin\UserProjectMappingController;
+use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -212,40 +219,56 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.master'])
         ->name('role.master.toggle');
 
-    Route::view('/privilege-master', 'pages.generic-admin-page', [
-        'title' => 'Privilege Master',
-        'description' => 'Manage privileges, privilege codes, and access permissions.',
-    ])->middleware('menu.access:privilege.master')->name('privilege.master');
+    Route::get('/privilege-master', [PrivilegeMasterController::class, 'index'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master');
+    Route::post('/privilege-master', [PrivilegeMasterController::class, 'store'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.store');
 
-    Route::view('/user-role-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Role Mapping',
-        'description' => 'Map users to roles and manage user role assignments.',
-    ])->middleware('menu.access:user.role.mapping')->name('user.role.mapping');
+    Route::put('/privilege-master/{privilege_id}', [PrivilegeMasterController::class, 'update'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.update');
 
-    Route::view('/user-project-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Project Mapping',
-        'description' => 'Manage user access to projects and project assignments.',
-    ])->middleware('menu.access:user.project.mapping')->name('user.project.mapping');
+    Route::post('/privilege-master/{privilege_id}/toggle', [PrivilegeMasterController::class, 'toggle'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.toggle');
 
-    Route::view('/user-support-group-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Support Group Mapping',
-        'description' => 'Manage user membership in support groups.',
-    ])->middleware('menu.access:user.support.group.mapping')->name('user.support.group.mapping');
+    Route::get('/user-role-mapping', [UserRoleMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.role.mapping'])
+        ->name('user.role.mapping');
 
-    Route::view('/menu-master', 'pages.generic-admin-page', [
-        'title' => 'Menu Master',
-        'description' => 'Manage menu items, route access, and sidebar navigation entries.',
-    ])->middleware('menu.access:menu.master')->name('menu.master');
+    Route::get('/user-project-mapping', [UserProjectMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.project.mapping'])
+        ->name('user.project.mapping');
 
-    Route::view('/role-menu-mapping', 'pages.generic-admin-page', [
-        'title' => 'Role–Menu Mapping',
-        'description' => 'Manage role permissions and menu access mapping.',
-    ])->middleware('menu.access:role.menu.mapping')->name('role.menu.mapping');
+    Route::get('/user-support-group-mapping', [UserSupportGroupMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.support.group.mapping'])
+        ->name('user.support.group.mapping');
 
-    Route::view('/role-privilege-mapping', 'pages.generic-admin-page', [
-        'title' => 'Roleâ€“Privilege Mapping',
-        'description' => 'Map roles to privileges and control role-based actions.',
-    ])->middleware('menu.access:role.privilege.mapping')->name('role.privilege.mapping');
+    Route::get('/menu-master', [MenuMasterController::class, 'index'])
+        ->middleware(['auth','menu.access:menu.master'])
+        ->name('menu.master');
+
+    Route::get('/role-menu-mapping', [RoleMenuMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:role.menu.mapping'])
+        ->name('role.menu.mapping');
+
+    Route::get('/role-privilege-mapping', [RolePrivilegeMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping');
+
+    Route::post('/role-privilege-mapping', [RolePrivilegeMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.store');
+
+    Route::put('/role-privilege-mapping/{role_privilege_id}', [RolePrivilegeMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.update');
+
+    Route::post('/role-privilege-mapping/{role_privilege_id}/toggle', [RolePrivilegeMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.toggle');
 
     Route::view('/working-hours', 'pages.generic-admin-page', [
         'title' => 'Working Hours',
