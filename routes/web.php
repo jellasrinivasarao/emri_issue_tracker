@@ -328,5 +328,17 @@ if (app()->environment('local')) {
     })->middleware('auth')->name('debug.auth.user');
 }
 
-require __DIR__.'/auth.php';
+use App\Http\Controllers\Admin\WorkingCalendarController;
+use App\Http\Controllers\IssueController;
+##################################04/08/2026
 
+Route::middleware(['auth'])->group(function () {
+
+    Route::resource('admin/working-calendars',WorkingCalendarController::class)->parameters(['working-calendars' => 'calendar'])->names('admin.working-calendars');
+
+    Route::post('/issues/determine-route',[IssueController::class, 'determineRoute'])->name('issues.determine-route');
+
+});
+
+
+require __DIR__.'/auth.php';

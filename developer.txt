@@ -1,0 +1,116 @@
+php artisan make:model OrganisationType -m
+php artisan make:request Admin/OrganisationTypeRequest
+php artisan make:controller Admin/OrganisationTypeController
+
+php artisan make:model Organisation -m
+php artisan make:model HeadOffice -m
+
+php artisan make:model Application -m
+php artisan make:model ApplicationModule -m
+php artisan make:model Service -m
+
+php artisan make:model IssueCategory -m
+php artisan make:model IssueStatus -m
+php artisan make:model Priority -m
+
+php artisan make:model State -m
+php artisan make:model Vendor -m
+php artisan make:model SupportGroup -m
+
+php artisan make:model WorkingCalendar -m
+php artisan make:model WorkingSchedule -m
+php artisan make:model CalendarHoliday -m
+php artisan make:model SlaPolicy -m
+php artisan make:model IssueRouting -m
+
+php artisan make:model Issue -m
+
+####SHOW COLUMNS FROM mst_project;
+#SHOW COLUMNS FROM mst_organisation;
+#SHOW COLUMNS FROM mst_state;
+#SHOW COLUMNS FROM mst_head_office;
+#SHOW COLUMNS FROM mst_vendor;
+#SHOW COLUMNS FROM mst_support_group;
+#SHOW COLUMNS FROM mst_application;
+SHOW COLUMNS FROM mst_application_module;
+SHOW COLUMNS FROM mst_service;
+SHOW COLUMNS FROM mst_issue_category;
+SHOW COLUMNS FROM mst_issue_status;
+SHOW COLUMNS FROM mst_priority;
+SHOW COLUMNS FROM mst_working_calendar;
+SHOW COLUMNS FROM mst_working_schedule;
+SHOW COLUMNS FROM mst_calendar_holiday;
+
+
+
+php artisan make:model Project -m
+php artisan make:request Admin/ProjectRequest
+php artisan make:request Admin/StoreProjectRequest
+php artisan make:request Admin/UpdateProjectRequest
+
+php artisan make:controller Admin/ProjectController --resource
+
+php artisan make:model ProjectApplication -m
+php artisan make:request Admin/ProjectApplicationRequest
+php artisan make:controller Admin/ProjectApplicationController
+
+php artisan make:model ProjectService -m
+php artisan make:request Admin/ProjectServiceRequest
+php artisan make:controller Admin/ProjectServiceController
+
+###############################
+php artisan make:request Admin/OrganisationRequest
+php artisan make:controller Admin/OrganisationController
+
+php artisan make:request Admin/StateRequest
+php artisan make:controller Admin/StateController
+
+php artisan make:request Admin/HeadOfficeRequest
+php artisan make:controller Admin/HeadOfficeController
+
+php artisan make:request Admin/VendorRequest
+php artisan make:controller Admin/VendorController
+
+php artisan make:request Admin/SupportGroupRequest
+php artisan make:controller Admin/SupportGroupController
+
+php artisan make:request Admin/ApplicationRequest
+php artisan make:controller Admin/ApplicationController
+
+php artisan make:request Admin/PriorityRequest
+php artisan make:controller Admin/PriorityController
+
+php artisan make:request Admin/IssueCategoryRequest
+php artisan make:controller Admin/IssueCategoryController
+
+php artisan make:request Admin/IssueStatusRequest
+php artisan make:controller Admin/IssueStatusController
+
+php artisan make:request Admin/ServiceRequest
+php artisan make:controller Admin/ServiceController
+
+php artisan make:request Admin/ApplicationModuleRequest
+php artisan make:controller Admin/ApplicationModuleController
+
+
+php artisan route:list --path=admin
+php artisan optimize:clear
+php artisan route:list --path=admin/states
+
+
+
+
+###################### 04/08/2026
+php artisan make:model WorkingCalendar -mcr
+php artisan make:model WorkingSchedule -mcr
+php artisan make:model CalendarHoliday -mcr
+
+php artisan make:controller Admin/WorkingCalendarController
+php artisan make:controller Admin/WorkingScheduleController
+php artisan make:controller Admin/CalendarHolidayController
+php artisan make:controller IssueController
+
+php artisan make:request WorkingCalendarStoreRequest
+php artisan make:request WorkingCalendarUpdateRequest
+php artisan make:request WorkingScheduleStoreRequest
+php artisan make:request CalendarHolidayStoreRequest
