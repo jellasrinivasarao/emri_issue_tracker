@@ -15,6 +15,10 @@ class CalendarHoliday extends Model
 
     protected $primaryKey = 'holiday_id';
 
+    public $incrementing = true;
+
+    protected $keyType = 'int';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -36,10 +40,35 @@ class CalendarHoliday extends Model
         'holiday_date' => 'date',
         'is_working_day_override' => 'boolean',
         'is_active' => 'boolean',
+        'created_at' => 'datetime',
     ];
 
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(WorkingCalendar::class,'calendar_id','calendar_id');
+    }
+
+    public function getHolidayTypeLabelAttribute(): string
+    {
+        return match (strtoupper((string) $this->holiday_type)) {
+
+            'PUBLIC' =>
+                'Public Holiday',
+
+            'OPTIONAL' =>
+                'Optional Holiday',
+
+            'COMPANY' =>
+                'Company Holiday',
+
+            'NATIONAL' =>
+                'National Holiday',
+
+            'REGIONAL' =>
+                'Regional Holiday',
+
+            default =>
+                ucfirst(strtolower((string) $this->holiday_type)),
+        };
     }
 }

@@ -61,20 +61,12 @@ class WorkingCalendar extends Model
 
     public function schedules(): HasMany
     {
-        return $this->hasMany(
-            WorkingSchedule::class,
-            'calendar_id',
-            'calendar_id'
-        );
+        return $this->hasMany(WorkingSchedule::class,'calendar_id','calendar_id');
     }
 
     public function holidays(): HasMany
     {
-        return $this->hasMany(
-            CalendarHoliday::class,
-            'calendar_id',
-            'calendar_id'
-        );
+        return $this->hasMany(CalendarHoliday::class,'calendar_id','calendar_id');
     }
     
 

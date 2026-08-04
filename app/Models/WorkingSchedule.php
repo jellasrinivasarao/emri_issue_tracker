@@ -15,6 +15,10 @@ class WorkingSchedule extends Model
 
     protected $primaryKey = 'schedule_id';
 
+    public $incrementing = true;
+
+    protected $keyType = 'int';
+
     public $timestamps = false;
 
     protected $fillable = [
@@ -48,5 +52,21 @@ class WorkingSchedule extends Model
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(WorkingCalendar::class,'calendar_id','calendar_id');
+    }
+
+    public function getDayNameAttribute(): string
+    {
+        return match ((int) $this->day_of_week) {
+
+            1 => 'Monday',
+            2 => 'Tuesday',
+            3 => 'Wednesday',
+            4 => 'Thursday',
+            5 => 'Friday',
+            6 => 'Saturday',
+            7 => 'Sunday',
+
+            default => 'Unknown',
+        };
     }
 }

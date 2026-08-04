@@ -329,15 +329,24 @@ if (app()->environment('local')) {
 }
 
 use App\Http\Controllers\Admin\WorkingCalendarController;
+use App\Http\Controllers\Admin\WorkingScheduleController;
+use App\Http\Controllers\Admin\CalendarHolidayController;
 use App\Http\Controllers\IssueController;
 ##################################04/08/2026
 
 Route::middleware(['auth'])->group(function () {
 
-    Route::resource('admin/working-calendars',WorkingCalendarController::class)->parameters(['working-calendars' => 'calendar'])->names('admin.working-calendars');
+    Route::resource('/working-calendars',WorkingCalendarController::class)->parameters(['working-calendars' => 'calendar'])->names('working-calendars');
+    Route::post('/{calendar_id}/toggle', [WorkingCalendarController::class, 'toggle'])->name('working-calendars.toggle');
 
     Route::post('/issues/determine-route',[IssueController::class, 'determineRoute'])->name('issues.determine-route');
+    
+    Route::resource('/working-schedules', WorkingScheduleController::class)->parameters(['working-schedules' => 'schedule'])->names('working-schedules');
+    Route::post('/{schedule_id}/toggle',[WorkingScheduleController::class, 'toggle'])->name('working-schedules.toggle');
 
+
+    Route::resource('/calendar-holidays', CalendarHolidayController::class)->parameters(['calendar-holidays' => 'holiday'])->names('calendar-holidays');
+    Route::post('/{holiday_id}/toggle',[CalendarHolidayController::class, 'toggle'])->name('calendar-holidays.toggle');
 });
 
 

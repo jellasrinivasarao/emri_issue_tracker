@@ -114,3 +114,6 @@ php artisan make:request WorkingCalendarStoreRequest
 php artisan make:request WorkingCalendarUpdateRequest
 php artisan make:request WorkingScheduleStoreRequest
 php artisan make:request CalendarHolidayStoreRequest
+
+php artisan route:list --name=working-calendars
+php artisan route:list --name=calendar-holidays
