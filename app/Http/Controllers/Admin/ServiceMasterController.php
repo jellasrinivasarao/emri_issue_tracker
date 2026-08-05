@@ -9,10 +9,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class ServiceMasterController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $services = Service::query()
             ->select('service_id', 'short_code', 'service_name', 'description', 'is_active')

@@ -21,9 +21,11 @@
 
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
                     <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" onclick="exportRoleTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
-                        <button type="button" onclick="exportRoleTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
-                        <button type="button" onclick="exportRoleTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        @if(data_get($permissions, 'export'))
+                            <button type="button" onclick="exportRoleTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                            <button type="button" onclick="exportRoleTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                            <button type="button" onclick="exportRoleTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        @endif
                     </div>
                 </div>
 
@@ -60,20 +62,27 @@
                                         <td class="px-5 py-3 text-sm">{{ $role->is_system_role ? 'Yes' : 'No' }}</td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <button type="button"
-                                                    data-role-id="{{ $role->role_id }}"
-                                                    data-role-code="{{ $role->role_code }}"
-                                                    data-role-name="{{ $role->role_name }}"
-                                                    data-role-category="{{ $role->role_category ?? '' }}"
-                                                    data-description="{{ $role->description ?? '' }}"
-                                                    onclick="editRole(this.dataset)"
-                                                    class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
-                                                <form method="POST" action="{{ route('role.master.toggle', ['role_id' => $role->role_id]) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ $role->is_system_role ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">
-                                                        {{ $role->is_system_role ? 'Disable' : 'Activate' }}
-                                                    </button>
-                                                </form>
+                                                @if(data_get($permissions, 'edit'))
+                                                    <button type="button"
+                                                        data-role-id="{{ $role->role_id }}"
+                                                        data-role-code="{{ $role->role_code }}"
+                                                        data-role-name="{{ $role->role_name }}"
+                                                        data-role-category="{{ $role->role_category ?? '' }}"
+                                                        data-description="{{ $role->description ?? '' }}"
+                                                        onclick="editRole(this.dataset)"
+                                                        class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                                @endif
+                                                @if((int) $role->is_system_role === 1 && data_get($permissions, 'deactivate'))
+                                                    <form method="POST" action="{{ route('role.master.toggle', ['role_id' => $role->role_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200">Disable</button>
+                                                    </form>
+                                                @elseif((int) $role->is_system_role !== 1 && data_get($permissions, 'activate'))
+                                                    <form method="POST" action="{{ route('role.master.toggle', ['role_id' => $role->role_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200">Activate</button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>

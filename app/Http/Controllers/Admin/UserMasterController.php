@@ -13,10 +13,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class UserMasterController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $users = User::query()
             ->with('roles')

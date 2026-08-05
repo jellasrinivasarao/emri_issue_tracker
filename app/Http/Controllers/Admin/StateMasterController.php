@@ -7,12 +7,14 @@ use App\Http\Requests\Admin\StateMasterRequest;
 use App\Models\State;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class StateMasterController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $states = State::query()
             ->select('state_id', 'state_code', 'state_name', 'state_short_name', 'is_active')
@@ -61,10 +63,24 @@ class StateMasterController extends Controller
             return redirect()->route('state.master')->with('error', 'Unsupported export format.');
         }
 
+        $user = $request->user();
+        $routeName = 'state.master';
+
+        $permissions = [
+            'view' => $user->hasPrivilegeOnRoute($routeName, 'view'),
+            'create' => $user->hasPrivilegeOnRoute($routeName, 'create'),
+            'edit' => $user->hasPrivilegeOnRoute($routeName, 'edit'),
+            'delete' => $user->hasPrivilegeOnRoute($routeName, 'delete'),
+            'export' => $user->hasPrivilegeOnRoute($routeName, 'export'),
+            'activate' => $user->hasPrivilegeOnRoute($routeName, 'activate'),
+            'deactivate' => $user->hasPrivilegeOnRoute($routeName, 'deactivate'),
+        ];
+
         return view('pages.state-master', [
             'title' => 'State Master',
             'description' => 'Manage state master records and state-level organization details.',
             'states' => $states,
+            'permissions' => $permissions,
         ]);
     }
 

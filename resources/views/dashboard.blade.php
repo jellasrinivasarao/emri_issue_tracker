@@ -16,8 +16,8 @@
                                 </div>
                             </div>
 
-                            <div class="flex-1 overflow-hidden px-2 py-2">
-                                <div class="grid gap-3 xl:grid-cols-6">
+                            <div class="flex-1 overflow-y-auto px-2 py-2">
+                                <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                                     @php
                                         $cards = [
                                             ['label' => 'Total Issues', 'value' => '2,450', 'color' => 'blue', 'trend' => '+12%'],
@@ -42,7 +42,7 @@
                                     @endforeach
                                 </div>
 
-                                <div class="mt-3 grid gap-3 xl:grid-cols-3">
+                                <div class="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                                     <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                         <div class="flex items-center justify-between">
                                             <div>
@@ -86,14 +86,14 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-3 grid gap-3 xl:grid-cols-3">
+                                <div class="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
                                     <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                         <div class="flex items-center justify-between">
                                             <p class="text-sm font-semibold text-slate-900">State-wise Analysis</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-x-auto">
-                                            <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                                        <div class="mt-4 overflow-hidden">
+                                            <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>State</span>
                                                 <span>Issues</span>
                                                 <span>Open</span>
@@ -102,7 +102,7 @@
                                             </div>
                                             <div class="mt-2 space-y-3 text-[11px] text-slate-700">
                                                 @foreach([['Telangana','1,120','920','120','82%'],['Andhra Pradesh','740','560','110','76%'],['Odisha','430','340','70','79%'],['Karnataka','290','210','50','72%'],['Chhattisgarh','180','140','35','78%']] as $row)
-                                                    <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-slate-600">
+                                                    <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
                                                         <span>{{ $row[2] }}</span>
@@ -118,8 +118,8 @@
                                             <p class="text-sm font-semibold text-slate-900">Service-wise Analysis</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-x-auto">
-                                            <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                                        <div class="mt-4 overflow-hidden">
+                                            <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>Service</span>
                                                 <span>Issues</span>
                                                 <span>Open</span>
@@ -128,7 +128,7 @@
                                             </div>
                                             <div class="mt-2 space-y-3 text-[11px] text-slate-700">
                                                 @foreach([['Connectivity','980','760','120','80%'],['Application','640','510','90','79%'],['Hardware','420','330','60','79%'],['Support','280','210','45','75%'],['Security','170','140','30','81%']] as $row)
-                                                    <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-slate-600">
+                                                    <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
                                                         <span>{{ $row[2] }}</span>
@@ -144,8 +144,8 @@
                                             <p class="text-sm font-semibold text-slate-900">Vendor Performance</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-x-auto">
-                                            <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                                        <div class="mt-4 overflow-hidden">
+                                            <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>Vendor</span>
                                                 <span>Issues</span>
                                                 <span>Open</span>
@@ -154,7 +154,7 @@
                                             </div>
                                             <div class="mt-2 space-y-3 text-[11px] text-slate-700">
                                                 @foreach([['Vendor A','310','250','40','81%'],['Vendor B','220','180','30','78%'],['Vendor C','150','120','25','80%'],['Vendor D','110','82','18','74%'],['Vendor E','95','74','15','78%']] as $row)
-                                                    <div class="grid min-w-[600px] grid-cols-[1.3fr_0.8fr_0.7fr_0.7fr_0.6fr] gap-2 text-slate-600">
+                                                    <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
                                                         <span>{{ $row[2] }}</span>
@@ -167,7 +167,7 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-3 flex flex-col gap-3 xl:flex-row">
+                                <div class="mt-3 flex flex-col gap-3 xl:flex-row xl:items-start">
                                     <div class="flex-1 min-w-0 flex flex-col rounded-[14px] border border-slate-200 bg-slate-50 shadow-sm">
                                         <div class="flex items-center justify-between border-b border-slate-200 px-4 py-4">
                                             <div>
@@ -188,8 +188,8 @@
                                             </div>
                                         </div>
                                         <div class="px-4 pb-4">
-                                            <div class="overflow-x-auto overflow-y-auto rounded-b-[14px]">
-                                                <table class="min-w-[1400px] w-full text-left text-[11px] text-slate-700">
+                                            <div class="overflow-hidden rounded-b-[14px]">
+                                                <table class="min-w-full w-full text-left text-[11px] text-slate-700">
                                                     <thead class="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-[0.24em] text-slate-500">
                                                         <tr>
                                                             <th class="w-[8%] px-3 py-2">Ticket</th>
@@ -250,7 +250,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="flex w-full xl:w-[360px] min-h-0 flex-col gap-3">
+                                    <div class="flex w-full max-w-full min-h-0 min-w-0 flex-col gap-3 xl:w-[360px] xl:flex-shrink-0">
                                         <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                             <div class="flex items-center justify-between">
                                                 <div>
