@@ -15,7 +15,8 @@ use App\Models\State;
 use App\Models\Service;
 use App\Models\Project;
 use App\Models\Application;
-use App\Models\Module;
+use App\Models\Priority;
+use App\Models\IssueCategory;
 
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
@@ -27,6 +28,75 @@ class IssueController extends Controller
         protected IssueService $issueService,
         protected IssueRoutingService $routingService
     ) {
+    }
+
+
+
+    public function modal()
+    {
+
+    $states = State::where('is_active',1)
+            ->orderBy('state_name')
+            ->get();
+
+
+        $services = Service::where('is_active',1)
+            ->orderBy('service_name')
+            ->get();
+
+
+        $projects = Project::where('is_active',1)
+            ->orderBy('project_name')
+            ->get();
+
+
+        $applications = Application::where('is_active',1)
+            ->orderBy('application_name')
+            ->get();
+
+
+        // $modules = Module::where('is_active',1)
+        //     ->orderBy('module_name')
+        //     ->get();
+
+        $issueCategories = IssueCategory::where('is_active',1)
+            ->orderBy('category_name')
+            ->get();
+
+        $priorities = Priority::where('is_active',1)
+            ->orderBy('priority_name')
+            ->get();
+
+
+        // $issueCategories = [
+        //     'Application Issue',
+        //     'Infrastructure Issue',
+        //     'Network Issue',
+        //     'Access Issue',
+        //     'Data Issue',
+        //     'Hardware Issue',
+        //     'Other',
+        // ];
+
+
+        // $priorities = [
+        //     'LOW',
+        //     'MEDIUM',
+        //     'HIGH',
+        //     'CRITICAL',
+        // ];
+        
+        return view('issues.partials.raise-issue-form', [
+        'states'   => $states,
+        'services' => $services,
+        'projects'   => $projects,
+        'applications' => $applications,
+        'issueCategories'   => $issueCategories,
+        'priorities' => $priorities,
+        
+    ]);
+        
+
     }
 
 
@@ -131,32 +201,37 @@ class IssueController extends Controller
             ->get();
 
 
-        $modules = Module::where('is_active',1)
-            ->orderBy('module_name')
+        // $modules = Module::where('is_active',1)
+        //     ->orderBy('module_name')
+        //     ->get();
+
+        $issueCategories = IssueCategory::where('is_active',1)
+            ->orderBy('category_name')
+            ->get();
+
+        $priorities = Priority::where('is_active',1)
+            ->orderBy('priority_name')
             ->get();
 
 
-
-        $issueCategories = [
-            'Application Issue',
-            'Infrastructure Issue',
-            'Network Issue',
-            'Access Issue',
-            'Data Issue',
-            'Hardware Issue',
-            'Other',
-        ];
-
-
-        $priorities = [
-            'LOW',
-            'MEDIUM',
-            'HIGH',
-            'CRITICAL',
-        ];
+        // $issueCategories = [
+        //     'Application Issue',
+        //     'Infrastructure Issue',
+        //     'Network Issue',
+        //     'Access Issue',
+        //     'Data Issue',
+        //     'Hardware Issue',
+        //     'Other',
+        // ];
 
 
-
+        // $priorities = [
+        //     'LOW',
+        //     'MEDIUM',
+        //     'HIGH',
+        //     'CRITICAL',
+        // ];
+        
         return view(
             'issues.create',
             compact(
