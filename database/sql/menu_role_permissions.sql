@@ -77,7 +77,8 @@ VALUES
   ('Central Admin', 'central.admin', '/central-admin', 6, NOW(), NOW()),
   ('State Admin', 'state.admin', '/state-admin', 7, NOW(), NOW()),
   ('HO Admin', 'ho.admin', '/ho-admin', 8, NOW(), NOW()),
-  ('Vendor Admin', 'vendor.admin', '/vendor-admin', 9, NOW(), NOW())
+  ('Vendor Admin', 'vendor.admin', '/vendor-admin', 9, NOW(), NOW()),
+  ('Project Mappings', 'project.application.module.mapping', '/project-application-module', 10, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
   `display_name` = VALUES(`display_name`),
   `uri` = VALUES(`uri`),
@@ -89,7 +90,7 @@ INSERT INTO `map_role_menu` (`role_id`, `menu_id`, `is_allowed`, `created_at`, `
 SELECT r.role_id, m.menu_id, 1, NOW(), NOW()
 FROM `mst_role` r
 JOIN `mst_menu` m ON (
-  (r.role_name = 'Central Admin' AND m.route_name IN ('dashboard','issues','raise.issue','reports','administration','central.admin','state.admin','ho.admin','vendor.admin'))
+  (r.role_name = 'Central Admin' AND m.route_name IN ('dashboard','issues','raise.issue','reports','administration','central.admin','state.admin','ho.admin','vendor.admin','project.application.module.mapping'))
   OR (r.role_name = 'State Admin' AND m.route_name IN ('dashboard','raise.issue','state.admin'))
   OR (r.role_name = 'Vendor User' AND m.route_name IN ('dashboard','issues','vendor.admin'))
 )

@@ -31,6 +31,7 @@ class RoleMenuSeeder extends Seeder
                 'project.master',
                 'application.master',
                 'module.master',
+                'project.application.module.mapping',
                 'support-group.master',
                 'user.master',
                 'role.master',

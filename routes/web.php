@@ -13,6 +13,8 @@ use App\Http\Controllers\Admin\MenuMasterController;
 use App\Http\Controllers\Admin\PrivilegeMasterController;
 use App\Http\Controllers\Admin\RoleMenuMappingController;
 use App\Http\Controllers\Admin\RolePrivilegeMappingController;
+use App\Http\Controllers\Admin\ProjectApplicationModuleMappingController;
+use App\Http\Controllers\Admin\ProjectStateMappingController;
 use App\Http\Controllers\Admin\UserRoleMappingController;
 use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
@@ -246,6 +248,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:user.support.group.mapping'])
         ->name('user.support.group.mapping');
 
+    Route::get('/project-application-module', [ProjectApplicationModuleMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping');
+
+    Route::post('/project-application-module', [ProjectApplicationModuleMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.store');
+
+    Route::get('/project-application-module/options', [ProjectApplicationModuleMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.options');
+
+    Route::put('/project-application-module/{mapping_id}', [ProjectApplicationModuleMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.update');
+
+    Route::post('/project-application-module/{mapping_id}/toggle', [ProjectApplicationModuleMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.toggle');
+    Route::get('/project-state-mapping', [ProjectStateMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping');
+
+    Route::post('/project-state-mapping', [ProjectStateMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.store');
+
+    Route::get('/project-state-mapping/options', [ProjectStateMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.options');
+
+    Route::put('/project-state-mapping/{mapping_id}', [ProjectStateMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.update');
+
+    Route::post('/project-state-mapping/{mapping_id}/toggle', [ProjectStateMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.toggle');
     Route::get('/menu-master', [MenuMasterController::class, 'index'])
         ->middleware(['auth','menu.access:menu.master'])
         ->name('menu.master');
