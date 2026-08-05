@@ -49,6 +49,7 @@ class MenuSeeder extends Seeder
             ['display_name' => 'Change History', 'route_name' => 'change.history', 'uri' => '/change-history', 'display_order' => 37],
             ['display_name' => 'User Activity Log', 'route_name' => 'user.activity.log', 'uri' => '/user-activity-log', 'display_order' => 38],
             ['display_name' => 'System Audit Logs', 'route_name' => 'system.audit.logs', 'uri' => '/system-audit-logs', 'display_order' => 39],
+            ['display_name' => 'Vendor State Mapping', 'route_name' => 'vendor.state.mapping', 'uri' => '/vendor-state-mapping', 'display_order' => 40],
         ];
 
         foreach ($menus as $menu) {

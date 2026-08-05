@@ -29,6 +29,7 @@ class RolePrivilegeMappingController extends Controller
         $menus = DB::table('mst_menu')
             ->select('menu_id', 'parent_menu_id', 'display_name as menu_name', 'route_name', 'uri', 'display_order', 'is_active')
             ->where('is_active', 1)
+            ->where('route_name', '<>', 'organization.setup')
             ->orderBy('display_order')
             ->get();
 

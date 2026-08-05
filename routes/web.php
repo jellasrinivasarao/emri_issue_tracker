@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\ProjectStateMappingController;
 use App\Http\Controllers\Admin\UserRoleMappingController;
 use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
+use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -286,6 +287,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/project-state-mapping/{mapping_id}/toggle', [ProjectStateMappingController::class, 'toggle'])
         ->middleware(['auth','menu.access:project.state.mapping'])
         ->name('project.state.mapping.toggle');
+    Route::get('/vendor-state-mapping', [VendorStateMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping');
+
+    Route::post('/vendor-state-mapping', [VendorStateMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.store');
+
+    Route::get('/vendor-state-mapping/options', [VendorStateMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.options');
+
+    Route::put('/vendor-state-mapping/{mapping_id}', [VendorStateMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.update');
+
+    Route::post('/vendor-state-mapping/{mapping_id}/toggle', [VendorStateMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.toggle');
     Route::get('/menu-master', [MenuMasterController::class, 'index'])
         ->middleware(['auth','menu.access:menu.master'])
         ->name('menu.master');
