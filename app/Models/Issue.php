@@ -41,6 +41,24 @@ class Issue extends Model
         'closed_at',
         'reopened_count',
         'is_active',
+        'issue_number',
+        'project_id',
+        'issue_category_id',
+        'issue_type_id',
+        'priority_id',
+        'title',
+        'description',
+        'status',
+        'support_level',
+        'support_team_id',
+        'routing_rule_id',
+        'sla_hours',
+        'sla_due_at',
+        'assigned_to',
+        'resolved_at',
+        'closed_at',
+        'created_by',
+        'updated_by',
     ];
 
 
@@ -50,6 +68,14 @@ class Issue extends Model
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
         'is_active' => 'boolean',
+        'sla_due_at' => 'datetime',
+        'project_id' => 'integer',
+        'support_config_id' => 'integer',
+        'reported_by' => 'integer',
+        'current_team_id' => 'integer',
+        'current_assignee_id' => 'integer',
+        'opened_at' => 'datetime',
+        'assigned_at' => 'datetime',
     ];
 
     public function project()
@@ -167,6 +193,35 @@ class Issue extends Model
     {
         return $this->hasMany(
             IssueEscalation::class,
+            'issue_id',
+            'issue_id'
+        );
+    }
+
+
+
+    public function configuration()
+    {
+        return $this->belongsTo(
+            ProjectSupportConfiguration::class,
+            'support_config_id',
+            'support_config_id'
+        );
+    }
+
+    public function team()
+    {
+        return $this->belongsTo(
+            SupportTeam::class,
+            'current_team_id',
+            'support_team_id'
+        );
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(
+            IssueHistory::class,
             'issue_id',
             'issue_id'
         );

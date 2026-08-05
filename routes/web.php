@@ -351,4 +351,39 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
+
+use App\Http\Controllers\ProjectSupportConfigurationController;
+use App\Http\Controllers\IssueRoutingRuleController;
+
+
+Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Project Support Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/project-support-configurations',[ProjectSupportConfigurationController::class, 'index'])->name('project-support-configurations.index');
+
+    Route::post('/project-support-configurations',[ProjectSupportConfigurationController::class, 'store'])->name('project-support-configurations.store');
+
+    Route::put('/project-support-configurations/{projectSupportConfiguration}',[ProjectSupportConfigurationController::class, 'update'])->name('project-support-configurations.update');
+
+    Route::post('/project-support-configurations/{projectSupportConfiguration}/toggle',[ProjectSupportConfigurationController::class, 'toggle'])->name('project-support-configurations.toggle');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Issue Routing Rules
+    |----------
+    */
+    
+    Route::get('/issue-routing-rules',[IssueRoutingRuleController::class, 'index'])->name('issue-routing-rules.index');
+    Route::post('/issue-routing-rules',[IssueRoutingRuleController::class, 'store'])->name('issue-routing-rules.store');
+
+    Route::put('/issue-routing-rules/{issueRoutingRule}',[IssueRoutingRuleController::class, 'update'])->name('issue-routing-rules.update');
+
+    Route::post('/issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle');
+});
 require __DIR__.'/auth.php';

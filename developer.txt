@@ -99,10 +99,6 @@ php artisan route:list --path=admin
 php artisan optimize:clear
 php artisan route:list --path=admin/states
 
-
-
-
-
 ###################### 04/08/2026
 php artisan make:model WorkingCalendar -mcr
 php artisan make:model WorkingSchedule -mcr
