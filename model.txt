@@ -110,3 +110,4 @@ php artisan make:model IssueRoutingConfiguration
 
 php artisan make:controller IssueRoutingController
 php artisan route:list --name=project-support-configurations
+

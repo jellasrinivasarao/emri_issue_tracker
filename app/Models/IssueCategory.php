@@ -22,5 +22,7 @@ class IssueCategory extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'created_at' => 'datetime',
     ];
+
 }

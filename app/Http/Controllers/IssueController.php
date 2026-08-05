@@ -38,16 +38,47 @@ class IssueController extends Controller
 
     public function create()
     {
-        $configurations = ProjectSupportConfiguration::where(
-            'is_active',
-            1
-        )
-            ->orderBy('config_name')
-            ->get();
 
-        return view(
-            'issues.create',
-            compact('configurations')
+            $states = State::where('is_active', 1)->orderBy('state_name')->get();
+            $services = Service::where('is_active', 1)->orderBy('service_name')->get();
+
+            $projects = Project::where('is_active', 1)->orderBy('project_name')->get();
+
+            $applications = Application::where('is_active', 1)->orderBy('application_name')->get();
+
+            $modules = Module::where('is_active', 1)->orderBy('module_name')->get();
+
+
+                $issueCategories = [
+        'Application Issue',
+        'Infrastructure Issue',
+        'Network Issue',
+        'Access Issue',
+        'Data Issue',
+        'Other',
+    ];
+
+    $priorities = [
+        'Low',
+        'Medium',
+        'High',
+        'Critical',
+    ];
+        
+        // $configurations = ProjectSupportConfiguration::where(
+        //     'is_active',
+        //     1
+        // )
+        //     ->orderBy('config_name')
+        //     ->get();
+
+        return view('issues.create',compact('states',
+        'services',
+        'projects',
+        'applications',
+        'modules',
+        'issueCategories',
+        'priorities')
         );
     }
 
