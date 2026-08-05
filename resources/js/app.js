@@ -6,6 +6,8 @@ window.Alpine = Alpine;
 
 let loadingTimer = null;
 let isNavigating = false;
+// Enable verbose debug logs when troubleshooting navigation/sidebar issues
+window.__EMRI_DEBUG = window.__EMRI_DEBUG === true;
 
 function showPageLoading() {
     // No full-page loading overlay for smoother navigation.
@@ -76,32 +78,69 @@ function executeInlineScripts(root) {
     });
 }
 
+function syncSidebar(hide) {
+    try {
+        if (window.__EMRI_DEBUG) console.debug('[app.js] syncSidebar called, hide=', hide);
+        const desktopAside = document.querySelector('aside.fixed.inset-y-0.left-0.z-20');
+        const contentEl = document.querySelector('.relative.flex.flex-1.flex-col.min-h-0.box-border');
+        if (hide) {
+            if (desktopAside) {
+                desktopAside.classList.add('hidden');
+                desktopAside.classList.remove('md:flex');
+            }
+            if (contentEl) {
+                contentEl.classList.remove('md:pl-[260px]');
+            }
+        } else {
+            if (desktopAside) {
+                desktopAside.classList.remove('hidden');
+                desktopAside.classList.add('md:flex');
+            }
+            if (contentEl) {
+                if (!contentEl.classList.contains('md:pl-[260px]')) {
+                    contentEl.classList.add('md:pl-[260px]');
+                }
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
+}
+
 function replacePageContent(html, url) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    const newContentWrapper = doc.getElementById('page-content-wrapper');
-    const contentWrapper = document.getElementById('page-content-wrapper');
+    const newShell = doc.getElementById('page-shell');
+    const currentShell = document.getElementById('page-shell');
     const newTitle = doc.querySelector('title');
 
-    if (!newContentWrapper || !contentWrapper) {
+    if (!newShell || !currentShell) {
         return false;
     }
 
-    contentWrapper.innerHTML = newContentWrapper.innerHTML;
+    currentShell.innerHTML = newShell.innerHTML;
 
     if (newTitle) {
         document.title = newTitle.textContent;
     }
 
-    executeInlineScripts(contentWrapper);
+    executeInlineScripts(currentShell);
 
     if (window.Alpine && typeof window.Alpine.initTree === 'function') {
-        window.Alpine.initTree(contentWrapper);
+        window.Alpine.initTree(currentShell);
     } else if (window.Alpine && typeof window.Alpine.discoverUninitializedComponents === 'function') {
-        window.Alpine.discoverUninitializedComponents(contentWrapper);
+        window.Alpine.discoverUninitializedComponents(currentShell);
     }
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    try {
+        const hideSidebarFlag = !!doc.querySelector('[data-hide-sidebar]');
+        if (window.__EMRI_DEBUG) console.debug('[app.js] replacePageContent: hideSidebarFlag=', hideSidebarFlag, 'url=', url);
+        syncSidebar(hideSidebarFlag);
+    } catch (e) {
+        // ignore
+    }
 
     if (url) {
         window.history.pushState({}, '', url);
@@ -152,6 +191,16 @@ function attachNavigationLoading() {
         }
         event.preventDefault();
         const anchor = event.target.closest('a');
+        // If current page requests the sidebar hidden (role dashboard), show sidebar immediately
+        try {
+            const currentHide = !!document.querySelector('[data-hide-sidebar]');
+            if (window.__EMRI_DEBUG) console.debug('[app.js] link click intercepted -> currentHide=', currentHide, 'href=', anchor ? anchor.href : null);
+            // Always show the sidebar immediately to avoid waiting for the AJAX response
+            if (window.__EMRI_DEBUG) console.debug('[app.js] forcing sidebar visible pre-navigation');
+            syncSidebar(false);
+        } catch (e) {
+            // ignore
+        }
         fetchAndNavigate(anchor.href);
     });
 
@@ -167,6 +216,14 @@ function attachNavigationLoading() {
 document.addEventListener('DOMContentLoaded', function () {
     attachNavigationLoading();
     hidePageLoading();
+    // On initial load, ensure sidebar visibility matches server-rendered flag
+    try {
+        const hide = !!document.querySelector('[data-hide-sidebar]');
+        if (window.__EMRI_DEBUG) console.debug('[app.js] DOMContentLoaded -> initial hide=', hide);
+        syncSidebar(hide);
+    } catch (e) {
+        // ignore
+    }
 });
 
 window.addEventListener('load', function () {

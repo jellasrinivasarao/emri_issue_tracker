@@ -57,25 +57,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('menu.access:administration')
         ->name('administration');
 
-    Route::view('/central-admin', 'pages.generic-admin-page', [
-        'title' => 'Main Dashboard',
-        'description' => 'View the main dashboard, system summaries, and overall administration status.',
-    ])->middleware('menu.access:central.admin')->name('central.admin');
+    Route::redirect('/central-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:central.admin'])
+        ->name('central.admin');
 
-    Route::view('/state-admin', 'pages.generic-admin-page', [
-        'title' => 'State Admin',
-        'description' => 'Access state administration capabilities and manage state-specific settings.',
-    ])->middleware('menu.access:state.admin')->name('state.admin');
+    Route::redirect('/state-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:state.admin'])
+        ->name('state.admin');
 
-    Route::view('/ho-admin', 'pages.generic-admin-page', [
-        'title' => 'HO Admin',
-        'description' => 'Manage head office administration and central operational controls.',
-    ])->middleware('menu.access:ho.admin')->name('ho.admin');
+    Route::redirect('/ho-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:ho.admin'])
+        ->name('ho.admin');
 
-    Route::view('/vendor-admin', 'pages.generic-admin-page', [
-        'title' => 'Vendor Admin',
-        'description' => 'Manage vendor administration tasks and vendor-specific operations.',
-    ])->middleware('menu.access:vendor.admin')->name('vendor.admin');
+    Route::redirect('/vendor-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:vendor.admin'])
+        ->name('vendor.admin');
 
     Route::get('/state-master', [StateMasterController::class, 'index'])
         ->middleware(['auth', 'menu.access:state.master'])

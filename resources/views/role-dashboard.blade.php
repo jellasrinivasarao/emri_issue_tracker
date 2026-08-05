@@ -9,6 +9,9 @@
         </h2>
     </x-slot>
 
+    <!-- Signal to client navigation: hide sidebar when this page is loaded via AJAX -->
+    <div data-hide-sidebar hidden></div>
+
     <div class="py-10">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
