@@ -104,12 +104,9 @@ use Illuminate\Support\Facades\Route;
 
                     @endphp
 
+                    <a href="#" @if($isRaiseIssue) data-raise-issue="true" @endif
+                        class="group rounded-[22px] border border-slate-200 bg-slate-50 p-6">
 
-                    <a href="{{ $href }}" @if($isRaiseIssue) data-raise-issue="true" @endif class="group rounded-[22px] border border-slate-200
-                                   bg-slate-50 p-6 transition
-                                   hover:border-slate-300
-                                   hover:bg-slate-100
-                                   hover:shadow-sm">
 
                         <div class="flex items-center justify-between gap-3">
 
@@ -285,41 +282,41 @@ use Illuminate\Support\Facades\Route;
     <script>
     document.addEventListener('DOMContentLoaded', function() {
 
-        /*
-        |--------------------------------------------------------------------------
-        | ELEMENTS
-        |--------------------------------------------------------------------------
-        */
-
-        const modal = document.getElementById('raiseIssueModal');
-
-        const modalContent = document.getElementById(
-            'raiseIssueModalContent'
-        );
-
-        const modalLoading = document.getElementById(
-            'raiseIssueModalLoading'
-        );
-
-        const modalClose = document.getElementById(
-            'raiseIssueModalClose'
-        );
-
-        const modalBackdrop = document.getElementById(
-            'raiseIssueModalBackdrop'
-        );
+        console.log('Role Dashboard JS loaded');
 
 
         /*
         |--------------------------------------------------------------------------
-        | SAFETY CHECK
+        | GET ELEMENTS
         |--------------------------------------------------------------------------
         */
 
-        if (!modal) {
+        const raiseIssueModal =
+            document.getElementById('raiseIssueModal');
+
+        const raiseIssueContent =
+            document.getElementById('raiseIssueModalContent');
+
+        const raiseIssueLoading =
+            document.getElementById('raiseIssueModalLoading');
+
+        const raiseIssueClose =
+            document.getElementById('raiseIssueModalClose');
+
+        const raiseIssueBackdrop =
+            document.getElementById('raiseIssueModalBackdrop');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | VALIDATE MODAL
+        |--------------------------------------------------------------------------
+        */
+
+        if (!raiseIssueModal) {
 
             console.error(
-                'Raise Issue Modal: modal element not found.'
+                'ERROR: #raiseIssueModal not found.'
             );
 
             return;
@@ -328,42 +325,65 @@ use Illuminate\Support\Facades\Route;
 
         /*
         |--------------------------------------------------------------------------
-        | OPEN MODAL
+        | OPEN RAISE ISSUE MODAL
         |--------------------------------------------------------------------------
         */
 
-        window.openRaiseIssueModal = function() {
+        function openRaiseIssueModal() {
 
-            modal.classList.remove('hidden');
-
-            document.body.classList.add('overflow-hidden');
-
-
-            /*
-            | Clear old content
-            */
-
-            if (modalContent) {
-                modalContent.innerHTML = '';
-            }
+            console.log(
+                'Opening Raise Issue Modal...'
+            );
 
 
             /*
-            | Show loading
+            |--------------------------------------------------------------------------
+            | Show modal
+            |--------------------------------------------------------------------------
             */
 
-            if (modalLoading) {
+            raiseIssueModal.classList.remove('hidden');
 
-                modalLoading.classList.remove('hidden');
+            document.body.classList.add(
+                'overflow-hidden'
+            );
 
-                modalLoading.classList.add('flex');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Clear previous content
+            |--------------------------------------------------------------------------
+            */
+
+            if (raiseIssueContent) {
+
+                raiseIssueContent.innerHTML = '';
 
             }
 
 
             /*
             |--------------------------------------------------------------------------
-            | LOAD RAISE ISSUE FORM
+            | Show loader
+            |--------------------------------------------------------------------------
+            */
+
+            if (raiseIssueLoading) {
+
+                raiseIssueLoading.classList.remove(
+                    'hidden'
+                );
+
+                raiseIssueLoading.classList.add(
+                    'flex'
+                );
+
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Load form
             |--------------------------------------------------------------------------
             */
 
@@ -373,6 +393,8 @@ use Illuminate\Support\Facades\Route;
 
                         credentials: 'same-origin',
 
+                        cache: 'no-store',
+
                         headers: {
                             'Accept': 'text/html',
                             'X-Requested-With': 'XMLHttpRequest'
@@ -381,47 +403,66 @@ use Illuminate\Support\Facades\Route;
                 )
                 .then(function(response) {
 
+                    console.log(
+                        'Raise Issue response:',
+                        response.status
+                    );
+
+
                     if (!response.ok) {
 
                         throw new Error(
-                            'Unable to load Raise Issue form. HTTP status: ' +
-                            response.status
+                            'HTTP ' + response.status
                         );
 
                     }
+
 
                     return response.text();
 
                 })
                 .then(function(html) {
 
+                    console.log(
+                        'Raise Issue form loaded successfully'
+                    );
+
+
                     /*
+                    |--------------------------------------------------------------------------
                     | Hide loader
+                    |--------------------------------------------------------------------------
                     */
 
-                    if (modalLoading) {
+                    if (raiseIssueLoading) {
 
-                        modalLoading.classList.add('hidden');
+                        raiseIssueLoading.classList.add(
+                            'hidden'
+                        );
 
-                        modalLoading.classList.remove('flex');
-
-                    }
-
-
-                    /*
-                    | Insert form
-                    */
-
-                    if (modalContent) {
-
-                        modalContent.innerHTML = html;
+                        raiseIssueLoading.classList.remove(
+                            'flex'
+                        );
 
                     }
 
 
                     /*
                     |--------------------------------------------------------------------------
-                    | INITIALIZE FORM
+                    | Insert form
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if (raiseIssueContent) {
+
+                        raiseIssueContent.innerHTML = html;
+
+                    }
+
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Initialize dynamically loaded form
                     |--------------------------------------------------------------------------
                     */
 
@@ -438,101 +479,137 @@ use Illuminate\Support\Facades\Route;
                 .catch(function(error) {
 
                     console.error(
-                        'Raise Issue modal error:',
+                        'Raise Issue modal loading failed:',
                         error
                     );
 
 
-                    if (modalLoading) {
+                    if (raiseIssueLoading) {
 
-                        modalLoading.classList.add('hidden');
+                        raiseIssueLoading.classList.add(
+                            'hidden'
+                        );
 
-                        modalLoading.classList.remove('flex');
+                        raiseIssueLoading.classList.remove(
+                            'flex'
+                        );
 
                     }
 
 
-                    if (modalContent) {
+                    if (raiseIssueContent) {
 
-                        modalContent.innerHTML = `
-                            <div class="flex min-h-[300px]
+                        raiseIssueContent.innerHTML = `
+                    <div class="flex min-h-[300px]
+                                items-center justify-center p-8">
+
+                        <div class="text-center">
+
+                            <div class="mx-auto flex h-12 w-12
                                         items-center justify-center
-                                        p-8">
+                                        rounded-full bg-red-100">
 
-                                <div class="text-center">
-
-                                    <div class="mx-auto flex h-12 w-12
-                                                items-center justify-center
-                                                rounded-full bg-red-100">
-
-                                        <svg
-                                            class="h-6 w-6 text-red-600"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M6 18L18 6M6 6l12 12"
-                                            />
-                                        </svg>
-
-                                    </div>
-
-
-                                    <h3
-                                        class="mt-4 text-sm
-                                               font-semibold
-                                               text-slate-900"
-                                    >
-                                        Unable to load Raise Issue
-                                    </h3>
-
-
-                                    <p
-                                        class="mt-2 text-sm
-                                               text-slate-500"
-                                    >
-                                        Please refresh the page
-                                        and try again.
-                                    </p>
-
-                                </div>
+                                <svg
+                                    class="h-6 w-6 text-red-600"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                    />
+                                </svg>
 
                             </div>
-                        `;
+
+                            <h3
+                                class="mt-4 text-sm font-semibold
+                                       text-slate-900"
+                            >
+                                Unable to load Raise Issue
+                            </h3>
+
+                            <p
+                                class="mt-2 text-sm text-slate-500"
+                            >
+                                Please try again.
+                            </p>
+
+                        </div>
+
+                    </div>
+                `;
 
                     }
 
                 });
 
-        };
+        }
 
 
         /*
         |--------------------------------------------------------------------------
-        | CLOSE MODAL
+        | CLOSE RAISE ISSUE MODAL
         |--------------------------------------------------------------------------
         */
 
-        window.closeRaiseIssueModal = function() {
+        function closeRaiseIssueModal() {
 
-            modal.classList.add('hidden');
+            console.log(
+                'Closing Raise Issue Modal'
+            );
+
+
+            raiseIssueModal.classList.add(
+                'hidden'
+            );
+
 
             document.body.classList.remove(
                 'overflow-hidden'
             );
 
 
-            if (modalContent) {
+            if (raiseIssueContent) {
 
-                modalContent.innerHTML = '';
+                raiseIssueContent.replaceChildren();
 
             }
 
-        };
+
+            if (raiseIssueLoading) {
+
+                raiseIssueLoading.classList.add(
+                    'hidden'
+                );
+
+                raiseIssueLoading.classList.remove(
+                    'flex'
+                );
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MAKE FUNCTIONS GLOBAL
+        |--------------------------------------------------------------------------
+        |
+        | If another script needs to open/close the modal,
+        | these are available globally.
+        |
+        */
+
+        window.openRaiseIssueModal =
+            openRaiseIssueModal;
+
+        window.closeRaiseIssueModal =
+            closeRaiseIssueModal;
 
 
         /*
@@ -541,37 +618,46 @@ use Illuminate\Support\Facades\Route;
         |--------------------------------------------------------------------------
         */
 
-        const raiseIssueLinks =
+        const raiseIssueTriggers =
             document.querySelectorAll(
                 '[data-raise-issue="true"]'
             );
 
 
-        raiseIssueLinks.forEach(function(link) {
-
-            link.addEventListener(
-                'click',
-                function(event) {
-
-                    /*
-                    | Stop normal route navigation
-                    */
-
-                    event.preventDefault();
-
-                    event.stopPropagation();
+        console.log(
+            'Raise Issue menu count:',
+            raiseIssueTriggers.length
+        );
 
 
-                    /*
-                    | Open modal
-                    */
+        raiseIssueTriggers.forEach(
+            function(trigger) {
 
-                    window.openRaiseIssueModal();
+                trigger.addEventListener(
+                    'click',
+                    function(event) {
 
-                }
-            );
+                        /*
+                        | Prevent <a href="#"> navigation
+                        */
 
-        });
+                        event.preventDefault();
+
+                        event.stopPropagation();
+
+
+                        console.log(
+                            'Raise Issue menu clicked'
+                        );
+
+
+                        openRaiseIssueModal();
+
+                    }
+                );
+
+            }
+        );
 
 
         /*
@@ -580,13 +666,13 @@ use Illuminate\Support\Facades\Route;
         |--------------------------------------------------------------------------
         */
 
-        if (modalClose) {
+        if (raiseIssueClose) {
 
-            modalClose.addEventListener(
+            raiseIssueClose.addEventListener(
                 'click',
                 function() {
 
-                    window.closeRaiseIssueModal();
+                    closeRaiseIssueModal();
 
                 }
             );
@@ -596,17 +682,17 @@ use Illuminate\Support\Facades\Route;
 
         /*
         |--------------------------------------------------------------------------
-        | BACKDROP
+        | BACKDROP CLICK
         |--------------------------------------------------------------------------
         */
 
-        if (modalBackdrop) {
+        if (raiseIssueBackdrop) {
 
-            modalBackdrop.addEventListener(
+            raiseIssueBackdrop.addEventListener(
                 'click',
                 function() {
 
-                    window.closeRaiseIssueModal();
+                    closeRaiseIssueModal();
 
                 }
             );
@@ -624,20 +710,18 @@ use Illuminate\Support\Facades\Route;
             'keydown',
             function(event) {
 
-                if (event.key === 'Escape') {
+                if (
+                    event.key === 'Escape' &&
+                    !raiseIssueModal.classList.contains('hidden')
+                ) {
 
-                    if (
-                        !modal.classList.contains('hidden')
-                    ) {
-
-                        window.closeRaiseIssueModal();
-
-                    }
+                    closeRaiseIssueModal();
 
                 }
 
             }
         );
+
 
     });
     </script>

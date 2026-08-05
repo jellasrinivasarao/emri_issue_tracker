@@ -20,7 +20,7 @@ use App\Models\IssueCategory;
 
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
-
+use Illuminate\Support\Facades\Log;
 
 class IssueController extends Controller
 {
@@ -255,6 +255,8 @@ class IssueController extends Controller
     public function store(Request $request)
     {
 
+
+        Log::info("Raise Issue Request >>>>", ['response' => json_encode($request->all())]);
         $validated = $request->validate(
 
             [
