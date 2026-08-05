@@ -106,5 +106,7 @@ php artisan make:model IssueRoutingRule -c
 php artisan make:model IssueHistory
 php artisan make:model IssueAssignment
 php artisan make:model IssueStatusHistory
+php artisan make:model IssueRoutingConfiguration
 
+php artisan make:controller IssueRoutingController
 php artisan route:list --name=project-support-configurations

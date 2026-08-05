@@ -354,7 +354,7 @@ Route::middleware(['auth'])->group(function () {
 
 use App\Http\Controllers\ProjectSupportConfigurationController;
 use App\Http\Controllers\IssueRoutingRuleController;
-
+use App\Http\Controllers\IssueRoutingController;
 
 Route::middleware(['auth'])->group(function () {
 
@@ -364,13 +364,48 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/project-support-configurations',[ProjectSupportConfigurationController::class, 'index'])->name('project-support-configurations.index');
+    Route::get(
+        '/project-support',
+        [ProjectSupportConfigurationController::class, 'index']
+    )->name('project.support');
 
-    Route::post('/project-support-configurations',[ProjectSupportConfigurationController::class, 'store'])->name('project-support-configurations.store');
+    Route::get(
+        '/project-support/create',
+        [ProjectSupportConfigurationController::class, 'create']
+    )->name('project.support.create');
 
-    Route::put('/project-support-configurations/{projectSupportConfiguration}',[ProjectSupportConfigurationController::class, 'update'])->name('project-support-configurations.update');
+    Route::post(
+        '/project-support',
+        [ProjectSupportConfigurationController::class, 'store']
+    )->name('project.support.store');
 
-    Route::post('/project-support-configurations/{projectSupportConfiguration}/toggle',[ProjectSupportConfigurationController::class, 'toggle'])->name('project-support-configurations.toggle');
+    Route::get(
+        '/project-support/{projectSupportConfiguration}',
+        [ProjectSupportConfigurationController::class, 'show']
+    )->name('project.support.show');
+
+    Route::get(
+        '/project-support/{projectSupportConfiguration}/edit',
+        [ProjectSupportConfigurationController::class, 'edit']
+    )->name('project.support.edit');
+
+    Route::put(
+        '/project-support/{projectSupportConfiguration}',
+        [ProjectSupportConfigurationController::class, 'update']
+    )->name('project.support.update');
+
+    Route::post(
+        '/project-support/{projectSupportConfiguration}/toggle',
+        [ProjectSupportConfigurationController::class, 'toggle']
+    )->name('project.support.toggle');
+
+    // Route::get('/project-support-configurations',[ProjectSupportConfigurationController::class, 'index'])->name('project-support-configurations.index');
+
+    // Route::post('/project-support-configurations',[ProjectSupportConfigurationController::class, 'store'])->name('project-support-configurations.store');
+
+    // Route::put('/project-support-configurations/{projectSupportConfiguration}',[ProjectSupportConfigurationController::class, 'update'])->name('project-support-configurations.update');
+
+    // Route::post('/project-support-configurations/{projectSupportConfiguration}/toggle',[ProjectSupportConfigurationController::class, 'toggle'])->name('project-support-configurations.toggle');
 
 
     /*
@@ -378,12 +413,73 @@ Route::middleware(['auth'])->group(function () {
     | Issue Routing Rules
     |----------
     */
+
+    Route::get(
+        '/issue-routing',
+        [IssueRoutingController::class, 'index']
+    )->name('issue.routing');
+
+    Route::post(
+        '/issue-routing',
+        [IssueRoutingController::class, 'store']
+    )->name('issue.routing.store');
+
+    Route::put(
+        '/issue-routing/{issueRoutingRule}',
+        [IssueRoutingController::class, 'update']
+    )->name('issue.routing.update');
+
+    Route::post(
+        '/issue-routing/{issueRoutingRule}/toggle',
+        [IssueRoutingController::class, 'toggle']
+    )->name('issue.routing.toggle');
     
-    Route::get('/issue-routing-rules',[IssueRoutingRuleController::class, 'index'])->name('issue-routing-rules.index');
-    Route::post('/issue-routing-rules',[IssueRoutingRuleController::class, 'store'])->name('issue-routing-rules.store');
+    // Route::get('/issue-routing-rules',[IssueRoutingRuleController::class, 'index'])->name('issue-routing-rules.index');
+    // Route::post('/issue-routing-rules',[IssueRoutingRuleController::class, 'store'])->name('issue-routing-rules.store');
 
-    Route::put('/issue-routing-rules/{issueRoutingRule}',[IssueRoutingRuleController::class, 'update'])->name('issue-routing-rules.update');
+    // Route::put('/issue-routing-rules/{issueRoutingRule}',[IssueRoutingRuleController::class, 'update'])->name('issue-routing-rules.update');
 
-    Route::post('/issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle');
+    // Route::post('/issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle');
+
+
+    Route::get(
+        '/issues',
+        [IssueController::class, 'index']
+    )->name('issues.index');
+
+    Route::get(
+        '/issues/create',
+        [IssueController::class, 'create']
+    )->name('issues.create');
+
+    Route::post(
+        '/issues',
+        [IssueController::class, 'store']
+    )->name('issues.store');
+
+    Route::get(
+        '/issues/{issue}',
+        [IssueController::class, 'show']
+    )->name('issues.show');
+
+    Route::put(
+        '/issues/{issue}',
+        [IssueController::class, 'update']
+    )->name('issues.update');
+
+    Route::post(
+        '/issues/{issue}/assign',
+        [IssueController::class, 'assign']
+    )->name('issues.assign');
+    Route::post(
+        '/issues/{issue}/resolve',
+        [IssueController::class, 'resolve']
+    )->name('issues.resolve');
+
+    Route::post(
+        '/issues/{issue}/close',
+        [IssueController::class, 'close']
+    )->name('issues.close');
+    
 });
 require __DIR__.'/auth.php';

@@ -21,7 +21,7 @@ class ProjectSupportConfigurationController extends Controller
         $configurations = $this->service->getAll();
 
         return view(
-            'project-support-configurations.index',
+            'admin.project-support-configurations.index',
             [
                 'configurations' => $configurations,
                 'title' => 'Project Support Configuration',

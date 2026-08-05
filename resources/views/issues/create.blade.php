@@ -1,134 +1,179 @@
-@extends('layouts.admin')
+<x-app-layout>
 
-@section('content')
-<div class="container-fluid">
-    <h3 class="mb-3">Raise Issue</h3>
+    <x-slot name="header">
+        <h2 class="text-xl font-semibold text-gray-800">
+            Create Issue
+        </h2>
+    </x-slot>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <form method="POST" action="{{ route('issues.store') }}" id="issueForm">
-                @csrf
+    <div class="py-8">
 
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Project ID <span class="text-danger">*</span></label>
-                        <input type="number" name="project_id" value="{{ old('project_id') }}" class="form-control"
-                            required>
-                    </div>
+        <div class="mx-auto max-w-4xl px-4">
 
-                    <div class="col-md-6">
-                        <label class="form-label">Calendar ID <span class="text-danger">*</span></label>
-                        <input type="number" name="calendar_id" value="{{ old('calendar_id') }}" class="form-control"
-                            required>
-                    </div>
+            <div class="rounded-3xl border border-slate-200 bg-white shadow-sm">
 
-                    <div class="col-md-8">
-                        <label class="form-label">Issue Title <span class="text-danger">*</span></label>
-                        <input type="text" name="title" value="{{ old('title') }}" class="form-control" maxlength="250"
-                            required>
-                    </div>
+                <div class="border-b border-slate-200 bg-slate-50 px-6 py-5">
 
-                    <div class="col-md-4">
-                        <label class="form-label">Priority</label>
-                        <select name="priority" class="form-select">
-                            @foreach(['LOW','MEDIUM','HIGH','CRITICAL'] as $priority)
-                            <option value="{{ $priority }}" @selected(old('priority','MEDIUM')===$priority)>
-                                {{ $priority }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <h3 class="text-lg font-semibold text-slate-900">
+                        Create Support Issue
+                    </h3>
 
-                    <div class="col-12">
-                        <label class="form-label">Description</label>
-                        <textarea name="description" rows="5" class="form-control">{{ old('description') }}</textarea>
-                    </div>
+                    <p class="text-sm text-slate-600">
+                        The issue will automatically be processed by the routing engine.
+                    </p>
 
-                    <div class="col-12">
-                        <div class="form-check">
-                            <input type="hidden" name="ho_intervention_required" value="0">
-                            <input class="form-check-input" type="checkbox" name="ho_intervention_required" value="1"
-                                id="ho_intervention_required" @checked(old('ho_intervention_required'))>
-                            <label class="form-check-label" for="ho_intervention_required">
-                                HO IT intervention required
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="col-12">
-                        <div id="routePreview" class="alert alert-secondary d-none"></div>
-                    </div>
-
-                    <div class="col-12 d-flex gap-2">
-                        <button type="button" id="checkRoute" class="btn btn-outline-primary">
-                            Check Real-Time Route
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            Raise Issue
-                        </button>
-                        <a href="{{ route('issues.index') }}" class="btn btn-secondary">Cancel</a>
-                    </div>
                 </div>
-            </form>
+
+
+                <form method="POST" action="{{ route('issues.store') }}" class="space-y-5 px-6 py-6">
+
+                    @csrf
+
+
+                    <div class="grid gap-5 md:grid-cols-2">
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium text-slate-700">
+                                Project ID
+                            </label>
+
+                            <input type="number" name="project_id" value="{{ old('project_id') }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5">
+
+                            @error('project_id')
+                            <p class="mt-1 text-xs text-rose-600">
+                                {{ $message }}
+                            </p>
+                            @enderror
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium text-slate-700">
+                                Support Configuration
+                            </label>
+
+                            <select name="support_config_id" required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5">
+
+                                <option value="">
+                                    Select Configuration
+                                </option>
+
+                                @foreach($configurations as $configuration)
+
+                                <option value="{{ $configuration->support_config_id }}"
+                                    @selected(old('support_config_id')==$configuration->support_config_id)
+                                    >
+                                    {{ $configuration->config_name }}
+                                </option>
+
+                                @endforeach
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="grid gap-5 md:grid-cols-2">
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium">
+                                Issue Category
+                            </label>
+
+                            <input name="issue_category" value="{{ old('issue_category') }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5"
+                                placeholder="Application / Network / Hardware">
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium">
+                                Issue Type
+                            </label>
+
+                            <input name="issue_type" value="{{ old('issue_type') }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5"
+                                placeholder="Login / API / Server">
+
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="mb-1 block text-sm font-medium">
+                            Subject
+                        </label>
+
+                        <input name="subject" value="{{ old('subject') }}" required
+                            class="w-full rounded-xl border border-slate-200 px-3 py-2.5"
+                            placeholder="Enter issue subject">
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="mb-1 block text-sm font-medium">
+                            Description
+                        </label>
+
+                        <textarea name="description" rows="6"
+                            class="w-full rounded-xl border border-slate-200 px-3 py-2.5"
+                            placeholder="Describe the issue">{{ old('description') }}</textarea>
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="mb-1 block text-sm font-medium">
+                            Priority
+                        </label>
+
+                        <select name="priority" required class="w-full rounded-xl border border-slate-200 px-3 py-2.5">
+
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM" selected>Medium</option>
+                            <option value="HIGH">High</option>
+                            <option value="CRITICAL">Critical</option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="flex justify-end gap-3 border-t border-slate-200 pt-5">
+
+                        <a href="{{ route('issues.index') }}"
+                            class="rounded-xl border border-slate-300 bg-slate-100 px-5 py-2.5 text-sm font-semibold">
+                            Cancel
+                        </a>
+
+                        <button type="submit"
+                            class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                            Create & Route Issue
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
         </div>
+
     </div>
-</div>
 
-<script>
-document.getElementById('checkRoute').addEventListener('click', async function() {
-    const calendarId = document.querySelector('[name="calendar_id"]').value;
-    const hoRequired = document.querySelector('[name="ho_intervention_required"]:checked')?.value ?? 0;
-    const preview = document.getElementById('routePreview');
-
-    if (!calendarId) {
-        preview.className = 'alert alert-danger';
-        preview.textContent = 'Please enter Calendar ID.';
-        preview.classList.remove('d-none');
-        return;
-    }
-
-    preview.className = 'alert alert-info';
-    preview.textContent = 'Checking current working hours...';
-    preview.classList.remove('d-none');
-
-    try {
-        const response = await fetch('{{ route('
-            issues.determine - route ') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    calendar_id: calendarId,
-                    ho_intervention_required: hoRequired
-                })
-            });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.message || 'Unable to determine route.');
-        }
-
-        const data = result.data;
-
-        preview.className = data.route === 'HO_IT_LEVEL_1' ?
-            'alert alert-success' :
-            'alert alert-warning';
-
-        preview.innerHTML =
-            '<strong>Route: ' + data.route + '</strong><br>' +
-            'Reason: ' + data.reason + '<br>' +
-            'Working: ' + (data.is_working ? 'Yes' : 'No') +
-            (data.calendar?.timezone ? '<br>Timezone: ' + data.calendar.timezone : '');
-
-        preview.classList.remove('d-none');
-    } catch (error) {
-        preview.className = 'alert alert-danger';
-        preview.textContent = error.message;
-        preview.classList.remove('d-none');
-    }
-});
-</script>
-@endsection
+</x-app-layout>

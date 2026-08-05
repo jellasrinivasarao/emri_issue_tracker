@@ -10,12 +10,54 @@ use App\Models\IssueAssignment;
 use App\Models\IssueRoutingRule;
 use Illuminate\Support\Facades\DB;
 use App\Models\IssueHistory;
+use App\Models\IssueRoutingConfiguration;
 
 class IssueRoutingService
 {
     public function __construct(protected WorkingCalendarEngine $calendarEngine) {}
 
 
+
+    public function createConfiguration(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+
+            $data['is_active'] = $data['is_active'] ?? true;
+
+            return IssueRoutingConfiguration::create($data);
+        });
+    }
+
+    public function updateConfiguration(
+        IssueRoutingConfiguration $configuration,
+        array $data
+    ) {
+        return DB::transaction(function () use (
+            $configuration,
+            $data
+        ) {
+
+            $data['is_active'] = $data['is_active'] ?? false;
+
+            $configuration->update($data);
+
+            return $configuration->fresh();
+        });
+    }
+    
+    public function toggleConfiguration(
+        IssueRoutingConfiguration $configuration
+    ) {
+        return DB::transaction(function () use ($configuration) {
+
+            $configuration->is_active =
+                !$configuration->is_active;
+
+            $configuration->save();
+
+            return $configuration;
+        });
+    }
 
     public function resolve(Issue $issue): ?IssueRoutingRule
     {

@@ -19,7 +19,7 @@
 
                         <div>
                             <p class="text-sm text-slate-600">
-                                {{ $description ?? 'Manage project support configuration and issue routing.' }}
+                                {{ $description ?? 'Configure project support routing.' }}
                             </p>
                         </div>
 
@@ -28,8 +28,10 @@
 
                             <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2"
                                 viewBox="0 0 24 24">
+
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+
                             </svg>
 
                             <input id="support-search" type="text" placeholder="Search"
@@ -43,6 +45,7 @@
                         </button>
 
                     </div>
+
                 </div>
 
 
@@ -67,6 +70,7 @@
                         </button>
 
                     </div>
+
                 </div>
 
 
@@ -99,13 +103,18 @@
                 {{-- TABLE --}}
                 <div class="overflow-x-auto">
 
-                    <div class="max-h-[480px] overflow-auto">
+                    <div class="max-h-[420px] overflow-auto">
 
                         <table class="min-w-full divide-y divide-slate-200">
 
                             <thead class="sticky top-0 z-10 bg-purple-100">
 
                                 <tr>
+
+                                    <th
+                                        class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">
+                                        Project
+                                    </th>
 
                                     <th
                                         class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">
@@ -119,12 +128,17 @@
 
                                     <th
                                         class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">
-                                        Priority
+                                        Level
                                     </th>
 
                                     <th
                                         class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">
-                                        Auto Routing
+                                        Team
+                                    </th>
+
+                                    <th
+                                        class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">
+                                        SLA
                                     </th>
 
                                     <th
@@ -141,6 +155,7 @@
 
                             </thead>
 
+
                             <tbody class="divide-y divide-slate-200 bg-white">
 
                                 @forelse($configurations as $configuration)
@@ -148,40 +163,27 @@
                                 <tr>
 
                                     <td class="px-5 py-3 text-sm font-semibold text-slate-900">
-                                        {{ $configuration->config_code }}
+                                        {{ $configuration->project_id }}
                                     </td>
 
-                                    <td class="px-5 py-3 text-sm text-slate-700">
-                                        {{ $configuration->config_name }}
+                                    <td class="px-5 py-3 text-sm text-slate-600">
+                                        {{ $configuration->configuration_code }}
                                     </td>
 
-                                    <td class="px-5 py-3 text-sm">
-
-                                        <span
-                                            class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                                            {{ $configuration->default_priority }}
-                                        </span>
-
+                                    <td class="px-5 py-3 text-sm text-slate-600">
+                                        {{ $configuration->configuration_name }}
                                     </td>
 
-                                    <td class="px-5 py-3 text-sm">
+                                    <td class="px-5 py-3 text-sm text-slate-600">
+                                        Level {{ $configuration->default_support_level }}
+                                    </td>
 
-                                        @if($configuration->auto_routing_enabled)
+                                    <td class="px-5 py-3 text-sm text-slate-600">
+                                        {{ $configuration->default_team_type }}
+                                    </td>
 
-                                        <span
-                                            class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                            Enabled
-                                        </span>
-
-                                        @else
-
-                                        <span
-                                            class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                                            Disabled
-                                        </span>
-
-                                        @endif
-
+                                    <td class="px-5 py-3 text-sm text-slate-600">
+                                        {{ $configuration->sla_hours ?? '-' }} hrs
                                     </td>
 
                                     <td class="px-5 py-3 text-sm">
@@ -199,24 +201,23 @@
 
                                         <div class="flex flex-wrap items-center gap-2">
 
-                                            <button type="button" data-id="{{ $configuration->support_config_id }}"
-                                                data-code="{{ $configuration->config_code }}"
-                                                data-name="{{ $configuration->config_name }}"
-                                                data-description="{{ $configuration->description ?? '' }}"
-                                                data-priority="{{ $configuration->default_priority }}"
-                                                data-routing="{{ $configuration->auto_routing_enabled }}"
+                                            <button type="button"
+                                                data-id="{{ $configuration->support_configuration_id }}"
+                                                data-project-id="{{ $configuration->project_id }}"
+                                                data-code="{{ $configuration->configuration_code }}"
+                                                data-name="{{ $configuration->configuration_name }}"
+                                                data-level="{{ $configuration->default_support_level }}"
+                                                data-team="{{ $configuration->default_team_type }}"
+                                                data-sla="{{ $configuration->sla_hours }}"
+                                                data-description="{{ $configuration->description }}"
                                                 onclick="editSupport(this.dataset)"
                                                 class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">
                                                 Edit
                                             </button>
 
-                                            <a href="{{ route('project.support.show', $configuration) }}"
-                                                class="rounded-lg bg-blue-100 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-200">
-                                                View
-                                            </a>
 
                                             <form method="POST"
-                                                action="{{ route('project.support.toggle', $configuration) }}"
+                                                action="{{ route('project-support-configurations.toggle', $configuration->support_configuration_id) }}"
                                                 class="inline">
 
                                                 @csrf
@@ -241,9 +242,9 @@
 
                                 <tr class="empty-row">
 
-                                    <td colspan="6" class="px-5 py-6 text-center text-sm text-slate-500">
+                                    <td colspan="8" class="px-5 py-6 text-center text-sm text-slate-500">
 
-                                        No support configurations found.
+                                        No project support configurations found.
 
                                     </td>
 
@@ -267,6 +268,7 @@
 
 
     {{-- MODAL --}}
+
     <div id="support-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 px-4 py-8">
 
         <div class="mx-auto flex max-w-2xl flex-col rounded-3xl bg-white shadow-2xl">
@@ -275,9 +277,9 @@
 
                 @csrf
 
-                <input type="hidden" id="support_form_method" name="_method" value="POST">
+                <input type="hidden" id="support_form_method" name="_method" value="POST" />
 
-                <input type="hidden" id="support_config_id" name="support_config_id">
+                <input type="hidden" id="support_configuration_id" name="support_configuration_id" />
 
 
                 <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -285,14 +287,15 @@
                     <div>
 
                         <h3 id="support-modal-title" class="text-lg font-semibold text-slate-900">
-                            Add Support Configuration
+                            Add Project Support Configuration
                         </h3>
 
                         <p class="text-sm text-slate-600">
-                            Configure project-level issue support and routing.
+                            Configure project support routing defaults.
                         </p>
 
                     </div>
+
 
                     <button type="button" onclick="closeSupportModal()"
                         class="rounded-full bg-slate-100 p-2 text-slate-700 hover:bg-slate-200">
@@ -309,24 +312,23 @@
                         <div>
 
                             <label class="mb-1 block text-sm font-medium text-slate-700">
-                                Configuration Code
+                                Project ID
                             </label>
 
-                            <input id="config_code" name="config_code" type="text" required maxlength="50"
-                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm uppercase outline-none focus:border-slate-400"
-                                placeholder="e.g. PROJECT_SUPPORT">
+                            <input id="project_id" name="project_id" type="number" required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
 
                         </div>
+
 
                         <div>
 
                             <label class="mb-1 block text-sm font-medium text-slate-700">
-                                Configuration Name
+                                Configuration Code
                             </label>
 
-                            <input id="config_name" name="config_name" type="text" required maxlength="150"
-                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400"
-                                placeholder="Enter configuration name">
+                            <input id="configuration_code" name="configuration_code" type="text" required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm uppercase outline-none focus:border-slate-400" />
 
                         </div>
 
@@ -336,12 +338,65 @@
                     <div>
 
                         <label class="mb-1 block text-sm font-medium text-slate-700">
-                            Project ID
+                            Configuration Name
                         </label>
 
-                        <input id="project_id" name="project_id" type="number"
-                            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"
-                            placeholder="Optional project ID">
+                        <input id="configuration_name" name="configuration_name" type="text" required
+                            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-slate-400" />
+
+                    </div>
+
+
+                    <div class="grid gap-4 md:grid-cols-3">
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium text-slate-700">
+                                Support Level
+                            </label>
+
+                            <select id="default_support_level" name="default_support_level"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                                <option value="1">Level 1</option>
+                                <option value="2">Level 2</option>
+                                <option value="3">Level 3</option>
+                            </select>
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium text-slate-700">
+                                Team Type
+                            </label>
+
+                            <select id="default_team_type" name="default_team_type"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+
+                                <option value="HO_IT">
+                                    HO IT
+                                </option>
+
+                                <option value="VENDOR">
+                                    Vendor
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div>
+
+                            <label class="mb-1 block text-sm font-medium text-slate-700">
+                                SLA Hours
+                            </label>
+
+                            <input id="sla_hours" name="sla_hours" type="number" step="0.01" min="0"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+
+                        </div>
 
                     </div>
 
@@ -358,45 +413,6 @@
                     </div>
 
 
-                    <div class="grid gap-4 md:grid-cols-2">
-
-                        <div>
-
-                            <label class="mb-1 block text-sm font-medium text-slate-700">
-                                Default Priority
-                            </label>
-
-                            <select id="default_priority" name="default_priority"
-                                class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM" selected>Medium</option>
-                                <option value="HIGH">High</option>
-                                <option value="CRITICAL">Critical</option>
-
-                            </select>
-
-                        </div>
-
-
-                        <div class="flex items-center pt-7">
-
-                            <label class="inline-flex items-center gap-2">
-
-                                <input type="checkbox" id="auto_routing_enabled" name="auto_routing_enabled" value="1"
-                                    checked class="rounded border-slate-300">
-
-                                <span class="text-sm font-medium text-slate-700">
-                                    Enable Automatic Routing
-                                </span>
-
-                            </label>
-
-                        </div>
-
-                    </div>
-
-
                     <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
 
                         <button type="button" onclick="closeSupportModal()"
@@ -405,7 +421,7 @@
                         </button>
 
                         <button type="submit" id="support-modal-submit"
-                            class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">
+                            class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                             Save
                         </button>
 
@@ -423,26 +439,25 @@
     <script>
     function openSupportModal() {
 
-        document.getElementById('support-modal-title').textContent =
-            'Add Support Configuration';
+        document.getElementById('support-modal-title').textContent = 'Add Project Support Configuration';
 
-        document.getElementById('support-form').action = "{{ route('project.support.store') }}";
+        document.getElementById('support-form').action = "{{ route('project-support-configurations.store') }}";
 
         document.getElementById('support_form_method').value = 'POST';
 
-        document.getElementById('support_config_id').value = '';
-
-        document.getElementById('config_code').value = '';
-
-        document.getElementById('config_name').value = '';
+        document.getElementById('support_configuration_id').value = '';
 
         document.getElementById('project_id').value = '';
+        document.getElementById('configuration_code').value = '';
+        document.getElementById('configuration_name').value = '';
+
+        document.getElementById('default_support_level').value = '1';
+
+        document.getElementById('default_team_type').value = 'HO_IT';
+
+        document.getElementById('sla_hours').value = '';
 
         document.getElementById('description').value = '';
-
-        document.getElementById('default_priority').value = 'MEDIUM';
-
-        document.getElementById('auto_routing_enabled').checked = true;
 
         document.getElementById('support-modal-submit').textContent = 'Save';
 
@@ -452,26 +467,26 @@
 
     function editSupport(data) {
 
-        document.getElementById('support-modal-title').textContent =
-            'Edit Support Configuration';
+        document.getElementById('support-modal-title').textContent = 'Edit Project Support Configuration';
 
-        document.getElementById('support-form').action = "{{ url('/project-support') }}/" + data.id;
+        document.getElementById('support-form').action = "{{ route('project-support-configurations.update', ':id') }}"
+            .replace(':id', data.id);
 
         document.getElementById('support_form_method').value = 'PUT';
 
-        document.getElementById('support_config_id').value = data.id;
+        document.getElementById('support_configuration_id').value = data.id;
 
-        document.getElementById('config_code').value = data.code;
+        document.getElementById('project_id').value = data.projectId;
 
-        document.getElementById('config_name').value = data.name;
+        document.getElementById('configuration_code').value = data.code;
+        document.getElementById('configuration_name').value = data.name;
+        document.getElementById('default_support_level').value = data.level;
+
+        document.getElementById('default_team_type').value = data.team;
+
+        document.getElementById('sla_hours').value = data.sla || '';
 
         document.getElementById('description').value = data.description || '';
-
-        document.getElementById('default_priority').value =
-            data.priority || 'MEDIUM';
-
-        document.getElementById('auto_routing_enabled').checked =
-            data.routing === '1' || data.routing === 'true';
 
         document.getElementById('support-modal-submit').textContent = 'Update';
 
@@ -481,37 +496,69 @@
 
     function closeSupportModal() {
 
-        document
-            .getElementById('support-modal')
-            .classList.add('hidden');
+        document.getElementById('support-modal').classList.add('hidden');
+
+    }
+
+
+    function closeSupportMessage() {
+
+        const container = document.getElementById('support-message-container');
+
+        if (container) {
+
+            container.style.opacity = '0';
+
+            setTimeout(() => container.remove(), 400);
+
+        }
+
+    }
+
+
+    function filterSupport() {
+
+        const query =
+            document.getElementById('support-search')
+            .value
+            .trim()
+            .toLowerCase();
+
+        const rows =
+            document.querySelectorAll('tbody tr');
+
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+
+            if (row.classList.contains('empty-row')) {
+                return;
+            }
+
+            const match =
+                query === '' ||
+                row.textContent.toLowerCase().includes(query);
+
+            row.classList.toggle('hidden', !match);
+
+            if (match) {
+                visibleCount++;
+            }
+
+        });
 
     }
 
 
     function exportSupportTable(format) {
 
-        const params = new URLSearchParams({
-            format: format
-        });
+        const params =
+            new URLSearchParams({
+                format
+            });
 
-        window.location.href = "{{ route('project.support') }}?" + params.toString();
-    }
+        window.location.href = "{{ route('project-support-configurations.index') }}?" + params.toString();
 
-
-    function closeSupportMessage() {
-
-        const container =
-            document.getElementById('support-message-container');
-
-        if (container) {
-
-            container.style.transition =
-                'opacity 0.4s ease';
-
-            container.style.opacity = '0';
-
-            setTimeout(() => container.remove(), 400);
-        }
     }
 
 
@@ -521,29 +568,14 @@
             document.getElementById('support-search');
 
         if (search) {
+            search.addEventListener('input', filterSupport);
+        }
 
-            search.addEventListener('input', function() {
+        const message =
+            document.getElementById('support-message');
 
-                const query =
-                    this.value.toLowerCase().trim();
-
-                document
-                    .querySelectorAll('tbody tr')
-                    .forEach(row => {
-
-                        if (row.classList.contains('empty-row')) {
-                            return;
-                        }
-
-                        row.classList.toggle(
-                            'hidden',
-                            !row.textContent.toLowerCase().includes(query)
-                        );
-
-                    });
-
-            });
-
+        if (message) {
+            setTimeout(closeSupportMessage, 10000);
         }
 
     });
