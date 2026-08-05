@@ -442,11 +442,8 @@ Route::middleware(['auth'])->group(function () {
     // Route::post('/issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle');
 
 
-    Route::get(
-        '/issues',
-        [IssueController::class, 'index']
-    )->name('issues.index');
-
+    Route::get('/raise-issue',[IssueController::class, 'index'])->name('issues.index');
+    
     Route::get(
         '/issues/create',
         [IssueController::class, 'create']
@@ -483,3 +480,4 @@ Route::middleware(['auth'])->group(function () {
     
 });
 require __DIR__.'/auth.php';
+require __DIR__.'/masters.php';
