@@ -8,11 +8,12 @@ use App\Models\Vendor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 class VendorController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $vendors = Vendor::query()
             ->orderBy('vendor_name')

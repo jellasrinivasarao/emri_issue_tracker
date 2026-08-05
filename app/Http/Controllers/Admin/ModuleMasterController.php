@@ -9,10 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class ModuleMasterController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $modules = DB::table('mst_module')
             ->select('module_id', 'module_name',  'description', 'is_active')

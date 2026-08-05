@@ -8,17 +8,10 @@
         <link rel="preconnect" href="https://fonts.bunny.net" />
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('styles')
     </head>
     <body class="h-full m-0 font-sans antialiased bg-slate-100 text-slate-900 overflow-x-hidden overflow-y-auto">
-        <div x-data="{ sidebarOpen: false, openSections: {
-                    'Administration': false,
-                    'Admin Teams': false,
-                    'Organisation Setup': false,
-                    'User & Security': false,
-                    'Operational Configuration': false,
-                    'Audit & Governance': false,
-                    'Other': false,
-                } }" class="min-h-screen bg-slate-100">
+        <div class="min-h-screen bg-slate-100">
             @php
                 $menuGroups = [
                     'Main Menu' => ['dashboard', 'issues', 'raise.issue', 'reports'],
@@ -38,9 +31,22 @@
                 })->filter(fn($items) => $items->isNotEmpty());
 
                 $ungrouped = $menus->reject(fn($menu) => collect($menuGroups)->flatten()->contains($menu->route_name))->values();
+
+                $sectionOpen = collect($menuGroups)->mapWithKeys(function ($routeNames, $section) {
+                    return [$section => collect($routeNames)->contains(fn($routeName) => request()->routeIs($routeName))];
+                });
+
+                $adminAccordionRoutes = collect($menuGroups['Administration'])
+                    ->merge($menuGroups['Admin Teams'])
+                    ->merge($menuGroups['Organisation Setup'])
+                    ->merge($menuGroups['User & Security'])
+                    ->merge($menuGroups['Operational Configuration'])
+                    ->merge($menuGroups['Audit & Governance']);
+
+                $sectionOpen['Administration'] = $adminAccordionRoutes->contains(fn($routeName) => request()->routeIs($routeName));
             @endphp
 
-            <div class="md:flex h-screen">
+            <div class="md:flex h-screen" x-data="{ sidebarOpen: false, openSections: {{ $sectionOpen->toJson() }} }">
                 @unless($withoutSidebar)
                 <aside class="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col overflow-hidden bg-[#071837] text-white shadow-xl md:flex">
                     <div class="border-b border-[#102658] px-6 py-5">
@@ -235,6 +241,7 @@
                     </div>
                 </nav>
             </aside>
+            @stack('scripts')
         </div>
     </body>
 </html>

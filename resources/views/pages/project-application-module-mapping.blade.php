@@ -29,9 +29,11 @@
 
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
                     <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
-                        <button type="button" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
-                        <button type="button" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        @if(data_get($permissions, 'export'))
+                            <button type="button" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                            <button type="button" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                            <button type="button" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        @endif
                     </div>
                 </div>
 
@@ -58,20 +60,27 @@
                                     <td class="px-5 py-3 text-sm"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $mapping->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $mapping->is_active ? 'Active' : 'Inactive' }}</span></td>
                                     <td class="px-5 py-3 text-sm">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <button type="button"
-                                                data-mapping-id="{{ $mapping->mapping_id }}"
-                                                data-project-id="{{ $mapping->project_id }}"
-                                                data-application-id="{{ $mapping->application_id }}"
-                                                data-module-id="{{ $mapping->module_id }}"
-                                                data-is-active="{{ $mapping->is_active ? '1' : '0' }}"
-                                                onclick="editProjectApplicationModule(this.dataset)"
-                                                class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
-                                            <form method="POST" action="{{ route('project.application.module.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
-                                                @csrf
-                                                <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ $mapping->is_active ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">
-                                                    {{ $mapping->is_active ? 'Disable' : 'Activate' }}
-                                                </button>
-                                            </form>
+                                            @if(data_get($permissions, 'edit'))
+                                                <button type="button"
+                                                    data-mapping-id="{{ $mapping->mapping_id }}"
+                                                    data-project-id="{{ $mapping->project_id }}"
+                                                    data-application-id="{{ $mapping->application_id }}"
+                                                    data-module-id="{{ $mapping->module_id }}"
+                                                    data-is-active="{{ $mapping->is_active ? '1' : '0' }}"
+                                                    onclick="editProjectApplicationModule(this.dataset)"
+                                                    class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                            @endif
+                                            @if((int)$mapping->is_active === 1 && data_get($permissions, 'deactivate'))
+                                                <form method="POST" action="{{ route('project.application.module.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200">Disable</button>
+                                                </form>
+                                            @elseif((int)$mapping->is_active !== 1 && data_get($permissions, 'activate'))
+                                                <form method="POST" action="{{ route('project.application.module.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200">Activate</button>
+                                                </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

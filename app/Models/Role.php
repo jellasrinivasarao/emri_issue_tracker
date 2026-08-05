@@ -25,9 +25,9 @@ class Role extends Model
     {
         return $this->belongsToMany(
             Menu::class,
-            'map_role_menu',
+            'map_role_privilege',
             'role_id',
             'menu_id'
-        )->withPivot('is_allowed');
+        )->withPivot('is_allowed', 'privilege_id');
     }
 }

@@ -27,6 +27,15 @@
                     </div>
                 </div>
 
+                <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        @if(data_get($permissions, 'export'))
+                            <button type="button" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                            <button type="button" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                            <button type="button" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        @endif
+                    </div>
+                </div>
                 <div class="overflow-x-auto">
                     <div class="max-h-[420px] overflow-auto">
                         <table class="min-w-full divide-y divide-slate-200">

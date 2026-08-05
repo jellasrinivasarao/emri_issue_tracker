@@ -34,15 +34,24 @@
                                     <td class="px-5 py-3 text-sm">{{ $privilege->is_active ? 'Active' : 'Inactive' }}</td>
                                     <td class="px-5 py-3 text-sm">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <button type="button"
-                                                data-privilege-id="{{ $privilege->privilege_id }}"
-                                                data-privilege-code="{{ $privilege->privilege_code }}"
-                                                data-privilege-name="{{ $privilege->privilege_name }}"
-                                                data-module-name="{{ $privilege->module_name }}"
-                                                data-description="{{ $privilege->description }}"
-                                                onclick="editPrivilege(this.dataset)"
-                                                class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
-                                            <form method="POST" action="{{ route('privilege.master.toggle', ['privilege_id' => $privilege->privilege_id]) }}" class="inline">
+                                            @if(data_get($permissions, 'edit'))
+                                                <button type="button"
+                                                    data-privilege-id="{{ $privilege->privilege_id }}"
+                                                    data-privilege-code="{{ $privilege->privilege_code }}"
+                                                    data-privilege-name="{{ $privilege->privilege_name }}"
+                                                    data-module-name="{{ $privilege->module_name }}"
+                                                    data-description="{{ $privilege->description }}"
+                                                    onclick="editPrivilege(this.dataset)"
+                                                    class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                            @endif
+                                            @if(data_get($permissions, 'deactivate') || data_get($permissions, 'activate'))
+                                                <form method="POST" action="{{ route('privilege.master.toggle', ['privilege_id' => $privilege->privilege_id]) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ $privilege->is_active ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">
+                                                        {{ $privilege->is_active ? 'Deactivate' : 'Activate' }}
+                                                    </button>
+                                                </form>
+                                            @endif
                                                 @csrf
                                                 <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ $privilege->is_active ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">
                                                     {{ $privilege->is_active ? 'Deactivate' : 'Activate' }}

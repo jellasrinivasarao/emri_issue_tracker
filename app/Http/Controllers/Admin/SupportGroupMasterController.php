@@ -9,10 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use Illuminate\Http\Response;
 
 class SupportGroupMasterController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|Response
     {
         $supportGroups = DB::table('mst_support_group')
             ->select('support_group_id', 'support_group_name', 'description', 'is_active')

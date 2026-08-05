@@ -9,7 +9,9 @@
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-5">
                     <div class="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
                         <p class="text-sm text-slate-600">{{ $description ?? 'Manage menu items, route access, and sidebar navigation entries.' }}</p>
-                        <button type="button" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
+                        @if(data_get($permissions, 'create'))
+                            <button type="button" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
+                        @endif
                     </div>
                 </div>
 
