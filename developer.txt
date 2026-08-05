@@ -119,3 +119,10 @@ php artisan route:list --name=calendar-holidays
 
 php artisan make:controller Admin/IssueCategoryController
 php artisan make:request Admin/IssueCategoryRequest
+
+
+
+
+#######################05/08/52026
+php artisan route:list | grep raise.issue.modal
+php artisan route:list --name=raise.issue

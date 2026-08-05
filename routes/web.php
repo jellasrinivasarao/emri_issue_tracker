@@ -443,8 +443,7 @@ Route::middleware(['auth'])->group(function () {
 
 
     Route::get('/raise-issue/modal',[IssueController::class, 'modal'])->name('raise.issue.modal');
-    
-
+ 
     Route::get(
         '/issues',
         [IssueController::class, 'index']

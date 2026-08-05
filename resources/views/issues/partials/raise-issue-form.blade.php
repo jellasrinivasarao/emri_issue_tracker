@@ -26,13 +26,14 @@
                     State <span class="text-red-500">*</span>
                 </label>
 
-                <select name="state_id" id="state_id" class="mt-1 block w-full rounded-lg border-slate-300
-                           text-sm focus:border-blue-500 focus:ring-blue-500">
+
+
+                <select name="state_id" id="state_id" class="w-full rounded-xl border-slate-300">
                     <option value="">Select State</option>
 
                     @foreach($states ?? [] as $state)
-                    <option value="{{ $state->id }}">
-                        {{ $state->name }}
+                    <option value="{{ $state->state_id }}">
+                        {{ $state->state_name }}
                     </option>
                     @endforeach
 
@@ -57,8 +58,8 @@
                     <option value="">Select Service</option>
 
                     @foreach($services ?? [] as $service)
-                    <option value="{{ $service->id }}">
-                        {{ $service->name }}
+                    <option value="{{ $service->service_id }}">
+                        {{ $service->service_name }}
                     </option>
                     @endforeach
 
@@ -106,7 +107,7 @@
 
         </div>
     </div>
-
+    <pre>{{ dd($services) }}</pre>
 
     {{-- ISSUE INFORMATION --}}
     <div class="mt-4 rounded-xl border border-slate-200 bg-white">
@@ -135,10 +136,20 @@
                         Issue Category <span class="text-red-500">*</span>
                     </label>
 
-                    <select name="issue_category_id" class="mt-1 block w-full rounded-lg border-slate-300
-                               text-sm">
+                    <select name="issue_category_id"
+                        class="mt-1 block w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select Category</option>
+
+                        @foreach($issueCategories as $category)
+                        <option value="{{ $category->issue_category_id }}">
+                            {{ $category->category_name }}
+                        </option>
+                        @endforeach
                     </select>
+
+                    @error('issue_category_id')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
 
 
@@ -148,14 +159,20 @@
                         Priority <span class="text-red-500">*</span>
                     </label>
 
-                    <select name="priority" class="mt-1 block w-full rounded-lg border-slate-300
-                               text-sm">
+                    <select name="priority_id"
+                        class="mt-1 block w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select Priority</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
+
+                        @foreach($priorities as $priority)
+                        <option value="{{ $priority->priority_id }}">
+                            {{ $priority->priority_name }}
+                        </option>
+                        @endforeach
                     </select>
+
+                    @error('priority_id')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
 
             </div>

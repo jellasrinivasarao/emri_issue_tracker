@@ -35,7 +35,7 @@ class IssueController extends Controller
     public function modal()
     {
 
-    $states = State::where('is_active',1)
+        $states = State::where('is_active',1)
             ->orderBy('state_name')
             ->get();
 
@@ -85,6 +85,7 @@ class IssueController extends Controller
         //     'HIGH',
         //     'CRITICAL',
         // ];
+
         
         return view('issues.partials.raise-issue-form', [
         'states'   => $states,
