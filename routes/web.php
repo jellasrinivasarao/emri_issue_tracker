@@ -550,6 +550,8 @@ Route::prefix('ajax')->group(function () {
 
     Route::get('/services/{stateId}',[AjaxController::class,'services'])->name('ajax.services');
 
+    Route::get('/states',[AjaxController::class,'states'])->name('ajax.states');
+
     Route::get('/projects/{serviceId}',[AjaxController::class,'projects'])->name('ajax.projects');
 
     Route::get('/applications/{projectId}',[AjaxController::class,'applications'])->name('ajax.applications');

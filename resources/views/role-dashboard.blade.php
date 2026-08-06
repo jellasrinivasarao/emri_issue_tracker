@@ -726,4 +726,7 @@ use Illuminate\Support\Facades\Route;
     });
     </script>
 
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('js/issue.js') }}"></script>
+
 </x-app-layout>

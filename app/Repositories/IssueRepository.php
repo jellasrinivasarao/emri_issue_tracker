@@ -402,4 +402,290 @@ class IssueRepository implements IssueRepositoryInterface
             ->where('priority_id', $priorityId)
             ->count();
     }
+
+
+    public function dashboard(): array
+{
+    return [
+
+        'total' => $this->model->count(),
+
+        'open' => $this->model->where('status', 'Open')->count(),
+
+        'assigned' => $this->model->where('status', 'Assigned')->count(),
+
+        'progress' => $this->model->where('status', 'In Progress')->count(),
+
+        'resolved' => $this->model->where('status', 'Resolved')->count(),
+
+        'closed' => $this->model->where('status', 'Closed')->count(),
+
+    ];
+}
+
+public function assign(Issue $issue, int $userId): bool
+{
+    return $issue->update([
+
+        'assigned_to' => $userId,
+
+        'assigned_at' => now(),
+
+        'status' => 'Assigned'
+
+    ]);
+}
+
+public function updateStatus(
+    Issue $issue,
+    string $status
+): bool {
+
+    $data = [
+
+        'status' => $status
+
+    ];
+
+    if ($status === 'Resolved') {
+
+        $data['resolved_at'] = now();
+
+    }
+
+    if ($status === 'Closed') {
+
+        $data['closed_at'] = now();
+
+    }
+
+    return $issue->update($data);
+}
+
+public function slaBreached(): Collection
+{
+    return $this->model
+        ->with($this->relations())
+        ->whereNotIn('status', [
+            'Resolved',
+            'Closed'
+        ])
+        ->where('due_at', '<', now())
+        ->get();
+}
+
+public function bulkDelete(array $ids): bool
+{
+    return $this->model
+        ->whereIn('id', $ids)
+        ->delete() > 0;
+}
+
+
+public function bulkStatusUpdate(
+    array $ids,
+    string $status
+): bool {
+
+    return $this->model
+        ->whereIn('id', $ids)
+        ->update([
+            'status' => $status
+        ]) > 0;
+}
+
+
+public function byProject(
+    int $projectId
+): Collection {
+
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('project_id', $projectId)
+
+        ->latest()
+
+        ->get();
+
+}
+
+public function byService(
+    int $serviceId
+): Collection {
+
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('service_id', $serviceId)
+
+        ->latest()
+
+        ->get();
+
+}
+
+public function byState(
+    int $stateId
+): Collection {
+
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('state_id', $stateId)
+
+        ->latest()
+
+        ->get();
+
+}
+public function byPriority(
+    int $priorityId
+): Collection {
+
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('priority_id', $priorityId)
+
+        ->latest()
+
+        ->get();
+
+}
+
+
+public function byCategory(
+    int $categoryId
+): Collection {
+
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('issue_category_id', $categoryId)
+
+        ->latest()
+
+        ->get();
+
+}
+
+
+public function today(): Collection
+{
+    return $this->model
+
+        ->with($this->relations())
+
+        ->whereDate(
+            'created_at',
+            today()
+        )
+
+        ->latest()
+
+        ->get();
+
+}
+
+
+public function thisMonth(): Collection
+{
+    return $this->model
+
+        ->with($this->relations())
+
+        ->whereMonth(
+            'created_at',
+            now()->month
+        )
+
+        ->whereYear(
+            'created_at',
+            now()->year
+        )
+
+        ->latest()
+
+        ->get();
+
+}
+
+
+public function overdue(): Collection
+{
+    return $this->model
+
+        ->with($this->relations())
+
+        ->where('due_at', '<', now())
+
+        ->whereNotIn('status', [
+            'Closed',
+            'Resolved'
+        ])
+
+        ->latest()
+
+        ->get();
+
+}
+
+
+public function monthlyStatistics(
+    int $year
+): Collection {
+
+    return $this->model
+
+        ->selectRaw('MONTH(created_at) as month, COUNT(*) as total')
+
+        ->whereYear('created_at', $year)
+
+        ->groupBy(DB::raw('MONTH(created_at)'))
+
+        ->orderBy(DB::raw('MONTH(created_at)'))
+
+        ->get();
+
+}
+
+
+public function projectStatistics(): Collection
+{
+    return $this->model
+
+        ->selectRaw('project_id, COUNT(*) as total')
+
+        ->groupBy('project_id')
+
+        ->with('project')
+
+        ->get();
+
+}
+
+
+
+public function stateStatistics(): Collection
+{
+    return $this->model
+
+        ->selectRaw('state_id, COUNT(*) as total')
+
+        ->groupBy('state_id')
+
+        ->with('state')
+
+        ->get();
+
+}
+
+
+    
 }

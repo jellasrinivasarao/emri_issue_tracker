@@ -136,4 +136,79 @@ interface IssueRepositoryInterface
      * Bulk status update.
      */
     public function bulkStatusUpdate(array $ids,string $status): bool;
+
+      
+   
+    /**
+     * Get Issues By Project
+     */
+    public function byProject(
+        int $projectId
+    ): Collection;
+
+    /**
+     * Get Issues By Service
+     */
+    public function byService(
+        int $serviceId
+    ): Collection;
+
+    /**
+     * Get Issues By State
+     */
+    public function byState(
+        int $stateId
+    ): Collection;
+
+    /**
+     * Get Issues By Priority
+     */
+    public function byPriority(
+        int $priorityId
+    ): Collection;
+
+    /**
+     * Get Issues By Category
+     */
+    public function byCategory(
+        int $categoryId
+    ): Collection;
+
+    /**
+     * Get Today's Issues
+     */
+    public function today(): Collection;
+
+    /**
+     * Get This Month Issues
+     */
+    public function thisMonth(): Collection;
+
+    /**
+     * Get Overdue Issues
+     */
+    public function overdue(): Collection;
+
+    /**
+     * Monthly Statistics
+     */
+    public function monthlyStatistics(
+        int $year
+    ): Collection;
+
+    /**
+     * Project Statistics
+     */
+    public function projectStatistics(): Collection;
+
+    /**
+     * State Statistics
+     */
+    public function stateStatistics(): Collection;
+
+
+
+    
+
+    
 }

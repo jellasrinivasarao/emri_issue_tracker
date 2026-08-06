@@ -127,3 +127,7 @@ php artisan make:request Admin/IssueCategoryRequest
 php artisan route:list | grep raise.issue.modal
 php artisan route:list --name=raise.issue
 php artisan make:controller Ajax/AjaxController
+
+php artisan optimize:clear
+
+composer dump-autoload

@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Service;
 use App\Models\Project;
 use App\Models\Application;
-use App\Models\Module;
+use App\Models\ApplicationModule;
+use App\Models\State;
 
 class AjaxController extends Controller
 {
@@ -23,9 +24,11 @@ class AjaxController extends Controller
                 ->where('is_active', 1)
                 ->orderBy('service_name')
                 ->get([
-                    'id',
+                    'service_id as id',
                     'service_name'
                 ]);
+
+                var_dump($services);
 
             return response()->json($services);
 
@@ -41,6 +44,31 @@ class AjaxController extends Controller
     }
 
     /**
+     * Get active states
+     */
+    public function states()
+    {
+        try {
+            $states = State::where('is_active', 1)
+                ->orderBy('state_name')
+                ->get([
+                    'state_id as id',
+                    'state_name'
+                ]);
+
+            return response()->json($states);
+
+        } catch (\Exception $e) {
+            Log::error('AjaxController::states => ' . $e->getMessage());
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Unable to load states.'
+            ], 500);
+        }
+    }
+
+    /**
      * Service -> Projects
      */
     public function projects($serviceId)
@@ -51,7 +79,7 @@ class AjaxController extends Controller
                 ->where('is_active',1)
                 ->orderBy('project_name')
                 ->get([
-                    'id',
+                    'project_id as id',
                     'project_name'
                 ]);
 
@@ -80,7 +108,7 @@ class AjaxController extends Controller
                 ->where('is_active',1)
                 ->orderBy('application_name')
                 ->get([
-                    'id',
+                    'application_id as id',
                     'application_name'
                 ]);
 
@@ -105,11 +133,11 @@ class AjaxController extends Controller
     {
         try {
 
-            $modules = Module::where('application_id',$applicationId)
+            $modules = ApplicationModule::where('application_id',$applicationId)
                 ->where('is_active',1)
                 ->orderBy('module_name')
                 ->get([
-                    'id',
+                    'module_id as id',
                     'module_name'
                 ]);
 

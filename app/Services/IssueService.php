@@ -2,28 +2,53 @@
 
 namespace App\Services;
 
+use App\Interfaces\IssueRepositoryInterface;
 use App\Models\Issue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-
-use App\Models\User;
-use App\Models\IssueHistory;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Mail;
-use App\Interfaces\IssueRepositoryInterface;
 
 class IssueService
 {
-
+    /**
+     * Repository Instance
+     */
     protected IssueRepositoryInterface $repository;
 
-    public function __construct(IssueRepositoryInterface $repository) {
+    /**
+     * Constructor
+     */
+    public function __construct(
+        IssueRepositoryInterface $repository
+    ) {
         $this->repository = $repository;
     }
-    
+
+    /**
+     * Get Paginated Issues
+     */
+    public function paginate(
+        array $filters = [],
+        int $perPage = 15
+    ) {
+        return $this->repository->paginate(
+            $filters,
+            $perPage
+        );
+    }
+
+    /**
+     * Find Issue
+     */
+    public function find(int $id): Issue
+    {
+        return $this->repository->findOrFail($id);
+    }
+
     /**
      * Create New Issue
      */
@@ -33,44 +58,28 @@ class IssueService
 
         try {
 
-            $issue = new Issue();
+            $data = $this->prepareCreateData($request);
 
-            $issue->ticket_no = $this->generateTicketNumber();
+            $issue = $this->repository->create($data);
 
-            $issue->state_id = $request->state_id;
-            $issue->service_id = $request->service_id;
-            $issue->project_id = $request->project_id;
-            $issue->application_id = $request->application_id;
-            $issue->module_id = $request->module_id;
-
-            $issue->issue_category_id = $request->issue_category_id;
-            $issue->priority_id = $request->priority_id;
-
-            $issue->subject = $request->subject;
-            $issue->description = $request->description;
-
-            $issue->occurred_date = $request->occurred_date;
-            $issue->occurred_time = $request->occurred_time;
-
-            $issue->affected_users = $request->affected_users;
-
-            $issue->attachment = $this->uploadAttachment($request);
-
-            $issue->status = 'Open';
-
-            $issue->created_by = Auth::id();
-
-            $issue->save();
+            $this->afterCreate($issue);
 
             DB::commit();
 
             return $issue;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
 
             DB::rollBack();
 
-            Log::error($e);
+            Log::error(
+                'Issue Create Error',
+                [
+                    'message' => $e->getMessage(),
+                    'line' => $e->getLine(),
+                    'file' => $e->getFile()
+                ]
+            );
 
             throw $e;
         }
@@ -79,50 +88,43 @@ class IssueService
     /**
      * Update Issue
      */
-    public function update(Request $request, Issue $issue): Issue
-    {
+    public function update(
+        Request $request,
+        Issue $issue
+    ): Issue {
+
         DB::beginTransaction();
 
         try {
 
-            $issue->state_id = $request->state_id;
-            $issue->service_id = $request->service_id;
-            $issue->project_id = $request->project_id;
-            $issue->application_id = $request->application_id;
-            $issue->module_id = $request->module_id;
+            $data = $this->prepareUpdateData(
+                $request,
+                $issue
+            );
 
-            $issue->issue_category_id = $request->issue_category_id;
-            $issue->priority_id = $request->priority_id;
+            $this->repository->update(
+                $issue,
+                $data
+            );
 
-            $issue->subject = $request->subject;
-            $issue->description = $request->description;
-
-            $issue->occurred_date = $request->occurred_date;
-            $issue->occurred_time = $request->occurred_time;
-
-            $issue->affected_users = $request->affected_users;
-
-            if ($request->hasFile('attachment')) {
-
-                $this->deleteAttachment($issue);
-
-                $issue->attachment = $this->uploadAttachment($request);
-
-            }
-
-            $issue->updated_by = Auth::id();
-
-            $issue->save();
+            $issue = $this->repository->findOrFail(
+                $issue->id
+            );
 
             DB::commit();
 
             return $issue;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
 
             DB::rollBack();
 
-            Log::error($e);
+            Log::error(
+                'Issue Update Error',
+                [
+                    'message' => $e->getMessage()
+                ]
+            );
 
             throw $e;
         }
@@ -137,32 +139,168 @@ class IssueService
 
         try {
 
-            $this->deleteAttachment($issue);
+            $this->removeAttachment($issue);
 
-            $issue->delete();
+            $status = $this->repository
+                ->delete($issue);
 
             DB::commit();
 
-            return true;
+            return $status;
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
 
             DB::rollBack();
 
-            Log::error($e);
+            Log::error(
+                'Issue Delete Error',
+                [
+                    'message' => $e->getMessage()
+                ]
+            );
 
             throw $e;
         }
     }
 
     /**
+     * Prepare Create Data
+     */
+    protected function prepareCreateData(
+        Request $request
+    ): array {
+
+        return [
+
+            'ticket_no' => $this->generateTicketNumber(),
+
+            'state_id' => $request->state_id,
+
+            'service_id' => $request->service_id,
+
+            'project_id' => $request->project_id,
+
+            'application_id' => $request->application_id,
+
+            'module_id' => $request->module_id,
+
+            'issue_category_id'
+                => $request->issue_category_id,
+
+            'priority_id'
+                => $request->priority_id,
+
+            'subject'
+                => trim($request->subject),
+
+            'description'
+                => trim($request->description),
+
+            'occurred_date'
+                => $request->occurred_date,
+
+            'occurred_time'
+                => $request->occurred_time,
+
+            'affected_users'
+                => $request->affected_users,
+
+            'attachment'
+                => $this->uploadAttachment($request),
+
+            'status' => 'Open',
+
+            'created_by'
+                => Auth::id(),
+
+            'created_at'
+                => now(),
+
+            'updated_at'
+                => now(),
+
+        ];
+    }
+
+    /**
+     * Prepare Update Data
+     */
+    protected function prepareUpdateData(
+        Request $request,
+        Issue $issue
+    ): array {
+
+        $attachment = $issue->attachment;
+
+        if ($request->hasFile('attachment')) {
+
+            $this->removeAttachment($issue);
+
+            $attachment = $this->uploadAttachment(
+                $request
+            );
+        }
+
+        return [
+
+            'state_id'
+                => $request->state_id,
+
+            'service_id'
+                => $request->service_id,
+
+            'project_id'
+                => $request->project_id,
+
+            'application_id'
+                => $request->application_id,
+
+            'module_id'
+                => $request->module_id,
+
+            'issue_category_id'
+                => $request->issue_category_id,
+
+            'priority_id'
+                => $request->priority_id,
+
+            'subject'
+                => trim($request->subject),
+
+            'description'
+                => trim($request->description),
+
+            'occurred_date'
+                => $request->occurred_date,
+
+            'occurred_time'
+                => $request->occurred_time,
+
+            'affected_users'
+                => $request->affected_users,
+
+            'attachment'
+                => $attachment,
+
+            'updated_by'
+                => Auth::id(),
+
+            'updated_at'
+                => now()
+
+        ];
+    }
+
+    /**
      * Generate Ticket Number
      */
-    public function generateTicketNumber(): string
+    protected function generateTicketNumber(): string
     {
-        $last = Issue::latest('id')->first();
+        $last = $this->repository->latest();
 
-        $next = $last ? $last->id + 1 : 1;
+        $next = $last
+            ? ($last->id + 1)
+            : 1;
 
         return sprintf(
             'ISS-%s-%06d',
@@ -174,368 +312,936 @@ class IssueService
     /**
      * Upload Attachment
      */
-    protected function uploadAttachment(Request $request): ?string
-    {
+    protected function uploadAttachment(
+        Request $request
+    ): ?string {
+
         if (!$request->hasFile('attachment')) {
             return null;
         }
 
         $file = $request->file('attachment');
 
-        $filename = now()->format('YmdHis')
+        $filename =
+            Carbon::now()->format('YmdHis')
             .'_'
-            .Str::random(8)
+            .Str::uuid()
             .'.'
             .$file->getClientOriginalExtension();
 
-        $destination = public_path('uploads/issues');
-
-        if (!file_exists($destination)) {
-            mkdir($destination, 0777, true);
-        }
-
-        $file->move($destination, $filename);
+        $file->storeAs(
+            'issues',
+            $filename,
+            'public'
+        );
 
         return $filename;
     }
 
     /**
-     * Delete Attachment
+     * Remove Attachment
      */
-    protected function deleteAttachment(Issue $issue): void
-    {
+    protected function removeAttachment(
+        Issue $issue
+    ): void {
+
         if (!$issue->attachment) {
             return;
         }
 
-        $file = public_path('uploads/issues/'.$issue->attachment);
+        if (
+            Storage::disk('public')
+                ->exists('issues/'.$issue->attachment)
+        ) {
 
-        if (file_exists($file)) {
-            unlink($file);
+            Storage::disk('public')
+                ->delete('issues/'.$issue->attachment);
+
         }
     }
 
     /**
-     * Find Issue
+     * After Create Process
      */
-    public function find(int $id): Issue
+    protected function afterCreate(Issue $issue): void
     {
-        return Issue::findOrFail($id);
+        $this->assignEngineer($issue);
+
+        $this->createHistory(
+            $issue,
+            'Issue Created',
+            'Issue created successfully.'
+        );
+
+        $this->sendAssignmentNotification($issue);
     }
 
     /**
-     * Get Issue List
+     * Auto Assign Engineer
      */
-    public function list(array $filters = [])
+    protected function assignEngineer(Issue $issue): void
     {
-        $query = Issue::query();
-
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (!empty($filters['priority'])) {
-            $query->where('priority_id', $filters['priority']);
-        }
-
-        if (!empty($filters['project'])) {
-            $query->where('project_id', $filters['project']);
-        }
-
-        return $query
-            ->with([
-                'state',
-                'service',
-                'project',
-                'application',
-                'module',
-                'category',
-                'priority'
+        $engineer = \App\Models\User::query()
+            ->where('status', 1)
+            ->whereHas('roles', function ($query) {
+                $query->where('name', 'Support Engineer');
+            })
+            ->withCount([
+                'assignedIssues as active_issue_count' => function ($query) {
+                    $query->whereNotIn('status', [
+                        'Closed',
+                        'Resolved'
+                    ]);
+                }
             ])
-            ->latest()
-            ->paginate(20);
+            ->orderBy('active_issue_count')
+            ->first();
+
+        if (!$engineer) {
+            return;
+        }
+
+        $this->repository->assign(
+            $issue,
+            $engineer->id
+        );
+
+        $this->createHistory(
+            $issue,
+            'Assigned',
+            'Assigned to '.$engineer->name
+        );
     }
 
+    /**
+     * Change Status
+     */
+    public function changeStatus(
+        Issue $issue,
+        string $status,
+        ?string $remarks = null
+    ): Issue {
 
-/**
- * Auto Assign Engineer
- */
-public function assignEngineer(Issue $issue)
-{
-    $engineer = User::where('role', 'Support Engineer')
-        ->where('status', 1)
-        ->orderBy('current_ticket_count')
-        ->first();
+        DB::beginTransaction();
 
-    if (!$engineer) {
-        return false;
+        try {
+
+            $this->validateStatusTransition(
+                $issue->status,
+                $status
+            );
+
+            $this->repository->updateStatus(
+                $issue,
+                $status
+            );
+
+            $issue = $this->repository->findOrFail(
+                $issue->id
+            );
+
+            $this->createHistory(
+                $issue,
+                'Status Changed',
+                ($remarks ?? '').
+                " ({$status})"
+            );
+
+            DB::commit();
+
+            return $issue;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+        }
     }
 
-    $issue->assigned_to = $engineer->id;
+    /**
+     * Validate Workflow
+     */
+    protected function validateStatusTransition(
+        string $current,
+        string $next
+    ): void {
 
-    $issue->assigned_at = now();
+        $workflow = [
 
-    $issue->status = 'Assigned';
+            'Open' => [
+                'Assigned',
+                'Closed'
+            ],
 
-    $issue->save();
+            'Assigned' => [
+                'In Progress',
+                'Closed'
+            ],
 
-    $engineer->increment('current_ticket_count');
+            'In Progress' => [
+                'Resolved',
+                'Closed'
+            ],
 
-    $this->addHistory(
-        $issue,
-        'Assigned',
-        'Issue assigned to '.$engineer->name
-    );
+            'Resolved' => [
+                'Closed',
+                'Reopened'
+            ],
 
-    return true;
-}
+            'Reopened' => [
+                'Assigned',
+                'In Progress'
+            ],
 
+        ];
 
-/**
- * Change Issue Status
- */
-public function changeStatus(
-    Issue $issue,
-    string $status,
-    $remarks = null
-)
-{
+        if (!isset($workflow[$current])) {
 
-    $oldStatus = $issue->status;
-
-    $issue->status = $status;
-
-    if ($status == 'Resolved') {
-
-        $issue->resolved_at = now();
-
-    }
-
-    if ($status == 'Closed') {
-
-        $issue->closed_at = now();
-
-    }
-
-    $issue->save();
-
-    $this->addHistory(
-
-        $issue,
-
-        'Status Changed',
-
-        "Status changed from {$oldStatus} to {$status}. {$remarks}"
-
-    );
-
-}
-
-/**
- * SLA
- */
-public function calculateSLA(Issue $issue)
-{
-
-    switch ($issue->priority->priority_name) {
-
-        case 'Critical':
-
-            return Carbon::parse($issue->created_at)
-                ->addHours(2);
-
-        case 'High':
-
-            return Carbon::parse($issue->created_at)
-                ->addHours(4);
-
-        case 'Medium':
-
-            return Carbon::parse($issue->created_at)
-                ->addHours(8);
-
-        default:
-
-            return Carbon::parse($issue->created_at)
-                ->addDay();
-
-    }
-
-}
-
-/**
- * SLA Breached
- */
-public function isSLABreached(Issue $issue)
-{
-    return now()->greaterThan(
-        $this->calculateSLA($issue)
-    );
-}
-
-
-
-/**
- * Activity History
- */
-public function addHistory(
-    Issue $issue,
-    $action,
-    $remarks = null
-)
-{
-
-    IssueHistory::create([
-
-        'issue_id'=>$issue->id,
-
-        'action'=>$action,
-
-        'remarks'=>$remarks,
-
-        'performed_by'=>auth()->id(),
-
-        'performed_at'=>now()
-
-    ]);
-
-}
-
-/**
- * Email Notification
- */
-public function notifyEngineer(Issue $issue)
-{
-
-    if(!$issue->assigned_to){
-
-        return;
-
-    }
-
-    $user=User::find($issue->assigned_to);
-
-    if(!$user){
-
-        return;
-
-    }
-
-    Mail::raw(
-
-        "Issue ".$issue->ticket_no." assigned to you.",
-
-        function($mail) use($user){
-
-            $mail->to($user->email)
-
-                ->subject("New Issue Assigned");
+            return;
 
         }
 
-    );
+        if (!in_array($next, $workflow[$current])) {
 
-}
+            throw new \Exception(
+                "Invalid workflow transition from {$current} to {$next}"
+            );
+
+        }
+    }
+
+    /**
+     * SLA Due Time
+     */
+    public function calculateSLA(
+        Issue $issue
+    ): Carbon {
+
+        $priority = optional(
+            $issue->priority
+        )->priority_name;
+
+        return match ($priority) {
+
+            'Critical' =>
+                $issue->created_at->copy()->addHours(2),
+
+            'High' =>
+                $issue->created_at->copy()->addHours(4),
+
+            'Medium' =>
+                $issue->created_at->copy()->addHours(8),
+
+            'Low' =>
+                $issue->created_at->copy()->addDay(),
+
+            default =>
+                $issue->created_at->copy()->addDay(),
+
+        };
+    }
+
+    /**
+     * SLA Breach
+     */
+    public function isSlaBreached(
+        Issue $issue
+    ): bool {
+
+        return now()->greaterThan(
+            $this->calculateSLA($issue)
+        );
+
+    }
+
+    /**
+     * Escalate
+     */
+    public function escalate(
+        Issue $issue
+    ): void {
+
+        if (!$this->isSlaBreached($issue)) {
+
+            return;
+
+        }
+
+        $this->createHistory(
+
+            $issue,
+
+            'Escalated',
+
+            'SLA breached.'
+
+        );
+
+    }
+
+    /**
+     * Create History
+     */
+    protected function createHistory(
+        Issue $issue,
+        string $action,
+        ?string $remarks = null
+    ): void {
+
+        \App\Models\IssueHistory::create([
+
+            'issue_id' => $issue->id,
+
+            'action' => $action,
+
+            'remarks' => $remarks,
+
+            'performed_by' => Auth::id(),
+
+            'performed_at' => now()
+
+        ]);
+
+    }
+
+    /**
+     * Timeline
+     */
+    public function timeline(
+        int $issueId
+    )
+    {
+        return \App\Models\IssueHistory::query()
+            ->where('issue_id', $issueId)
+            ->with('user')
+            ->latest('performed_at')
+            ->get();
+    }
+
+    /**
+     * Add Comment
+     */
+    public function addComment(
+        Issue $issue,
+        string $comment
+    ): void {
+
+        \App\Models\IssueComment::create([
+
+            'issue_id' => $issue->id,
+
+            'comment' => $comment,
+
+            'created_by' => Auth::id()
+
+        ]);
+
+        $this->createHistory(
+
+            $issue,
+
+            'Comment Added',
+
+            $comment
+
+        );
+    }
+
+    /**
+     * Send Notification
+     */
+    protected function sendAssignmentNotification(
+        Issue $issue
+    ): void {
+
+        if (!$issue->assigned_to) {
+
+            return;
+
+        }
+
+        $user = \App\Models\User::find(
+            $issue->assigned_to
+        );
+
+        if (!$user) {
+
+            return;
+
+        }
+
+        // Replace with Notification class
+        // Notification::send($user,new IssueAssignedNotification($issue));
+
+    }
 
 
-/**
- * Timeline
- */
-public function timeline(Issue $issue)
-{
+        /**
+     * Dashboard Statistics
+     */
+    public function dashboard(): array
+    {
+        return $this->repository->dashboard();
+    }
 
-    return IssueHistory::
+    /**
+     * Search Issues
+     */
+    public function search(string $keyword)
+    {
+        return $this->repository->search(
+            trim($keyword)
+        );
+    }
 
-        where('issue_id',$issue->id)
+    /**
+     * Advanced Filter
+     */
+    public function filter(array $filters)
+    {
+        return $this->repository->filter($filters);
+    }
 
-        ->with('user')
+    /**
+     * Recent Issues
+     */
+    public function recent(int $limit = 10)
+    {
+        return $this->repository->recent($limit);
+    }
 
-        ->latest()
+    /**
+     * My Created Issues
+     */
+    public function myIssues()
+    {
+        return $this->repository
+            ->createdBy(Auth::id());
+    }
 
-        ->get();
+    /**
+     * Assigned To Me
+     */
+    public function assignedToMe()
+    {
+        return $this->repository
+            ->assignedTo(Auth::id());
+    }
 
-}
+    /**
+     * Open Issues
+     */
+    public function openIssues()
+    {
+        return $this->repository
+            ->open();
+    }
 
+    /**
+     * Closed Issues
+     */
+    public function closedIssues()
+    {
+        return $this->repository
+            ->closed();
+    }
 
+    /**
+     * SLA Breached Issues
+     */
+    public function slaBreached()
+    {
+        return $this->repository
+            ->slaBreached();
+    }
 
-/**
- * Close
- */
-public function close(Issue $issue)
-{
+    /**
+     * Issue Summary
+     */
+    public function summary(): array
+    {
+        return [
 
-    $issue->status='Closed';
+            'total' =>
+                $this->repository
+                    ->all()
+                    ->count(),
 
-    $issue->closed_at=now();
+            'open' =>
+                $this->repository
+                    ->countByStatus('Open'),
 
-    $issue->save();
+            'assigned' =>
+                $this->repository
+                    ->countByStatus('Assigned'),
 
-    $this->addHistory(
+            'progress' =>
+                $this->repository
+                    ->countByStatus('In Progress'),
 
-        $issue,
+            'resolved' =>
+                $this->repository
+                    ->countByStatus('Resolved'),
 
-        'Closed',
+            'closed' =>
+                $this->repository
+                    ->countByStatus('Closed'),
 
-        'Ticket Closed'
+        ];
+    }
 
-    );
+    /**
+     * Priority Summary
+     */
+    public function prioritySummary(): array
+    {
+        return [
 
-}
+            'critical' =>
+                $this->repository
+                    ->countByPriority(1),
 
+            'high' =>
+                $this->repository
+                    ->countByPriority(2),
 
+            'medium' =>
+                $this->repository
+                    ->countByPriority(3),
 
-/**
- * Reopen
- */
-public function reopen(Issue $issue)
-{
+            'low' =>
+                $this->repository
+                    ->countByPriority(4),
 
-    $issue->status='Reopened';
+        ];
+    }
 
-    $issue->save();
+    /**
+     * Project Summary
+     */
+    public function projectSummary(array $filters = [])
+    {
+        $issues = $this->repository
+            ->filter($filters);
 
-    $this->addHistory(
+        return $issues
+            ->groupBy('project_id')
+            ->map(function ($items) {
 
-        $issue,
+                return [
 
-        'Reopened',
+                    'count' => $items->count(),
 
-        'Ticket Reopened'
+                    'project' => optional(
+                        $items->first()->project
+                    )->project_name
 
-    );
+                ];
 
-}
+            })
+            ->values();
+    }
 
+    /**
+     * State Summary
+     */
+    public function stateSummary(array $filters = [])
+    {
+        $issues = $this->repository
+            ->filter($filters);
 
-/**
- * Dashboard
- */
-public function dashboard()
-{
+        return $issues
+            ->groupBy('state_id')
+            ->map(function ($items) {
 
-    return [
+                return [
 
-        'total'=>Issue::count(),
+                    'count' => $items->count(),
 
-        'open'=>Issue::where('status','Open')->count(),
+                    'state' => optional(
+                        $items->first()->state
+                    )->state_name
 
-        'assigned'=>Issue::where('status','Assigned')->count(),
+                ];
 
-        'progress'=>Issue::where('status','In Progress')->count(),
+            })
+            ->values();
+    }
 
-        'resolved'=>Issue::where('status','Resolved')->count(),
+    /**
+     * Monthly Report
+     */
+    public function monthlyReport(
+        int $year = null
+    )
+    {
+        $year ??= now()->year;
 
-        'closed'=>Issue::where('status','Closed')->count(),
+        return Issue::query()
 
-        'critical'=>Issue::
+            ->selectRaw(
+                'MONTH(created_at) month,
+                 COUNT(*) total'
+            )
 
-            whereHas('priority',function($q){
+            ->whereYear(
+                'created_at',
+                $year
+            )
 
-                $q->where('priority_name','Critical');
+            ->groupByRaw(
+                'MONTH(created_at)'
+            )
 
-            })->count(),
+            ->orderByRaw(
+                'MONTH(created_at)'
+            )
 
-    ];
+            ->get();
+    }
 
-}
+    /**
+     * Recent Activity
+     */
+    public function recentActivity(
+        int $limit = 20
+    )
+    {
+        return \App\Models\IssueHistory::query()
+
+            ->with([
+                'issue',
+                'user'
+            ])
+
+            ->latest()
+
+            ->take($limit)
+
+            ->get();
+    }
+
+        /**
+     * Resolve Issue
+     */
+    public function resolve(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
+
+        return $this->changeStatus(
+            $issue,
+            'Resolved',
+            $remarks
+        );
+
+    }
+
+    /**
+     * Close Issue
+     */
+    public function close(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
+
+        return $this->changeStatus(
+            $issue,
+            'Closed',
+            $remarks
+        );
+
+    }
+
+    /**
+     * Reopen Issue
+     */
+    public function reopen(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
+
+        return $this->changeStatus(
+            $issue,
+            'Reopened',
+            $remarks
+        );
+
+    }
+
+    /**
+     * Assign Issue
+     */
+    public function assign(
+        Issue $issue,
+        int $userId
+    ): Issue {
+
+        DB::beginTransaction();
+
+        try {
+
+            $this->repository->assign(
+                $issue,
+                $userId
+            );
+
+            $issue = $this->repository
+                ->findOrFail($issue->id);
+
+            $this->createHistory(
+
+                $issue,
+
+                'Assigned',
+
+                'Assigned to User ID : '.$userId
+
+            );
+
+            DB::commit();
+
+            return $issue;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Bulk Status Update
+     */
+    public function bulkStatusUpdate(
+        array $ids,
+        string $status
+    ): bool {
+
+        DB::beginTransaction();
+
+        try {
+
+            $this->repository
+                ->bulkStatusUpdate(
+                    $ids,
+                    $status
+                );
+
+            foreach ($ids as $id) {
+
+                $issue = $this->repository
+                    ->find($id);
+
+                if ($issue) {
+
+                    $this->createHistory(
+
+                        $issue,
+
+                        'Bulk Status',
+
+                        $status
+
+                    );
+
+                }
+
+            }
+
+            DB::commit();
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Bulk Delete
+     */
+    public function bulkDelete(
+        array $ids
+    ): bool {
+
+        DB::beginTransaction();
+
+        try {
+
+            foreach ($ids as $id) {
+
+                $issue = $this->repository
+                    ->find($id);
+
+                if (!$issue) {
+
+                    continue;
+
+                }
+
+                $this->removeAttachment(
+                    $issue
+                );
+
+            }
+
+            $this->repository
+                ->bulkDelete($ids);
+
+            DB::commit();
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Export Collection
+     */
+    public function export(
+        array $filters = []
+    )
+    {
+
+        return $this->repository
+            ->filter($filters);
+
+    }
+
+    /**
+     * Get Dashboard Widget Data
+     */
+    public function dashboardWidgets(): array
+    {
+
+        return [
+
+            'summary' => $this->summary(),
+
+            'priority' => $this->prioritySummary(),
+
+            'projects' => $this->projectSummary(),
+
+            'states' => $this->stateSummary(),
+
+            'monthly' => $this->monthlyReport(),
+
+            'recent' => $this->recent(),
+
+            'activity' => $this->recentActivity(),
+
+        ];
+
+    }
+
+    /**
+     * Check Whether Issue Can Be Closed
+     */
+    public function canClose(
+        Issue $issue
+    ): bool {
+
+        return in_array(
+
+            $issue->status,
+
+            [
+
+                'Resolved',
+
+                'In Progress',
+
+                'Assigned'
+
+            ]
+
+        );
+
+    }
+
+    /**
+     * Check Whether Issue Can Be Reopened
+     */
+    public function canReopen(
+        Issue $issue
+    ): bool {
+
+        return $issue->status === 'Closed';
+
+    }
+
+    /**
+     * Ticket Exists
+     */
+    public function ticketExists(
+        string $ticketNo
+    ): bool {
+
+        return $this->repository
+                ->findByTicket($ticketNo)
+            !== null;
+
+    }
+
+    /**
+     * Get Ticket By Number
+     */
+    public function getByTicket(
+        string $ticketNo
+    ): ?Issue {
+
+        return $this->repository
+            ->findByTicket($ticketNo);
+
+    }
+
+    /**
+     * Refresh Issue
+     */
+    public function refresh(
+        Issue $issue
+    ): Issue {
+
+        return $this->repository
+            ->findOrFail($issue->id);
+
+    }
+
+    /**
+     * Health Check
+     */
+    public function health(): array
+    {
+
+        return [
+
+            'status' => 'OK',
+
+            'time' => now(),
+
+            'service' => class_basename($this),
+
+            'repository' => class_basename($this->repository),
+
+        ];
+
+    }
+
 }

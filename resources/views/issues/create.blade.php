@@ -104,6 +104,8 @@
                                     <span class="text-red-500">*</span>
                                 </label>
 
+
+
                                 <select id="state_id" name="state_id"
                                     class="w-full rounded-lg border-gray-300 focus:border-blue-600 focus:ring-blue-600">
 
@@ -112,7 +114,8 @@
 
                                     @foreach($states as $state)
 
-                                    <option value="{{ $state->id }}" {{ old('state_id')==$state->id ? 'selected':'' }}>
+                                    <option value="{{ $state->state_id }}"
+                                        {{ old('state_id')==$state->state_id ? 'selected':'' }}>
 
                                         {{ $state->state_name }}
 
@@ -583,7 +586,9 @@
                 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
                 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
+
                 <script src="{{ asset('js/issue.js') }}"></script>
+
                 <script>
                 document.getElementById('attachment').addEventListener('change', function() {
 
@@ -624,6 +629,8 @@
                 });
                 </script>
 
+
+
                 @endpush
 
             </form>
@@ -631,5 +638,6 @@
         </div>
 
     </div>
+
 
 </x-app-layout>
