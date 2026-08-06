@@ -15,7 +15,14 @@ use App\Models\CalendarHoliday;
 class WorkingCalendarService
 {
 
-protected WorkingCalendar $calendar;
+    protected WorkingCalendar $calendar;
+
+    protected array $holidayCache=[];
+
+    protected array $scheduleCache=[];
+
+    protected array $shiftCache=[];
+    
 
     protected $schedules;
 
@@ -25,10 +32,45 @@ protected WorkingCalendar $calendar;
 
         $this->calendar = $calendar;
 
+        $this->loadCache();
+
         $this->loadSchedules(); #Load Schedule
 
         $this->loadHolidays(); #Load Holidays
 
+    }
+
+
+    protected function loadCache(): void
+    {
+        /*
+        One database hit only.
+        */
+
+        $schedules=WorkingSchedule::where(
+            'calendar_id',
+            $this->calendar->calendar_id
+        )
+        ->orderBy('shift_no')
+        ->get();
+
+        foreach($schedules as $row){
+
+            $day=strtolower($row->day_of_week);
+
+            $this->scheduleCache[$day][]=$row;
+
+            $this->shiftCache[$row->shift_no][]=$row;
+
+        }
+        $this->holidayCache=
+            CalendarHoliday::where(
+                'calendar_id',
+                $this->calendar->calendar_id
+            )
+            ->pluck('holiday_date')
+            ->map(fn($d)=>Carbon::parse($d)->toDateString())
+            ->toArray();
     }
 
 
@@ -59,6 +101,14 @@ protected WorkingCalendar $calendar;
 
         }
 
+        public function isWeekend(Carbon $date): bool
+        {
+            $day=strtolower($date->format('l'));
+
+            return empty($this->scheduleCache[$day]);
+        }
+
+
         public function isHoliday(Carbon $date): bool
         {
 
@@ -69,9 +119,213 @@ protected WorkingCalendar $calendar;
         public function isWorkingDay(Carbon $date): bool
         {
 
-            return !$this->isHoliday($date) && $this->getSchedule($date);
+            return !$this->isWeekend($date) && !$this->isHoliday($date);
+            #return !$this->isHoliday($date) && $this->getSchedule($date);
 
         }
+
+        public function getShift(
+    Carbon $date
+)
+{
+    $day=strtolower($date->format('l'));
+
+    if(
+        empty($this->scheduleCache[$day])
+    ){
+
+        return null;
+
+    }
+
+    foreach($this->scheduleCache[$day] as $shift){
+
+        $start=Carbon::parse(
+            $date->toDateString().' '.$shift->start_time
+        );
+
+        $end=Carbon::parse(
+            $date->toDateString().' '.$shift->end_time
+        );
+
+        if($shift->end_time < $shift->start_time){
+            $end->addDay();
+        }
+
+        if($date->betweenIncluded($start,$end)){
+            return $shift;
+        }
+
+    }
+
+    return $this->scheduleCache[$day][0];
+}
+
+
+public function getLunchBreak(
+    Carbon $date
+): ?array
+{
+    $shift=$this->getShift($date);
+
+    if(
+        !$shift ||
+        !$shift->break_start ||
+        !$shift->break_end
+    ){
+        return null;
+    }
+
+    return [
+
+        'start'=>Carbon::parse(
+            $date->toDateString().' '.$shift->break_start
+        ),
+
+        'end'=>Carbon::parse(
+            $date->toDateString().' '.$shift->break_end
+        )
+
+    ];
+}
+
+
+public function isOfficeOpen(
+    Carbon $date
+): bool
+{
+    if(!$this->isWorkingDay($date)){
+
+        return false;
+
+    }
+
+    $shift=$this->getShift($date);
+
+    if(!$shift){
+
+        return false;
+
+    }
+
+    $start=Carbon::parse(
+        $date->toDateString().' '.$shift->start_time
+    );
+
+    $end=Carbon::parse(
+        $date->toDateString().' '.$shift->end_time
+    );
+
+    if($shift->end_time < $shift->start_time){
+
+        $end->addDay();
+
+    }
+
+    if(!$date->betweenIncluded($start,$end)){
+
+        return false;
+
+    }
+
+    $break=$this->getLunchBreak($date);
+
+    if($break){
+
+        if($date->betweenIncluded(
+            $break['start'],
+            $break['end']
+        )){
+
+            return false;
+
+        }
+
+    }
+
+    return true;
+}
+
+
+public function remainingOfficeMinutes(
+    Carbon $date
+): int
+{
+    if(!$this->isOfficeOpen($date)){
+
+        return 0;
+
+    }
+
+    $shift=$this->getShift($date);
+
+    $end=Carbon::parse(
+        $date->toDateString().' '.$shift->end_time
+    );
+
+    if($shift->end_time < $shift->start_time){
+        $end->addDay();
+    }
+
+    $minutes=$date->diffInMinutes($end);
+
+    $break=$this->getLunchBreak($date);
+
+    if(
+        $break &&
+        $date->lt($break['start'])
+    ){
+
+        $minutes-=$break['start']
+            ->diffInMinutes($break['end']);
+
+    }
+
+    return max($minutes,0);
+}
+
+
+public function workingMinutesBetween(
+    Carbon $start,
+    Carbon $end
+): int
+{
+    if($start->gte($end)){
+        return 0;
+    }
+
+    $minutes=0;
+
+    $current=$start->copy();
+
+    while($current->lt($end)){
+
+        if($this->isOfficeOpen($current)){
+
+            $minutes++;
+
+        }
+
+        $current->addMinute();
+
+    }
+
+    return $minutes;
+}
+################### Whenever an admin updates:Working Calendar, Working Schedule,Holiday Call below Method
+
+public function refreshCache(): void
+{
+    $this->holidayCache=[];
+
+    $this->scheduleCache=[];
+
+    $this->shiftCache=[];
+
+    $this->loadCache();
+}
+
+
 
         public function officeStart(Carbon $date): Carbon{
 
@@ -165,6 +419,9 @@ protected WorkingCalendar $calendar;
                         }
 
                 }
+
+
+                
 
 
     ############ SLA Logic ENDS ########################
