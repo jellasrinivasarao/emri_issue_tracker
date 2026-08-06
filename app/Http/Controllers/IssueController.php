@@ -10,7 +10,6 @@ use Throwable;
 use App\Models\Issue;
 use App\Models\SupportTeam;
 use App\Models\IssueRoutingConfiguration;
-
 use App\Models\State;
 use App\Models\Service;
 use App\Models\Project;
@@ -21,90 +20,90 @@ use App\Models\IssueCategory;
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class IssueController extends Controller
 {
-    public function __construct(
-        protected IssueService $issueService,
-        protected IssueRoutingService $routingService
-    ) {
+    public function __construct(protected IssueService $issueService,protected IssueRoutingService $routingService) {
     }
 
 
 
-    public function modal()
-    {
+    // public function modal()
+    // {
 
-        $states = State::where('is_active',1)
-            ->orderBy('state_name')
-            ->get();
-
-
-        $services = Service::where('is_active',1)
-            ->orderBy('service_name')
-            ->get();
+    //     $states = State::where('is_active',1)
+    //         ->orderBy('state_name')
+    //         ->get();
 
 
-        $projects = Project::where('is_active',1)
-            ->orderBy('project_name')
-            ->get();
+    //     $services = Service::where('is_active',1)
+    //         ->orderBy('service_name')
+    //         ->get();
 
 
-        $applications = Application::where('is_active',1)
-            ->orderBy('application_name')
-            ->get();
+    //     $projects = Project::where('is_active',1)
+    //         ->orderBy('project_name')
+    //         ->get();
 
 
-        // $modules = Module::where('is_active',1)
-        //     ->orderBy('module_name')
-        //     ->get();
-
-        $issueCategories = IssueCategory::where('is_active',1)
-            ->orderBy('category_name')
-            ->get();
-
-        $priorities = Priority::where('is_active',1)
-            ->orderBy('priority_name')
-            ->get();
+    //     $applications = Application::where('is_active',1)
+    //         ->orderBy('application_name')
+    //         ->get();
 
 
-        // $issueCategories = [
-        //     'Application Issue',
-        //     'Infrastructure Issue',
-        //     'Network Issue',
-        //     'Access Issue',
-        //     'Data Issue',
-        //     'Hardware Issue',
-        //     'Other',
-        // ];
+    //     // $modules = Module::where('is_active',1)
+    //     //     ->orderBy('module_name')
+    //     //     ->get();
+
+    //     $issueCategories = IssueCategory::where('is_active',1)
+    //         ->orderBy('category_name')
+    //         ->get();
+
+    //     $priorities = Priority::where('is_active',1)
+    //         ->orderBy('priority_name')
+    //         ->get();
 
 
-        // $priorities = [
-        //     'LOW',
-        //     'MEDIUM',
-        //     'HIGH',
-        //     'CRITICAL',
-        // ];
+    //     // $issueCategories = [
+    //     //     'Application Issue',
+    //     //     'Infrastructure Issue',
+    //     //     'Network Issue',
+    //     //     'Access Issue',
+    //     //     'Data Issue',
+    //     //     'Hardware Issue',
+    //     //     'Other',
+    //     // ];
+
+
+    //     // $priorities = [
+    //     //     'LOW',
+    //     //     'MEDIUM',
+    //     //     'HIGH',
+    //     //     'CRITICAL',
+    //     // ];
 
         
-        return view('issues.partials.raise-issue-form', [
-        'states'   => $states,
-        'services' => $services,
-        'projects'   => $projects,
-        'applications' => $applications,
-        'issueCategories'   => $issueCategories,
-        'priorities' => $priorities,
+    //     return view('issues.partials.raise-issue-form', [
+    //     'states'   => $states,
+    //     'services' => $services,
+    //     'projects'   => $projects,
+    //     'applications' => $applications,
+    //     'issueCategories'   => $issueCategories,
+    //     'priorities' => $priorities,
         
-    ]);
+    //     ]);
         
 
-    }
+    // }
 
 
     /**
      * Issue listing.
      */
-    public function index(Request $request)
+    public function index1(Request $request)
     {
         $query = Issue::query()
             ->with([
@@ -168,10 +167,25 @@ class IssueController extends Controller
             ->withQueryString();
 
 
-        return view(
-            'issues.index',
-            compact('issues')
+        return view('issues.index',compact('issues')
         );
+    }
+
+
+    public function index(Request $request)
+    {
+        $issues = Issue::with([
+                'state',
+                'service',
+                'project',
+                'application',
+                'module',
+                'category',
+                'priority'
+            ])
+            ->latest()
+            ->paginate(15);
+        return view('issues.index',compact('issues'));
     }
 
 
@@ -232,14 +246,9 @@ class IssueController extends Controller
         //     'HIGH',
         //     'CRITICAL',
         // ];
-        
-        return view(
-            'issues.create',
-            compact(
-                'states',
-                'services',
-                'projects',
-                'applications',
+
+
+        return view('issues.create',compact('states','services','projects','applications',
                 //'modules',
                 'issueCategories',
                 'priorities'
@@ -376,17 +385,11 @@ class IssueController extends Controller
         try {
 
 
-            $issue = $this->issueService->create(
-                $validated,
-                $request->file('attachment'),
-                Auth::id()
-            );
+            #$issue = $this->issueService->create($validated,$request->file('attachment'),Auth::id());
 
+            $issue = $this->issueService->create($request);
 
-
-            $this->routingService->routeIssue(
-                $issue
-            );
+            #$this->routingService->routeIssue($issue);
 
 
 
@@ -414,7 +417,7 @@ class IssueController extends Controller
                 ->withInput()
                 ->with(
                     'error',
-                    'Unable to raise issue. Please try again.'
+                    'Unable to raise issue. Please try again.'.$e->getMessage(),
                 );
 
         }

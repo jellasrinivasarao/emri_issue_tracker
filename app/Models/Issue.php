@@ -78,6 +78,12 @@ class Issue extends Model
         'assigned_at' => 'datetime',
     ];
 
+
+    public function state()
+    {
+        return $this->belongsTo(State::class);
+    }
+    
     public function project()
     {
         return $this->belongsTo(
@@ -225,5 +231,132 @@ class Issue extends Model
             'issue_id',
             'issue_id'
         );
+    }
+
+
+
+
+    public function creator()
+    {
+        return $this->belongsTo(
+            User::class,
+            'created_by'
+        );
+    }
+
+    public function updater()
+    {
+        return $this->belongsTo(
+            User::class,
+            'updated_by'
+        );
+    }
+
+
+
+     /*
+    |--------------------------------------------------------------------------
+    | Query Scopes
+    |--------------------------------------------------------------------------
+    */
+
+    public function scopeOpen($query)
+    {
+        return $query->where('status', 'Open');
+    }
+
+    public function scopeClosed($query)
+    {
+        return $query->where('status', 'Closed');
+    }
+
+    public function scopeHighPriority($query)
+    {
+        return $query->whereHas('priority', function ($q) {
+            $q->where('priority_name', 'High');
+        });
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Accessors
+    |--------------------------------------------------------------------------
+    */
+
+    public function getAttachmentUrlAttribute()
+    {
+        if (!$this->attachment) {
+            return null;
+        }
+
+        return asset('uploads/issues/' . $this->attachment);
+    }
+
+    public function getOccurredOnAttribute()
+    {
+        if (!$this->occurred_date) {
+            return null;
+        }
+
+        return $this->occurred_date->format('d-m-Y') .
+            ' ' .
+            $this->occurred_time;
+    }
+
+    public function getStatusBadgeAttribute()
+    {
+        return match ($this->status) {
+
+            'Open' => 'success',
+
+            'Pending' => 'warning',
+
+            'In Progress' => 'primary',
+
+            'Resolved' => 'info',
+
+            'Closed' => 'secondary',
+
+            default => 'dark',
+        };
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helper Methods
+    |--------------------------------------------------------------------------
+    */
+    
+     public function isOpen()
+    {
+        return $this->status === 'Open';
+    }
+
+    public function isClosed()
+    {
+        return $this->status === 'Closed';
+    }
+
+    public function hasAttachment()
+    {
+        return !empty($this->attachment);
+    }
+
+    public function priorityColor()
+    {
+        return match (strtolower(optional($this->priority)->priority_name)) {
+
+            'critical' => '#dc2626',
+
+            'high' => '#ea580c',
+
+            'medium' => '#ca8a04',
+
+            'low' => '#16a34a',
+
+            default => '#6b7280',
+
+        };
     }
 }

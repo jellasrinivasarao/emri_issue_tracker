@@ -419,6 +419,8 @@ use App\Http\Controllers\ProjectSupportConfigurationController;
 use App\Http\Controllers\IssueRoutingRuleController;
 use App\Http\Controllers\IssueRoutingController;
 
+use App\Http\Controllers\Ajax\AjaxController;
+
 Route::middleware(['auth'])->group(function () {
 
     /*
@@ -505,17 +507,11 @@ Route::middleware(['auth'])->group(function () {
     // Route::post('/issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle');
 
 
-    Route::get('/raise-issue/modal',[IssueController::class, 'modal'])->name('raise.issue.modal');
+    #Route::get('/raise-issue/modal',[IssueController::class, 'modal'])->name('raise.issue.modal');
  
-    Route::get(
-        '/issues',
-        [IssueController::class, 'index']
-    )->name('issues.index');
-
-    Route::get(
-        '/issues/create',
-        [IssueController::class, 'create']
-    )->name('issues.create');
+    Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
+    
+    Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
 
     Route::post(
         '/issues',
@@ -546,6 +542,28 @@ Route::middleware(['auth'])->group(function () {
         [IssueController::class, 'close']
     )->name('issues.close');
     
+
 });
+
+
+Route::prefix('ajax')->group(function () {
+
+    Route::get('/services/{stateId}',[AjaxController::class,'services'])->name('ajax.services');
+
+    Route::get('/projects/{serviceId}',[AjaxController::class,'projects'])->name('ajax.projects');
+
+    Route::get('/applications/{projectId}',[AjaxController::class,'applications'])->name('ajax.applications');
+
+    Route::get('/modules/{applicationId}',[AjaxController::class,'modules'])->name('ajax.modules');
+
+    Route::get('/search-projects',[AjaxController::class,'searchProjects']);
+
+    Route::get('/search-applications',[AjaxController::class,'searchApplications']);
+
+    Route::get('/search-modules',[AjaxController::class,'searchModules']);
+
+});
+
+
 require __DIR__.'/auth.php';
 require __DIR__.'/masters.php';

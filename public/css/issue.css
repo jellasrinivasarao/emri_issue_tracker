@@ -1,0 +1,442 @@
+/*==========================================================
+    ENTERPRISE ISSUE MANAGEMENT UI
+==========================================================*/
+
+:root {
+
+    --primary:#2563eb;
+    --primary-light:#eff6ff;
+    --success:#16a34a;
+    --danger:#dc2626;
+    --warning:#d97706;
+
+    --border:#e5e7eb;
+    --text:#111827;
+    --text-light:#6b7280;
+    --background:#f3f4f6;
+
+    --radius:14px;
+
+}
+
+/*==========================================================
+BODY
+==========================================================*/
+
+body{
+
+    background:var(--background);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+
+}
+
+/*==========================================================
+CARD
+==========================================================*/
+
+.issue-card{
+
+    background:#fff;
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    overflow:hidden;
+
+    margin-bottom:30px;
+
+    box-shadow:
+    0 4px 20px rgba(0,0,0,.04);
+
+}
+
+/*==========================================================
+HEADER
+==========================================================*/
+
+.issue-card-header{
+
+    background:var(--primary-light);
+
+    padding:18px 28px;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.issue-card-title{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:15px;
+
+}
+
+.issue-step{
+
+    width:38px;
+
+    height:38px;
+
+    border-radius:50%;
+
+    background:var(--primary);
+
+    color:#fff;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-weight:700;
+
+}
+
+.issue-title{
+
+    font-size:18px;
+
+    font-weight:700;
+
+    color:var(--primary);
+
+    letter-spacing:.4px;
+
+}
+
+/*==========================================================
+BODY
+==========================================================*/
+
+.issue-card-body{
+
+    padding:35px;
+
+}
+
+/*==========================================================
+FORM LABEL
+==========================================================*/
+
+.form-label{
+
+    font-size:14px;
+
+    font-weight:600;
+
+    color:#374151;
+
+    margin-bottom:8px;
+
+}
+
+.required{
+
+    color:#ef4444;
+
+}
+
+/*==========================================================
+INPUT
+==========================================================*/
+
+.form-control,
+.form-select{
+
+    height:48px;
+
+    border-radius:10px;
+
+    border:1px solid #d1d5db;
+
+    transition:.25s;
+
+    font-size:14px;
+
+}
+
+.form-control:focus,
+.form-select:focus{
+
+    border-color:var(--primary);
+
+    box-shadow:0 0 0 4px rgba(37,99,235,.15);
+
+}
+
+textarea.form-control{
+
+    min-height:150px;
+
+    resize:vertical;
+
+}
+
+/*==========================================================
+SECTION SPACE
+==========================================================*/
+
+.form-group{
+
+    margin-bottom:22px;
+
+}
+
+/*==========================================================
+UPLOAD
+==========================================================*/
+
+.upload-box{
+
+    border:2px dashed #cbd5e1;
+
+    border-radius:14px;
+
+    background:#fafafa;
+
+    text-align:center;
+
+    padding:40px;
+
+    transition:.3s;
+
+}
+
+.upload-box:hover{
+
+    border-color:var(--primary);
+
+    background:#f8fbff;
+
+}
+
+.upload-icon{
+
+    font-size:50px;
+
+    color:var(--primary);
+
+    margin-bottom:15px;
+
+}
+
+.upload-title{
+
+    font-size:17px;
+
+    font-weight:600;
+
+}
+
+.upload-subtitle{
+
+    color:#6b7280;
+
+    margin-top:8px;
+
+}
+
+.upload-btn{
+
+    margin-top:20px;
+
+}
+
+/*==========================================================
+BUTTONS
+==========================================================*/
+
+.btn-save{
+
+    background:var(--primary);
+
+    color:#fff;
+
+    padding:12px 35px;
+
+    border:none;
+
+    border-radius:10px;
+
+    font-weight:600;
+
+    transition:.3s;
+
+}
+
+.btn-save:hover{
+
+    background:#1d4ed8;
+
+}
+
+.btn-cancel{
+
+    background:#fff;
+
+    border:1px solid #d1d5db;
+
+    padding:12px 35px;
+
+    border-radius:10px;
+
+    font-weight:600;
+
+}
+
+.btn-cancel:hover{
+
+    background:#f3f4f6;
+
+}
+
+/*==========================================================
+FOOTER
+==========================================================*/
+
+.issue-footer{
+
+    border-top:1px solid var(--border);
+
+    background:#fafafa;
+
+    padding:20px 35px;
+
+}
+
+/*==========================================================
+HELP TEXT
+==========================================================*/
+
+.form-help{
+
+    font-size:12px;
+
+    color:#9ca3af;
+
+}
+
+.error{
+
+    color:#dc2626;
+
+    font-size:12px;
+
+}
+
+/*==========================================================
+BADGES
+==========================================================*/
+
+.badge-required{
+
+    background:#fee2e2;
+
+    color:#991b1b;
+
+    padding:2px 8px;
+
+    border-radius:5px;
+
+    font-size:11px;
+
+}
+
+/*==========================================================
+SELECT2
+==========================================================*/
+
+.select2-container{
+
+    width:100%!important;
+
+}
+
+.select2-selection{
+
+    height:48px!important;
+
+    border-radius:10px!important;
+
+    border:1px solid #d1d5db!important;
+
+}
+
+.select2-selection__rendered{
+
+    line-height:46px!important;
+
+}
+
+.select2-selection__arrow{
+
+    height:46px!important;
+
+}
+
+/*==========================================================
+TABLET
+==========================================================*/
+
+@media(max-width:991px){
+
+.issue-card-body{
+
+padding:20px;
+
+}
+
+.issue-footer{
+
+padding:20px;
+
+}
+
+}
+
+/*==========================================================
+MOBILE
+==========================================================*/
+
+@media(max-width:576px){
+
+.issue-title{
+
+font-size:15px;
+
+}
+
+.issue-step{
+
+width:32px;
+height:32px;
+
+}
+
+.issue-card-body{
+
+padding:15px;
+
+}
+
+.btn-save,
+.btn-cancel{
+
+width:100%;
+margin-bottom:10px;
+
+}
+
+.issue-footer{
+
+display:block!important;
+
+}
+
+}
