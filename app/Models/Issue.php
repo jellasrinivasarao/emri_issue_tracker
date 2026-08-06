@@ -156,6 +156,15 @@ class Issue extends Model
         );
     }
 
+    public function module()
+    {
+        return $this->belongsTo(
+            Module::class,
+            'module_id',
+            'module_id'
+        );
+    }
+
     public function attachments()
     {
         return $this->hasMany(
