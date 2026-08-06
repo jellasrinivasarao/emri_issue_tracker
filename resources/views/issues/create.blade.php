@@ -153,6 +153,14 @@
 
                                     </option>
 
+
+                                    @foreach($services as $service)
+                                    <option value="{{ $service->service_id }}"
+                                        {{ old('service_id') == $service->service_id ? 'selected' : '' }}>
+                                        {{ $service->service_name }}
+                                    </option>
+                                    @endforeach
+
                                 </select>
 
                             </div>
@@ -171,11 +179,12 @@
 
                                 <select id="project_id" name="project_id" class="w-full rounded-lg border-gray-300">
 
-                                    <option value="">
-
-                                        Select Project
-
+                                    @foreach($projects as $project)
+                                    <option value="{{ $project->project_id }}"
+                                        {{ old('project_id') == $project->project_id ? 'selected' : '' }}>
+                                        {{ $project->project_name }}
                                     </option>
+                                    @endforeach
 
                                 </select>
 
@@ -196,11 +205,12 @@
                                 <select id="application_id" name="application_id"
                                     class="w-full rounded-lg border-gray-300">
 
-                                    <option value="">
-
-                                        Select Application
-
+                                    @foreach($applications as $application)
+                                    <option value="{{ $application->application_id }}"
+                                        {{ old('application_id') == $application->application_id ? 'selected' : '' }}>
+                                        {{ $application->application_name }}
                                     </option>
+                                    @endforeach
 
                                 </select>
 
@@ -218,11 +228,12 @@
 
                                 <select id="module_id" name="module_id" class="w-full rounded-lg border-gray-300">
 
-                                    <option value="">
-
-                                        Select Module
-
+                                    @foreach($modules as $module)
+                                    <option value="{{ $module->module_id }}"
+                                        {{ old('module_id') == $module->module_id ? 'selected' : '' }}>
+                                        {{ $module->module_name }}
                                     </option>
+                                    @endforeach
 
                                 </select>
 
@@ -279,8 +290,8 @@
 
                                     @foreach($issueCategories as $category)
 
-                                    <option value="{{ $category->id }}"
-                                        {{ old('issue_category_id')==$category->id ? 'selected':'' }}>
+                                    <option value="{{ $category->issue_category_id }}"
+                                        {{ old('issue_category_id')==$category->issue_category_id ? 'selected':'' }}>
 
                                         {{ $category->category_name }}
 
@@ -316,8 +327,8 @@
 
                                     @foreach($priorities as $priority)
 
-                                    <option value="{{ $priority->id }}"
-                                        {{ old('priority_id')==$priority->id ? 'selected':'' }}>
+                                    <option value="{{ $priority->priority_id }}"
+                                        {{ old('priority_id')==$priority->priority_id ? 'selected':'' }}>
 
                                         {{ $priority->priority_name }}
 
@@ -587,24 +598,18 @@
 
                 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
 
-                <script src="{{ asset('js/issue.js') }}"></script>
+                <!-- <script src="{{ asset('js/issue.js') }}"></script> -->
 
                 <script>
                 document.getElementById('attachment').addEventListener('change', function() {
-
                     let file = this.files[0];
-
                     if (file) {
-
                         document.getElementById('selectedFile').innerHTML =
                             "Selected : " + file.name;
-
                     }
-
                 });
 
                 document.addEventListener('DOMContentLoaded', function() {
-
                     let subject = document.getElementById('subject');
                     let description = document.getElementById('description');
 
@@ -626,6 +631,118 @@
                         updateCounter(description, descriptionCount);
                     });
 
+                    document.getElementById('issueForm').addEventListener('submit', function(e) {
+                        e.preventDefault();
+
+                        const form = e.target;
+                        const submitBtn = document.getElementById('submitBtn');
+                        const originalText = submitBtn.innerHTML;
+
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = 'Submitting...';
+
+                        const formData = new FormData(form);
+
+
+                        console.log("===== FormData =====");
+
+                        for (let [key, value] of formData.entries()) {
+                            if (value instanceof File) {
+                                console.log(key, value.name, value.size);
+                            } else {
+                                console.log(key, value);
+                            }
+                        }
+
+                        fetch(form.action, {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': document.querySelector(
+                                        'meta[name="csrf-token"]').getAttribute('content')
+                                }
+                            })
+                            .then(response => response.json().then(data => ({
+                                status: response.status,
+                                data
+                            })))
+                            .then(({
+                                status,
+                                data
+                            }) => {
+
+                                document.querySelectorAll('.validation-error').forEach(e => e
+                                    .remove());
+
+                                if (status === 422) {
+
+                                    Object.keys(data.errors).forEach(function(field) {
+
+                                        const input = document.querySelector(
+                                            `[name="${field}"]`);
+
+                                        if (input) {
+
+                                            const error = document.createElement('div');
+
+                                            error.className =
+                                                'validation-error text-red-500 text-sm mt-1';
+
+                                            error.innerHTML = data.errors[field][0];
+
+                                            input.parentNode.appendChild(error);
+
+                                        }
+
+                                    });
+
+                                    return;
+                                }
+
+
+                                if (status >= 200 && status < 300) {
+                                    const message = data.message || 'Issue created successfully.';
+                                    // document.getElementById('selectedFile').innerHTML =
+                                    //     '<span class="text-green-600">' + message + '</span>';
+                                    // form.reset();
+                                    // return;
+
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Issue Raised',
+                                        html: `<b>${data.ticket_no}</b><br><br>${data.message}
+        `
+                                    });
+
+                                    form.reset();
+
+                                    $('#state_id').val('').trigger('change');
+                                    $('#service_id').val('').trigger('change');
+                                    $('#project_id').val('').trigger('change');
+                                    $('#application_id').val('').trigger('change');
+                                    $('#module_id').val('').trigger('change');
+                                    $('#issue_category_id').val('').trigger('change');
+                                    $('#priority_id').val('').trigger('change');
+
+                                    document.getElementById('selectedFile').innerHTML = '';
+
+                                    return;
+                                }
+
+                                const message = data.message || 'Unable to raise issue.';
+                                document.getElementById('selectedFile').innerHTML =
+                                    '<span class="text-red-600">' + message + '</span>';
+                            })
+                            .catch(() => {
+                                document.getElementById('selectedFile').innerHTML =
+                                    '<span class="text-red-600">Unable to raise issue.</span>';
+                            })
+                            .finally(() => {
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = originalText;
+                            });
+                    });
                 });
                 </script>
 

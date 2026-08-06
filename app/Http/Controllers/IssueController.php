@@ -16,6 +16,7 @@ use App\Models\Project;
 use App\Models\Application;
 use App\Models\Priority;
 use App\Models\IssueCategory;
+use App\Models\Module;
 
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
@@ -23,6 +24,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+
+use App\Http\Requests\StoreIssueRequest;
 
 class IssueController extends Controller
 {
@@ -184,9 +189,9 @@ class IssueController extends Controller
             ->get();
 
 
-        // $modules = Module::where('is_active',1)
-        //     ->orderBy('module_name')
-        //     ->get();
+        $modules = Module::where('is_active',1)
+            ->orderBy('module_name')
+            ->get();
 
         $issueCategories = IssueCategory::where('is_active',1)
             ->orderBy('category_name')
@@ -215,11 +220,11 @@ class IssueController extends Controller
         //     'CRITICAL',
         // ];
 
-        #var_dump($projects);
+        #var_dump($services);
 
 
         return view('issues.create',compact('states','services','projects','applications',
-                //'modules',
+                'modules',
                 'issueCategories',
                 'priorities'
             )
@@ -231,165 +236,47 @@ class IssueController extends Controller
     /**
      * Store issue.
      */
-    public function store(Request $request)
+    public function store(StoreIssueRequest $request): RedirectResponse|JsonResponse
     {
-
-
         Log::info("Raise Issue Request >>>>", ['response' => json_encode($request->all())]);
-        $validated = $request->validate(
-
-            [
-
-                'state_id' => [
-                    'required',
-                    'integer'
-                ],
-
-
-                'service_id' => [
-                    'required',
-                    'integer'
-                ],
-
-
-                'project_id' => [
-                    'required',
-                    'integer'
-                ],
-
-
-                'application_id' => [
-                    'required',
-                    'integer'
-                ],
-
-
-                'module_id' => [
-                    'nullable',
-                    'integer'
-                ],
-
-
-                'support_config_id' => [
-                    'required',
-                    'integer'
-                ],
-
-
-                'issue_category' => [
-                    'required',
-                    'string',
-                    'max:100'
-                ],
-
-
-                'issue_type' => [
-                    'nullable',
-                    'string',
-                    'max:100'
-                ],
-
-
-                'subject' => [
-                    'required',
-                    'string',
-                    'max:255'
-                ],
-
-
-                'description' => [
-                    'required',
-                    'string'
-                ],
-
-
-                'priority' => [
-                    'required',
-                    Rule::in([
-                        'LOW',
-                        'MEDIUM',
-                        'HIGH',
-                        'CRITICAL'
-                    ])
-                ],
-
-
-                'attachment' => [
-                    'nullable',
-                    'file',
-                    'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx',
-                    'max:10240'
-                ]
-
-            ],
-
-            [
-
-                'state_id.required' =>
-                    'Please select state.',
-
-                'service_id.required' =>
-                    'Please select service.',
-
-                'project_id.required' =>
-                    'Please select project.',
-
-                'application_id.required' =>
-                    'Please select application.',
-
-                'support_config_id.required' =>
-                    'Please select support configuration.',
-
-                'subject.required' =>
-                    'Please enter issue subject.',
-
-                'description.required' =>
-                    'Please enter issue description.',
-
-            ]
-
-        );
-
-
 
         try {
 
+            
+            $issue = $this->issueService->create($request->validated());
 
-            #$issue = $this->issueService->create($validated,$request->file('attachment'),Auth::id());
-
-            $issue = $this->issueService->create($request);
-
-            #$this->routingService->routeIssue($issue);
-
-
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Issue raised successfully.',
+                    'issue' => $issue,
+                ], 200);
+            }
 
             return redirect()
-                ->route(
-                    'issues.show',
-                    $issue
-                )
-                ->with(
-                    'success',
-                    'Issue raised successfully. Issue Number: '
-                    .$issue->issue_number
-                );
+                ->route('issues.show', $issue)
+                ->with('success', 'Issue raised successfully. Issue Number: ' . $issue->issue_number);
 
+        } catch (Throwable $e) {
+            #report($e);
 
+            Log::error('Issue create failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+            ]);
 
-        }
-        catch(Throwable $e)
-        {
-
-            report($e);
-
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to raise issue. Please try again.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
 
             return back()
                 ->withInput()
-                ->with(
-                    'error',
-                    'Unable to raise issue. Please try again.'.$e->getMessage(),
-                );
-
+                ->with('error', 'Unable to raise issue. Please try again.');
         }
 
     }

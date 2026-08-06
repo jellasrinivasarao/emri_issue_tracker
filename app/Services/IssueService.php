@@ -4,13 +4,18 @@ namespace App\Services;
 
 use App\Interfaces\IssueRepositoryInterface;
 use App\Models\Issue;
+use App\Models\IssueAttachment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+
+use Illuminate\Validation\ValidationException;
 
 class IssueService
 {
@@ -52,15 +57,23 @@ class IssueService
     /**
      * Create New Issue
      */
-    public function create(Request $request): Issue
+    public function create(array $data, ?UploadedFile $attachment = null): Issue
     {
         DB::beginTransaction();
 
         try {
+            $payload = $this->prepareCreateData($data);
+            Log::info('Issue Payload', $payload);
 
-            $data = $this->prepareCreateData($request);
+            $issue = $this->repository->create($payload);
 
-            $issue = $this->repository->create($data);
+            Log::info('Created Issue ID', [
+    'issue_id' => $issue->issue_id
+]);
+
+            if ($attachment) {
+                $this->uploadAttachment($attachment, $issue);
+            }
 
             $this->afterCreate($issue);
 
@@ -166,59 +179,25 @@ class IssueService
     /**
      * Prepare Create Data
      */
-    protected function prepareCreateData(
-        Request $request
-    ): array {
 
+    protected function prepareCreateData(array $data): array
+    {
         return [
-
-            'ticket_no' => $this->generateTicketNumber(),
-
-            'state_id' => $request->state_id,
-
-            'service_id' => $request->service_id,
-
-            'project_id' => $request->project_id,
-
-            'application_id' => $request->application_id,
-
-            'module_id' => $request->module_id,
-
-            'issue_category_id'
-                => $request->issue_category_id,
-
-            'priority_id'
-                => $request->priority_id,
-
-            'subject'
-                => trim($request->subject),
-
-            'description'
-                => trim($request->description),
-
-            'occurred_date'
-                => $request->occurred_date,
-
-            'occurred_time'
-                => $request->occurred_time,
-
-            'affected_users'
-                => $request->affected_users,
-
-            'attachment'
-                => $this->uploadAttachment($request),
-
+            'issue_number' => $this->generateTicketNumber(),
+            'state_id' => $data['state_id'] ?? null,
+            'service_id' => $data['service_id'] ?? null,
+            'project_id' => $data['project_id'] ?? null,
+            'application_id' => $data['application_id'] ?? null,
+            'module_id' => $data['module_id'] ?? null,
+            'issue_category_id' => $data['issue_category_id'] ?? null,
+            'priority_id' => $data['priority_id'] ?? null,
+            'issue_title' => trim((string) ($data['subject'] ?? '')),
+            'issue_description' => trim((string) ($data['description'] ?? '')),
             'status' => 'Open',
-
-            'created_by'
-                => Auth::id(),
-
-            'created_at'
-                => now(),
-
-            'updated_at'
-                => now(),
-
+            'created_by' => Auth::id(),
+            'created_at' => now(),
+            'updated_at' => now(),
+            
         ];
     }
 
@@ -236,9 +215,7 @@ class IssueService
 
             $this->removeAttachment($issue);
 
-            $attachment = $this->uploadAttachment(
-                $request
-            );
+            $attachment = $this->uploadAttachment($request);
         }
 
         return [
@@ -298,44 +275,38 @@ class IssueService
     {
         $last = $this->repository->latest();
 
-        $next = $last
-            ? ($last->id + 1)
-            : 1;
+        $next = $last? ($last->issue_id + 1): 1;
 
-        return sprintf(
-            'ISS-%s-%06d',
-            date('Y'),
-            $next
-        );
+        return sprintf('ISSUE-%s-%06d',date('Y'),$next);
     }
 
     /**
      * Upload Attachment
      */
-    protected function uploadAttachment(
-        Request $request
-    ): ?string {
+    protected function uploadAttachment(?UploadedFile $file, Issue $issue): ?string {
 
-        if (!$request->hasFile('attachment')) {
+        if (!$file) {
             return null;
         }
 
-        $file = $request->file('attachment');
+        $path = $file->store('issues', 'public');
 
-        $filename =
-            Carbon::now()->format('YmdHis')
-            .'_'
-            .Str::uuid()
-            .'.'
-            .$file->getClientOriginalExtension();
+        \App\Models\IssueAttachment::create([
+        'issue_id' => $issue->issue_id,
+        'user_id' => auth()->id() ?? 1,
+        'original_file_name' => $file->getClientOriginalName(),
+        'stored_file_name' => basename($path),
+        'file_path' => '/storage/' . $path,
+        'file_size' => $file->getSize(),
+        'file_type' => $file->getMimeType(),
+        'uploaded_at' => now(),
+        'is_active' => 1,
+    ]);
 
-        $file->storeAs(
-            'issues',
-            $filename,
-            'public'
-        );
+    return $path;
 
-        return $filename;
+
+
     }
 
     /**
@@ -382,34 +353,22 @@ class IssueService
     protected function assignEngineer(Issue $issue): void
     {
         $engineer = \App\Models\User::query()
-            ->where('status', 1)
+            ->where('is_active', 1)
             ->whereHas('roles', function ($query) {
-                $query->where('name', 'Support Engineer');
+                $query->where('role_name', 'Support Engineer');
             })
-            ->withCount([
-                'assignedIssues as active_issue_count' => function ($query) {
-                    $query->whereNotIn('status', [
-                        'Closed',
-                        'Resolved'
-                    ]);
-                }
-            ])
-            ->orderBy('active_issue_count')
             ->first();
 
         if (!$engineer) {
             return;
         }
 
-        $this->repository->assign(
-            $issue,
-            $engineer->id
-        );
+        $this->repository->assign($issue, $engineer->user_id);
 
         $this->createHistory(
             $issue,
             'Assigned',
-            'Assigned to '.$engineer->name
+            'Assigned to '.$engineer->user_name
         );
     }
 
@@ -591,7 +550,7 @@ class IssueService
 
         \App\Models\IssueHistory::create([
 
-            'issue_id' => $issue->id,
+            'issue_id' => $issue->issue_id,
 
             'action' => $action,
 
@@ -987,8 +946,7 @@ class IssueService
                 $userId
             );
 
-            $issue = $this->repository
-                ->findOrFail($issue->id);
+            $issue = $this->repository->findOrFail($issue->id);
 
             $this->createHistory(
 
@@ -1243,5 +1201,49 @@ class IssueService
         ];
 
     }
+
+
+
+
+protected function validateCreateRequest(Request $request): void
+{
+    $errors = [];
+
+    if (blank($request->state_id)) {
+        $errors['state_id'] = 'State is required.';
+    }
+
+    if (blank($request->service_id)) {
+        $errors['service_id'] = 'Service is required.';
+    }
+
+    if (blank($request->project_id)) {
+        $errors['project_id'] = 'Project is required.';
+    }
+
+    if (blank($request->application_id)) {
+        $errors['application_id'] = 'Application is required.';
+    }
+
+    if (blank($request->issue_category_id)) {
+        $errors['issue_category_id'] = 'Issue Category is required.';
+    }
+
+    if (blank($request->priority_id)) {
+        $errors['priority_id'] = 'Priority is required.';
+    }
+
+    if (blank($request->subject)) {
+        $errors['subject'] = 'Subject is required.';
+    }
+
+    if (blank($request->description)) {
+        $errors['description'] = 'Description is required.';
+    }
+
+    if (!empty($errors)) {
+        throw ValidationException::withMessages($errors);
+    }
+}
 
 }

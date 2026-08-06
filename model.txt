@@ -24,6 +24,8 @@ CalendarHoliday.php
 IssueRouting.php
 SlaPolicy.php
 
+Module.php
+
 Issue.php
 IssueAssignment.php
 IssueAttachment.php
@@ -111,3 +113,5 @@ php artisan make:model IssueRoutingConfiguration
 php artisan make:controller IssueRoutingController
 php artisan route:list --name=project-support-configurations
 
+
+php artisan make:model Module

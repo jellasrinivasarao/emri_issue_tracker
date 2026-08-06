@@ -123,40 +123,6 @@ window.initializeRaiseIssueForm = function () {
         }
     })();
 
-    // If state select has no usable options, fetch via AJAX
-    (function loadStatesIfEmpty() {
-        let hasUsableStateOption = $('#state_id option').filter(function () {
-            return $(this).val() !== '' && $(this).val() !== undefined && $(this).val() !== null;
-        }).length > 0;
-
-        if (!hasUsableStateOption) {
-            loading('#state_id');
-
-            $.get('/ajax/states', function (response) {
-                let option = '<option value="">Select State</option>';
-
-                $.each(response, function (index, row) {
-                    let stateId = row.id ?? row.state_id ?? '';
-                    let stateName = row.state_name ?? row.name ?? '';
-
-                    if (stateId !== '' && stateName !== '') {
-                        option += '<option value="' + stateId + '">' + stateName + '</option>';
-                    }
-                });
-
-                $('#state_id').html(option).trigger('change.select2');
-
-                let initial = $('#state_id').data('initial');
-                if (initial) {
-                    $('#state_id').val(initial).trigger('change');
-                }
-            }).fail(function () {
-                console.error('Unable to load states via AJAX');
-                clearDropdown('#state_id', 'State');
-            });
-        }
-    })();
-
     //----------------------------------------------------------
     // Service -> Project
     //----------------------------------------------------------
