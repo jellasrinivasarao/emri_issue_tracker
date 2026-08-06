@@ -13,9 +13,17 @@ use App\Models\User;
 use App\Models\IssueHistory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
+use App\Interfaces\IssueRepositoryInterface;
 
 class IssueService
 {
+
+    protected IssueRepositoryInterface $repository;
+
+    public function __construct(IssueRepositoryInterface $repository) {
+        $this->repository = $repository;
+    }
+    
     /**
      * Create New Issue
      */

@@ -7,7 +7,7 @@ use App\Models\IssueHistory;
 use App\Models\IssueStatusHistory;
 use Illuminate\Support\Facades\DB;
 
-class IssueService
+class IssueService2
 {
     public function __construct(protected IssueRoutingService $routingService) {}
 
@@ -22,6 +22,7 @@ class IssueService
     //         $data['created_by'] = auth()->id();
 
     //         $issue = Issue::create($data);
+    //          $this->repository->create($data);
 
     //         IssueStatusHistory::create([
     //             'issue_id' => $issue->issue_id,
