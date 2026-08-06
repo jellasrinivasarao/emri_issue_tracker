@@ -67,9 +67,7 @@ class IssueService
 
             $issue = $this->repository->create($payload);
 
-            Log::info('Created Issue ID', [
-    'issue_id' => $issue->issue_id
-]);
+            Log::info('Created Issue ID', ['issue_id' => $issue->issue_id]);
 
             if ($attachment) {
                 $this->uploadAttachment($attachment, $issue);
@@ -286,12 +284,18 @@ class IssueService
     protected function uploadAttachment(?UploadedFile $file, Issue $issue): ?string {
 
         if (!$file) {
+            Log::info('No attachment received');
             return null;
         }
 
+        Log::info('Attachment received', [
+        'issue_id' => $issue->issue_id,
+        'file' => $file->getClientOriginalName()
+    ]);
+    
         $path = $file->store('issues', 'public');
 
-        \App\Models\IssueAttachment::create([
+        $attachment = IssueAttachment::create([
         'issue_id' => $issue->issue_id,
         'user_id' => auth()->id() ?? 1,
         'original_file_name' => $file->getClientOriginalName(),
@@ -301,6 +305,10 @@ class IssueService
         'file_type' => $file->getMimeType(),
         'uploaded_at' => now(),
         'is_active' => 1,
+    ]); 
+
+    Log::info('Attachment inserted', [
+        'attachment_id' => $attachment->attachment_id
     ]);
 
     return $path;

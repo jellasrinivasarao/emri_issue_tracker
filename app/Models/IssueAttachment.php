@@ -11,6 +11,8 @@ class IssueAttachment extends Model
 
     protected $primaryKey = 'attachment_id';
 
+    public $timestamps = false;
+
     protected $fillable = [
         'issue_id',
         'user_id',

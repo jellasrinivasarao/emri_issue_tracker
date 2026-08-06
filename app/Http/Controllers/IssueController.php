@@ -243,7 +243,12 @@ class IssueController extends Controller
         try {
 
             
-            $issue = $this->issueService->create($request->validated());
+            $issue = $this->issueService->create($request->validated(),$request->file('attachment'));
+
+            Log::info('Has File', [
+    'hasFile' => $request->hasFile('attachment'),
+    'file' => $request->file('attachment'),
+]);
 
             if ($request->expectsJson()) {
                 return response()->json([
