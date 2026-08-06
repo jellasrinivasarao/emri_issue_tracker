@@ -513,20 +513,12 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
 
-    Route::post(
-        '/issues',
-        [IssueController::class, 'store']
-    )->name('issues.store');
+    Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
 
-    Route::get(
-        '/issues/{issue}',
-        [IssueController::class, 'show']
-    )->name('issues.show');
 
-    Route::put(
-        '/issues/{issue}',
-        [IssueController::class, 'update']
-    )->name('issues.update');
+    Route::get('/issues/{issue}',[IssueController::class, 'show'])->name('issues.show');
+
+    Route::put('/issues/{issue}',[IssueController::class, 'update'])->name('issues.update');
 
     Route::post(
         '/issues/{issue}/assign',

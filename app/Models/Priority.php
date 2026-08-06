@@ -26,4 +26,12 @@ class Priority extends Model
         'priority_level' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    public function slaPolicies()
+    {
+        return $this->hasMany(
+            SlaPolicy::class,
+            'priority_id'
+        );
+    }
 }

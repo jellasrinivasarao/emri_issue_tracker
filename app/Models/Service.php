@@ -37,4 +37,12 @@ class Service extends Model
         );
         #->wherePivot('is_active', 1)
     }
+
+    public function slaPolicies()
+    {
+        return $this->hasMany(
+            SlaPolicy::class,
+            'service_id'
+        );
+    }
 }

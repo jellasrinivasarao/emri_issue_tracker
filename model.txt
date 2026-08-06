@@ -112,6 +112,21 @@ php artisan make:model IssueRoutingConfiguration
 
 php artisan make:controller IssueRoutingController
 php artisan route:list --name=project-support-configurations
-
-
 php artisan make:model Module
+
+######################## 06/08/2026
+php artisan make:model IssueSla
+php artisan make:model IssueEscalation
+
+Working Calendar Engine (Calendar, Schedule, Holidays, Business Hours)
+SLA Policy Module (CRUD + business-hour calculations)
+Escalation Policy Module (multi-level escalation configuration)
+Issue Routing Engine (automatic routing by Project/Application/Service/State)
+Issue Management Engine (ticket lifecycle)
+Assignment Engine
+SLA Engine
+Escalation Engine
+Notifications & Scheduler
+Dashboard & Reports
+
+

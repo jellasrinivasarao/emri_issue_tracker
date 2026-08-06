@@ -70,6 +70,14 @@ class WorkingCalendar extends Model
     }
     
 
+    public function slaPolicies()
+    {
+        return $this->hasMany(
+            SlaPolicy::class,
+            'calendar_id'
+        );
+    }
+
 
 
 

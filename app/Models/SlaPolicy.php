@@ -14,6 +14,7 @@ class SlaPolicy extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'is_active',
         'service_id',
         'project_id',
         'application_id',
@@ -21,7 +22,10 @@ class SlaPolicy extends Model
         'support_level',
         'response_time_minutes',
         'resolution_time_minutes',
+        'warning_before_minutes',
         'warning_percentage',
+        'auto_escalation',
+        'description',
         'calendar_id',
         'is_active',
     ];
