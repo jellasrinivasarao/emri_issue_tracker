@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\UserRoleMappingController;
 use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,21 +40,21 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
-    Route::view('/role-dashboard', 'role-dashboard')->name('role.dashboard');
+    Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
 
-    Route::view('/issues', 'pages.issues')
+    Route::get('/issues', [PageController::class, 'issues'])
         ->middleware('menu.access:issues')
         ->name('issues');
 
-    Route::view('/raise-issue', 'pages.raise-issue')
+    Route::get('/raise-issue', [PageController::class, 'raiseIssue'])
         ->middleware('menu.access:raise.issue')
         ->name('raise.issue');
 
-    Route::view('/reports', 'pages.reports')
+    Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
         ->name('reports');
 
-    Route::view('/administration', 'pages.administration')
+    Route::get('/administration', [PageController::class, 'administration'])
         ->middleware('menu.access:administration')
         ->name('administration');
 
@@ -326,70 +327,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    Route::view('/working-hours', 'pages.generic-admin-page', [
-        'title' => 'Working Hours',
-        'description' => 'Manage working hours and shift schedules.',
-    ])->middleware('menu.access:working.hours')->name('working.hours');
+    Route::get('/working-hours', [PageController::class, 'genericAdminPage'])->middleware('menu.access:working.hours')->name('working.hours');
 
-    Route::view('/holiday-calendar', 'pages.generic-admin-page', [
-        'title' => 'Holiday Calendar',
-        'description' => 'Manage public holidays and calendar events.',
-    ])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
+    Route::get('/holiday-calendar', [PageController::class, 'genericAdminPage'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
-    Route::view('/sla-configuration', 'pages.generic-admin-page', [
-        'title' => 'SLA Configuration',
-        'description' => 'Configure SLA rules, targets, and escalation conditions.',
-    ])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+    Route::get('/sla-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
 
-    Route::view('/automatic-routing', 'pages.generic-admin-page', [
-        'title' => 'Automatic Routing Configuration',
-        'description' => 'Configure automatic issue routing rules.',
-    ])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+    Route::get('/automatic-routing', [PageController::class, 'genericAdminPage'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
 
-    Route::view('/notification-configuration', 'pages.generic-admin-page', [
-        'title' => 'Notification Configuration',
-        'description' => 'Manage notification templates and alerts.',
-    ])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+    Route::get('/notification-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
 
-    Route::view('/priority-configuration', 'pages.generic-admin-page', [
-        'title' => 'Priority Configuration',
-        'description' => 'Manage priority definitions and priority levels.',
-    ])->middleware('menu.access:priority.configuration')->name('priority.configuration');
+    Route::get('/priority-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
 
-    Route::view('/severity-configuration', 'pages.generic-admin-page', [
-        'title' => 'Severity Configuration',
-        'description' => 'Manage severity levels and severity descriptors.',
-    ])->middleware('menu.access:severity.configuration')->name('severity.configuration');
+    Route::get('/severity-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:severity.configuration')->name('severity.configuration');
 
-    Route::view('/issue-category-configuration', 'pages.generic-admin-page', [
-        'title' => 'Issue Category Configuration',
-        'description' => 'Manage issue categories and categorization rules.',
-    ])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
+    Route::get('/issue-category-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
 
-    Route::view('/vendor-level2-mapping', 'pages.generic-admin-page', [
-        'title' => 'Vendor Level-2 Mapping',
-        'description' => 'Manage vendor level-2 mappings and escalation groups.',
-    ])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
+    Route::get('/vendor-level2-mapping', [PageController::class, 'genericAdminPage'])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
 
-    Route::view('/active-inactive-status', 'pages.generic-admin-page', [
-        'title' => 'Active / Inactive Status',
-        'description' => 'View and manage active/inactive status for users and records.',
-    ])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
+    Route::get('/active-inactive-status', [PageController::class, 'genericAdminPage'])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
 
-    Route::view('/change-history', 'pages.generic-admin-page', [
-        'title' => 'Change History',
-        'description' => 'Review change history and audit trails.',
-    ])->middleware('menu.access:change.history')->name('change.history');
+    Route::get('/change-history', [PageController::class, 'genericAdminPage'])->middleware('menu.access:change.history')->name('change.history');
 
-    Route::view('/user-activity-log', 'pages.generic-admin-page', [
-        'title' => 'User Activity Log',
-        'description' => 'Review user activity and session logs.',
-    ])->middleware('menu.access:user.activity.log')->name('user.activity.log');
+    Route::get('/user-activity-log', [PageController::class, 'genericAdminPage'])->middleware('menu.access:user.activity.log')->name('user.activity.log');
 
-    Route::view('/system-audit-logs', 'pages.generic-admin-page', [
-        'title' => 'System Audit Logs',
-        'description' => 'Review system audit logs and governance reports.',
-    ])->middleware('menu.access:system.audit.logs')->name('system.audit.logs');
+    Route::get('/system-audit-logs', [PageController::class, 'genericAdminPage'])->middleware('menu.access:system.audit.logs')->name('system.audit.logs');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

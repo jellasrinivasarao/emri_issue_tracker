@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Models\State;
 use App\Models\Vendor;
+use App\Services\UserCreationMailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -195,7 +196,15 @@ class UserMasterController extends Controller
             }
         });
 
-        return redirect()->route('user.master')->with('success', 'User created successfully.');
+        $mailService = new UserCreationMailService();
+        $mailResult = $mailService->send($user, $request->filled('password') ? $request->password : null, auth()->user());
+
+        $message = 'User created successfully.';
+        if (! $mailResult['success']) {
+            $message .= ' Mail delivery failed: ' . $mailResult['message'];
+        }
+
+        return redirect()->route('user.master')->with('success', $message);
     }
 
     public function update(UserMasterRequest $request, int $user_id): RedirectResponse

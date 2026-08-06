@@ -1,5 +1,4 @@
-﻿@php if (function_exists('ob_get_length') && ob_get_length()) { ob_clean(); } @endphp
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full overflow-x-hidden">
     <head>
         <meta charset="utf-8" />
@@ -14,7 +13,6 @@
     <body class="h-full m-0 font-sans antialiased bg-slate-100 text-slate-900 overflow-x-hidden overflow-y-auto">
         <div class="min-h-screen bg-slate-100">
             @php
-                $hideSidebar = request()->routeIs('role.dashboard') || request()->is('role-dashboard*');
                 $menuGroups = [
                     'Main Menu' => ['dashboard', 'issues', 'raise.issue', 'reports'],
                     'Administration' => ['administration'],
@@ -49,6 +47,7 @@
             @endphp
 
             <div class="md:flex h-screen" x-data="{ sidebarOpen: false, openSections: {{ $sectionOpen->toJson() }} }">
+                @unless($withoutSidebar)
                 <aside class="fixed inset-y-0 left-0 z-20 hidden w-[260px] flex-col overflow-hidden bg-[#071837] text-white shadow-xl md:flex">
                     <div class="border-b border-[#102658] px-6 py-5">
                         <div class="flex items-center gap-3">
@@ -125,8 +124,9 @@
                     </nav>
 
                 </aside>
+                @endunless
 
-                <div class="relative flex flex-1 flex-col min-h-0 box-border {{ $withoutSidebar || $hideSidebar ? '' : 'md:pl-[260px]' }}">
+                <div class="relative flex flex-1 flex-col min-h-0 box-border {{ $withoutSidebar ? '' : 'md:pl-[260px]' }}">
                     <div id="page-shell">
                         <header class="sticky top-0 z-50 flex flex-wrap min-h-[48px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm">
                             <div class="flex min-w-0 items-center gap-3">
@@ -170,91 +170,81 @@
                 </div>
             </div>
 
-                <div x-show="sidebarOpen" x-cloak class="fixed inset-0 z-20 bg-slate-900/50 transition-opacity duration-200 md:hidden" @click="sidebarOpen = false"></div>
-                <aside x-show="sidebarOpen" x-cloak @click.away="sidebarOpen = false" class="fixed inset-y-0 left-0 z-30 w-[260px] overflow-y-auto bg-[#071837] text-slate-100 shadow-xl md:hidden">
-                    <div class="border-b border-[#102658] px-6 py-6">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0f204d] text-lg font-semibold">E</div>
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.26em] text-slate-500">EMRI</p>
-                                <p class="mt-1 text-base font-semibold text-white">Issue Tracker</p>
-                            </div>
+            <div x-show="sidebarOpen" x-cloak class="fixed inset-0 z-20 bg-slate-900/50 transition-opacity duration-200 md:hidden" @click="sidebarOpen = false"></div>
+            <aside x-show="sidebarOpen" x-cloak @click.away="sidebarOpen = false" class="fixed inset-y-0 left-0 z-30 w-[260px] overflow-y-auto bg-[#071837] text-slate-100 shadow-xl md:hidden">
+                <div class="border-b border-[#102658] px-6 py-6">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0f204d] text-lg font-semibold">E</div>
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.26em] text-slate-500">EMRI</p>
+                            <p class="mt-1 text-base font-semibold text-white">Issue Tracker</p>
                         </div>
                     </div>
-                    <nav class="flex flex-1 flex-col px-3 py-4">
-                        <div class="space-y-1">
-                            @foreach($groupedMenus->get('Main Menu', collect()) as $menu)
-                                @php
-                                    $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                    $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
-                                @endphp
-                                <a href="{{ $href }}" class="flex items-center gap-3 rounded-[14px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#14417a] text-white' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
-                                    <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
-                                    <span>{{ $menu->display_name }}</span>
-                                </a>
-                            @endforeach
-                        </div>
-
-                        <div class="mt-4 space-y-3">
+                </div>
+                <nav class="flex flex-1 flex-col px-3 py-4">
+                    <div class="space-y-1">
+                        @foreach($groupedMenus->get('Main Menu', collect()) as $menu)
                             @php
-                                $mainDashboardRouteName = 'role.dashboard';
-                                $mainDashboardHref = Route::has($mainDashboardRouteName) ? route($mainDashboardRouteName) : '#';
+                                $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
+                                $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
                             @endphp
-                            <a href="{{ $mainDashboardHref }}" class="flex items-center gap-3 rounded-[14px] bg-[#0b1e47] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-[#102c56] hover:text-white">
-                                <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h5V13h4v7h5V10"></path></svg>
-                                <span>Main Dashboard</span>
+                            <a href="{{ $href }}" class="flex items-center gap-3 rounded-[14px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#14417a] text-white' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
+                                <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                <span>{{ $menu->display_name }}</span>
                             </a>
+                        @endforeach
+                    </div>
 
-                            @php
-                                $adminSections = ['Admin Teams','Organisation Setup','User & Security','Operational Configuration','Audit & Governance'];
-                                $adminItems = collect($adminSections)->flatMap(fn($section) => $groupedMenus->get($section) ?? collect());
-                            @endphp
-                            @if($adminItems->isNotEmpty())
-                                <div class="rounded-[20px] border border-transparent bg-[#0b1e47]">
-                                    <button @click="openSections['Administration'] = !openSections['Administration']" class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white">
-                                        <span>Administration</span>
-                                        <svg :class="openSections['Administration'] ? 'rotate-90' : ''" class="h-4 w-4 transform transition-transform duration-200 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
-                                    </button>
-                                    <div x-show="openSections['Administration']" x-cloak class="space-y-3 border-t border-slate-800 px-3 pb-3 pt-2">
-                                        @foreach($adminSections as $section)
-                                            @if($groupedMenus->has($section))
-                                                <div class="rounded-[18px] border border-[#102858] bg-[#081a3b]">
-                                                    <button @click="openSections['{{ $section }}'] = !openSections['{{ $section }}']" class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white">
-                                                        <span>{{ $section }}</span>
-                                                        <svg :class="openSections['{{ $section }}'] ? 'rotate-90' : ''" class="h-4 w-4 transform transition-transform duration-200 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
-                                                    </button>
-                                                    <div x-show="openSections['{{ $section }}']" x-cloak class="space-y-1 border-t border-slate-800 px-3 pb-3 pt-2">
-                                                        @foreach($groupedMenus->get($section) as $menu)
-                                                            @php
-                                                                $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                                                $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
-                                                            @endphp
-                                                            <a href="{{ $href }}" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
-                                                                <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
-                                                                <span>{{ $menu->display_name }}</span>
-                                                            </a>
-                                                        @endforeach
-                                                    </div>
+                    <div class="mt-4 space-y-3">
+                        @php
+                            $mainDashboardRouteName = 'role.dashboard';
+                            $mainDashboardHref = Route::has($mainDashboardRouteName) ? route($mainDashboardRouteName) : '#';
+                        @endphp
+                        <a href="{{ $mainDashboardHref }}" class="flex items-center gap-3 rounded-[14px] bg-[#0b1e47] px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-[#102c56] hover:text-white">
+                            <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h5V13h4v7h5V10"></path></svg>
+                            <span>Main Dashboard</span>
+                        </a>
+
+                        @php
+                            $adminSections = ['Admin Teams','Organisation Setup','User & Security','Operational Configuration','Audit & Governance'];
+                            $adminItems = collect($adminSections)->flatMap(fn($section) => $groupedMenus->get($section) ?? collect());
+                        @endphp
+                        @if($adminItems->isNotEmpty())
+                            <div class="rounded-[20px] border border-transparent bg-[#0b1e47]">
+                                <button @click="openSections['Administration'] = !openSections['Administration']" class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white">
+                                    <span>Administration</span>
+                                    <svg :class="openSections['Administration'] ? 'rotate-90' : ''" class="h-4 w-4 transform transition-transform duration-200 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                                </button>
+                                <div x-show="openSections['Administration']" x-cloak class="space-y-3 border-t border-slate-800 px-3 pb-3 pt-2">
+                                    @foreach($adminSections as $section)
+                                        @if($groupedMenus->has($section))
+                                            <div class="rounded-[18px] border border-[#102858] bg-[#081a3b]">
+                                                <button @click="openSections['{{ $section }}'] = !openSections['{{ $section }}']" class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white">
+                                                    <span>{{ $section }}</span>
+                                                    <svg :class="openSections['{{ $section }}'] ? 'rotate-90' : ''" class="h-4 w-4 transform transition-transform duration-200 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
+                                                </button>
+                                                <div x-show="openSections['{{ $section }}']" x-cloak class="space-y-1 border-t border-slate-800 px-3 pb-3 pt-2">
+                                                    @foreach($groupedMenus->get($section) as $menu)
+                                                        @php
+                                                            $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
+                                                            $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
+                                                        @endphp
+                                                        <a href="{{ $href }}" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
+                                                            <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                                            <span>{{ $menu->display_name }}</span>
+                                                        </a>
+                                                    @endforeach
                                                 </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
+                                            </div>
+                                        @endif
+                                    @endforeach
                                 </div>
-                            @endif
-                        </div>
-                    </nav>
-                </aside>
+                            </div>
+                        @endif
+                    </div>
+                </nav>
+            </aside>
             @stack('scripts')
-            @if(config('app.debug'))
-                <script>
-                    try {
-                        window.__EMRI_DEBUG = true;
-                        console.debug('[inline] __EMRI_DEBUG set by layout (app.debug=true)');
-                    } catch (e) {
-                        // ignore
-                    }
-                </script>
-            @endif
         </div>
     </body>
 </html>
