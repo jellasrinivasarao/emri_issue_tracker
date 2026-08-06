@@ -101,3 +101,8 @@ app
  │      ├── HolidayService.php
  │      ├── BusinessTimeCalculator.php
  │      └── IssueSlaService.php
+
+
+ php artisan make:seeder WorkingScheduleSeeder
+ php artisan make:seeder WorkingCalendarSeeder
+ php artisan make:seeder HolidaySeeder

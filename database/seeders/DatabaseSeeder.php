@@ -15,7 +15,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             //MenuSeeder::class,
            // RoleMenuSeeder::class,
-            IssueCategorySeeder::class
+           /// IssueCategorySeeder::class
+
+            WorkingCalendarSeeder::class,
+            WorkingScheduleSeeder::class,
+            HolidaySeeder::class,
         ]);
     }
 }
