@@ -537,8 +537,8 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
-
-Route::prefix('ajax')->group(function () {
+Route::prefix('ajax')->name('ajax.')->group(function () {
+#Route::prefix('ajax')->group(function () {
 
     Route::get('/services/{stateId}',[AjaxController::class,'services'])->name('ajax.services');
 
@@ -555,6 +555,17 @@ Route::prefix('ajax')->group(function () {
     Route::get('/search-applications',[AjaxController::class,'searchApplications']);
 
     Route::get('/search-modules',[AjaxController::class,'searchModules']);
+
+
+
+    ################### SLA Module 
+    Route::get('/project/{project}/applications',[AjaxController::class,'projectApplications'])->name('project.applications');
+
+    Route::get('/project/{project}/services',[AjaxController::class,'projectServices'])->name('project.services');
+
+    Route::get('/application/{application}/modules',[AjaxController::class,'applicationModules'])->name('application.modules');
+
+    
 
 });
 

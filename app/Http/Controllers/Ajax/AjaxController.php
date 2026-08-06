@@ -238,4 +238,60 @@ class AjaxController extends Controller
 
         }
     }
+
+
+    #### SLA
+
+
+    public function projectApplications(Project $project)
+    {
+
+        return response()->json(
+
+            $project->applications()
+                ->orderBy('application_name')
+                ->get([
+                    'application_id',
+                    'application_name'
+                ])
+
+        );
+
+    }
+
+    public function projectServices(Project $project)
+    {
+
+        return response()->json(
+
+            $project->services()
+                ->orderBy('service_name')
+                ->get([
+                    'service_id',
+                    'service_name'
+                ])
+
+        );
+    }
+
+    public function applicationModules($applicationId)
+    {
+
+        return response()->json(
+
+            ApplicationModule::where(
+                    'application_id',
+                    $applicationId
+                )
+                ->where('is_active',1)
+                ->orderBy('module_name')
+                ->get([
+                    'module_id',
+                    'module_name'
+                ])
+
+        );
+
+    }
+
 }

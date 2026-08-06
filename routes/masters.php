@@ -17,5 +17,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     Route::resource('issue-categories',IssueCategoryController::class)->except(['show']);
 
-    Route::resource('sla-policies',SlaPolicyController::class)->except(['show']);
+    
 });
+
+Route::resource('sla-policies',SlaPolicyController::class)->except(['show']);
+
+Route::post('ajax/sla-policy/check-duplicate',[SlaPolicyController::class, 'checkDuplicate'])->name('ajax.sla-policy.check');

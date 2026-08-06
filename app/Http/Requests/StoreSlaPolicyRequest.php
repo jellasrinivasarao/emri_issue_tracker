@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-
+use Illuminate\Validation\Rule;
 class StoreSlaPolicyRequest extends FormRequest
 {
     /**
@@ -40,7 +40,20 @@ class StoreSlaPolicyRequest extends FormRequest
 
             'priority_id'=>[
                 'required',
-                'exists:mst_priority,priority_id'
+                //'exists:mst_priority,priority_id'
+                Rule::unique('cfg_sla_policy')
+                ->ignore($this->sla_policy)
+                ->where(function ($query) {
+
+                    return $query
+
+                        ->where('project_id', $this->project_id)
+
+                        ->where('application_id', $this->application_id)
+
+                        ->where('service_id', $this->service_id);
+
+                })
             ],
 
             'calendar_id'=>[
