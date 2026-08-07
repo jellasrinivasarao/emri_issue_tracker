@@ -384,40 +384,60 @@ public function refreshCache(): void
                 }
 
 
-                public function moveToWorkingTime(Carbon $date): Carbon{
+                // public function moveToWorkingTime(Carbon $date): Carbon{
 
-                        while (true) {
+                //         while (true) {
 
-                            if (!$this->isWorkingDay($date)) {
+                //             if (!$this->isWorkingDay($date)) {
 
-                                $date = $this->nextWorkingDay($date);
+                //                 $date = $this->nextWorkingDay($date);
 
-                                continue;
+                //                 continue;
 
-                            }
+                //             }
 
-                            $officeStart = $this->officeStart($date);
+                //             $officeStart = $this->officeStart($date);
 
-                            $officeEnd = $this->officeEnd($date);
+                //             $officeEnd = $this->officeEnd($date);
 
-                            if ($date->lt($officeStart)) {
+                //             if ($date->lt($officeStart)) {
 
-                                return $officeStart;
+                //                 return $officeStart;
 
-                            }
+                //             }
 
-                            if ($date->gte($officeEnd)) {
+                //             if ($date->gte($officeEnd)) {
 
-                                $date = $this->nextWorkingDay($date);
+                //                 $date = $this->nextWorkingDay($date);
 
-                                continue;
+                //                 continue;
 
-                            }
+                //             }
 
-                            return $date;
+                //             return $date;
 
+                //         }
+
+                // }
+
+                public function moveToWorkingTime(Carbon $dateTime): Carbon
+                {
+                    $current = $dateTime->copy();
+
+                    for ($i = 0; $i < 366; $i++) {
+
+                        if ($this->isOfficeOpen($current)) {
+                            return $current;
                         }
 
+                        $current
+                            ->startOfDay()
+                            ->addDay();
+                    }
+
+                    throw new \RuntimeException(
+                        'No working time found within 366 days for calendar.'
+                    );
                 }
 
 

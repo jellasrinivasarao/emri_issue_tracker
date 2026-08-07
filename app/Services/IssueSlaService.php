@@ -36,6 +36,28 @@ class IssueSlaService
 
             if (!$policy) {
 
+            Log::warning('SLA policy not found', [
+
+                'issue_id' =>
+                    $issue->issue_id,
+
+                'project_id' =>
+                    $issue->project_id,
+
+                'application_id' =>
+                    $issue->application_id,
+
+                'service_id' =>
+                    $issue->service_id,
+
+                'priority_id' =>
+                    $issue->priority_id,
+
+                'current_time' =>
+                    now()->toDateTimeString(),
+
+            ]);
+
                 throw new RuntimeException(
                     'No active SLA policy found for this issue.'
                 );
@@ -48,14 +70,19 @@ class IssueSlaService
             |--------------------------------------------------------------------------
             */
 
-            $calendar = WorkingCalendar::find(
-                $policy->calendar_id
-            );
+            // $calendar = WorkingCalendar::find(
+            //     $policy->calendar_id
+            // );
+
+            $calendar = WorkingCalendar::query()
+                ->where('calendar_id', $policy->calendar_id)
+                ->where('is_active', 1)
+                ->first();
 
             if (!$calendar) {
 
                 throw new RuntimeException(
-                    'Working calendar not found for SLA policy.'
+                    'Active working calendar not found for SLA policy.'
                 );
 
             }
@@ -66,6 +93,7 @@ class IssueSlaService
             |--------------------------------------------------------------------------
             */
 
+            
             $startAt = Carbon::now($calendar->timezone ?? config('app.timezone'));
 
             /*
@@ -126,36 +154,146 @@ class IssueSlaService
 
     protected function findPolicy(Issue $issue): ?SlaPolicy {
 
-        Log::info('SLA lookup', [
+        $now = now();
 
-    'issue_id' =>
-        $issue->issue_id,
-
-    'project_id' =>
-        $issue->project_id,
-
-    'application_id' =>
-        $issue->application_id,
-
-    'service_id' =>
-        $issue->service_id,
-
-    'priority_id' =>
-        $issue->priority_id,
-
-    'issue_category_id' =>
-        $issue->issue_category_id,
-
-]);
+        Log::info('SLA lookup started', [
+                'issue_id' => $issue->issue_id,
+                'project_id' => $issue->project_id,
+                'application_id' => $issue->application_id,
+                'service_id' => $issue->service_id,
+                'priority_id' => $issue->priority_id,
+                'current_time' => $now->toDateTimeString(),
+            ]);
     
-            $policy = SlaPolicy::query()
-            ->where('is_active', 1)
-            ->where('project_id', $issue->project_id)
-            ->where('service_id', $issue->service_id)
-            ->where('priority_id', $issue->priority_id)
-            ->first();
+        /*
+    |--------------------------------------------------------------------------
+    | 1. Exact Application SLA
+    |--------------------------------------------------------------------------
+    */
+    $policy = SlaPolicy::query()
+        ->where('project_id', $issue->project_id)
+        ->where('application_id', $issue->application_id)
+        ->where('service_id', $issue->service_id)
+        ->where('priority_id', $issue->priority_id)
+        ->where('is_active', 1)
+        ->where(function ($query) use ($now) {
 
-            return $policy;
+            $query->whereNull('effective_from')
+                ->orWhere('effective_from', '<=', $now);
+
+        })
+        ->where(function ($query) use ($now) {
+
+            $query->whereNull('effective_to')
+                ->orWhere('effective_to', '>=', $now);
+
+        })
+        ->first();
+
+
+        if ($policy) {
+
+        Log::info('Exact SLA policy found', [
+            'sla_policy_id' => $policy->sla_policy_id,
+            'sla_policy_code' => $policy->sla_policy_code,
+            'project_id' => $policy->project_id,
+            'application_id' => $policy->application_id,
+            'service_id' => $policy->service_id,
+            'priority_id' => $policy->priority_id,
+        ]);
+
+        return $policy;
+    }
+
+
+
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2. Generic Application SLA
+    |--------------------------------------------------------------------------
+    |
+    | application_id = NULL means the SLA applies to all applications.
+    |
+    */
+    $policy = SlaPolicy::query()
+        ->where('project_id', $issue->project_id)
+        ->whereNull('application_id')
+        ->where('service_id', $issue->service_id)
+        ->where('priority_id', $issue->priority_id)
+        ->where('is_active', 1)
+        ->where(function ($query) use ($now) {
+
+            $query->whereNull('effective_from')
+                ->orWhere('effective_from', '<=', $now);
+
+        })
+        ->where(function ($query) use ($now) {
+
+            $query->whereNull('effective_to')
+                ->orWhere('effective_to', '>=', $now);
+
+        })
+        ->first();
+
+
+         if ($policy) {
+
+        Log::info('Generic SLA policy found', [
+            'sla_policy_id' => $policy->sla_policy_id,
+            'sla_policy_code' => $policy->sla_policy_code,
+            'project_id' => $policy->project_id,
+            'application_id' => null,
+            'service_id' => $policy->service_id,
+            'priority_id' => $policy->priority_id,
+        ]);
+
+        return $policy;
+    }
+
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. Diagnostic information
+    |--------------------------------------------------------------------------
+    */
+
+    $candidates = SlaPolicy::query()
+        ->where('project_id', $issue->project_id)
+        ->where('service_id', $issue->service_id)
+        ->where('priority_id', $issue->priority_id)
+        ->get([
+            'sla_policy_id',
+            'sla_policy_code',
+            'project_id',
+            'application_id',
+            'service_id',
+            'priority_id',
+            'calendar_id',
+            'is_active',
+            'effective_from',
+            'effective_to',
+        ]);
+
+    Log::warning('No matching SLA policy found', [
+        'issue_id' => $issue->issue_id,
+
+        'required' => [
+            'project_id' => $issue->project_id,
+            'application_id' => $issue->application_id,
+            'service_id' => $issue->service_id,
+            'priority_id' => $issue->priority_id,
+        ],
+
+        'candidate_policies' => $candidates->toArray(),
+    ]);
+
+
+    return null;
     
     }
     

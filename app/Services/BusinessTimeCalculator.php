@@ -3,56 +3,160 @@
 namespace App\Services;
 
 use Carbon\Carbon;
+use RuntimeException;
 
 class BusinessTimeCalculator
 {
-
     protected ?WorkingCalendarService $calendar = null;
 
-
-    public function setCalendar(WorkingCalendarService $calendar): void {
-
+    public function setCalendar(WorkingCalendarService $calendar): void
+    {
         $this->calendar = $calendar;
-
     }
 
-    public function addMinutes(Carbon $start,int $minutes): Carbon {
+    /**
+     * Add business minutes to a datetime.
+     */
+    public function addMinutes(
+        Carbon $start,
+        int $minutes
+    ): Carbon {
 
         if (!$this->calendar) {
-            throw new \Exception('WorkingCalendarService has not been set.');
+            throw new RuntimeException(
+                'WorkingCalendarService has not been set.'
+            );
         }
 
         if ($minutes <= 0) {
             return $start->copy();
         }
 
-        $current = $this->calendar->moveToWorkingTime($start->copy());
-        
+        $current = $start->copy();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Safety protection
+        |--------------------------------------------------------------------------
+        |
+        | Never allow SLA calculation to run forever.
+        |
+        */
+
+        $maxDays = 366;
+
+        $daysChecked = 0;
 
         while ($minutes > 0) {
 
+            if ($daysChecked > $maxDays) {
+
+                throw new RuntimeException(
+                    'Unable to calculate business time. '
+                    . 'No working period found within 366 days.'
+                );
+            }
+
             /*
             |--------------------------------------------------------------------------
-            | Current shift
+            | Move current datetime into working time
             |--------------------------------------------------------------------------
             */
 
-            $shift =$this->calendar->getShift($current);
+            $workingTime = $this->calendar
+                ->moveToWorkingTime($current->copy());
+
+            /*
+            |--------------------------------------------------------------------------
+            | Safety check
+            |--------------------------------------------------------------------------
+            |
+            | moveToWorkingTime() must actually move forward.
+            |
+            */
+
+            if (
+                $workingTime->lessThan($current)
+            ) {
+
+                throw new RuntimeException(
+                    'WorkingCalendarService::moveToWorkingTime() '
+                    . 'returned a datetime earlier than the current datetime.'
+                );
+            }
+
+            $current = $workingTime;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get current shift
+            |--------------------------------------------------------------------------
+            */
+
+            $shift = $this->calendar->getShift(
+                $current
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | No shift for this day
+            |--------------------------------------------------------------------------
+            */
 
             if (!$shift) {
 
-                $current = $this->calendar->nextWorkingDay($current);
+                $nextDay = $current
+                    ->copy()
+                    ->startOfDay()
+                    ->addDay();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Safety check against infinite loop
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $nextDay->lessThanOrEqual($current)
+                ) {
+
+                    throw new RuntimeException(
+                        'Unable to move to the next working day.'
+                    );
+                }
+
+                $current = $nextDay;
+
+                $daysChecked++;
 
                 continue;
             }
 
             /*
             |--------------------------------------------------------------------------
-            | Shift End
+            | Shift start
             |--------------------------------------------------------------------------
             */
 
-            $shiftEnd = Carbon::parse($current->toDateString(). ' '. $shift->end_time);
+            $shiftStart = Carbon::parse(
+                $current->toDateString()
+                . ' '
+                . $shift->start_time,
+                $current->timezone
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Shift end
+            |--------------------------------------------------------------------------
+            */
+
+            $shiftEnd = Carbon::parse(
+                $current->toDateString()
+                . ' '
+                . $shift->end_time,
+                $current->timezone
+            );
 
             /*
             |--------------------------------------------------------------------------
@@ -60,10 +164,44 @@ class BusinessTimeCalculator
             |--------------------------------------------------------------------------
             */
 
-            if ($shift->end_time<$shift->start_time) {
+            if (
+                $shiftEnd->lessThanOrEqual($shiftStart)
+            ) {
 
                 $shiftEnd->addDay();
+            }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Make sure current is inside shift
+            |--------------------------------------------------------------------------
+            */
+
+            if ($current->lessThan($shiftStart)) {
+
+                $current = $shiftStart->copy();
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Current time is after shift
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $current->greaterThanOrEqual($shiftEnd)
+            ) {
+
+                $nextDay = $current
+                    ->copy()
+                    ->startOfDay()
+                    ->addDay();
+
+                $current = $nextDay;
+
+                $daysChecked++;
+
+                continue;
             }
 
             /*
@@ -72,56 +210,96 @@ class BusinessTimeCalculator
             |--------------------------------------------------------------------------
             */
 
-            $break = $this->calendar->getLunchBreak($current);
+            $break = $this->calendar->getLunchBreak(
+                $current
+            );
 
             /*
             |--------------------------------------------------------------------------
-            | Available minutes
+            | Calculate available minutes
             |--------------------------------------------------------------------------
             */
 
-            $available = $current->diffInMinutes($shiftEnd);
+            $periodEnd = $shiftEnd;
 
             /*
             |--------------------------------------------------------------------------
-            | If lunch break is ahead
+            | Break exists and is ahead
             |--------------------------------------------------------------------------
             */
 
-            if ($break && $current->lt($break['start'])) {
+            if (
+                $break
+                && $current->lt($break['start'])
+                && $break['start']->lt($shiftEnd)
+            ) {
 
-                $availableBeforeBreak = $current->diffInMinutes($break['start']);
+                $periodEnd = $break['start'];
+            }
 
-                if ($minutes <=$availableBeforeBreak) {
+            /*
+            |--------------------------------------------------------------------------
+            | Available working minutes
+            |--------------------------------------------------------------------------
+            */
 
-                    return $current->addMinutes($minutes);
+            $available = $current->diffInMinutes(
+                $periodEnd
+            );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Prevent zero-minute infinite loop
+            |--------------------------------------------------------------------------
+            */
+
+            if ($available <= 0) {
+
+                /*
+                | If we're exactly at the break start,
+                | jump to break end.
+                */
+
+                if (
+                    $break
+                    && $current->equalTo($break['start'])
+                ) {
+
+                    $current = $break['end'];
+
+                    continue;
                 }
 
-                $minutes -= $availableBeforeBreak;
+                /*
+                | Otherwise move to next working day.
+                */
 
-                $current = $break['end'];
+                $current = $current
+                    ->copy()
+                    ->startOfDay()
+                    ->addDay();
+
+                $daysChecked++;
 
                 continue;
             }
 
-
-            $available = $current->diffInMinutes($shiftEnd);
             /*
             |--------------------------------------------------------------------------
-            | SLA fits inside current shift
+            | SLA fits in current working period
             |--------------------------------------------------------------------------
             */
 
             if ($minutes <= $available) {
 
-                return $current->addMinutes($minutes);
-
+                return $current
+                    ->copy()
+                    ->addMinutes($minutes);
             }
 
             /*
             |--------------------------------------------------------------------------
-            | Consume current shift
+            | Consume current working period
             |--------------------------------------------------------------------------
             */
 
@@ -129,17 +307,41 @@ class BusinessTimeCalculator
 
             /*
             |--------------------------------------------------------------------------
-            | Move to next working period
+            | Move to lunch break
             |--------------------------------------------------------------------------
             */
 
-            $current = $this->calendar->nextWorkingDay($current);
+            if (
+                $break
+                && $periodEnd->equalTo($break['start'])
+            ) {
 
+                $current = $break['end'];
+
+                continue;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Current shift consumed
+            |--------------------------------------------------------------------------
+            */
+
+            $current = $shiftEnd->copy();
+
+            /*
+            |--------------------------------------------------------------------------
+            | Move to next day
+            |--------------------------------------------------------------------------
+            */
+
+            $current = $current
+                ->startOfDay()
+                ->addDay();
+
+            $daysChecked++;
         }
 
         return $current;
     }
-
-
-
 }

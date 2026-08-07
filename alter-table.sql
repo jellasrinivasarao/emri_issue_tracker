@@ -243,3 +243,79 @@ SELECT
     effective_to
 FROM cfg_sla_policy
 WHERE is_active = 1;
+
+
+INSERT INTO cfg_sla_policy
+(
+    sla_policy_code,
+    sla_policy_name,
+    project_id,
+    service_id,
+    priority_id,
+    calendar_id,
+    response_time_minutes,
+    resolution_time_minutes,
+    response_warning_percent,
+    resolution_warning_percent,
+    is_active,
+    effective_from,
+    effective_to,
+    created_at
+)
+VALUES
+
+(
+    'SLA_P1',
+    'Critical SLA',
+    1, 1, 1, 1,
+    30,
+    240,
+    80,
+    80,
+    1,
+    '2026-01-01',
+    NULL,
+    NOW()
+),
+
+(
+    'SLA_P2',
+    'High SLA',
+    1, 1, 2, 1,
+    60,
+    480,
+    80,
+    80,
+    1,
+    '2026-01-01',
+    NULL,
+    NOW()
+),
+
+(
+    'SLA_P3',
+    'Medium SLA',
+    1, 1, 3, 1,
+    120,
+    960,
+    80,
+    80,
+    1,
+    '2026-01-01',
+    NULL,
+    NOW()
+),
+
+(
+    'SLA_P4',
+    'Low SLA',
+    1, 1, 4, 1,
+    240,
+    1440,
+    80,
+    80,
+    1,
+    '2026-01-01',
+    NULL,
+    NOW()
+);
