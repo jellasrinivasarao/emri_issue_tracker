@@ -19,7 +19,9 @@ use App\Models\IssueCategory;
 use App\Models\Module;
 
 use App\Services\IssueService;
-use App\Services\IssueRoutingService;
+#use App\Services\IssueRoutingService;
+use App\Services\IssueRouting\IssueRoutingService;
+
 use App\Services\IssueSlaService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -237,7 +239,7 @@ class IssueController extends Controller
     /**
      * Store issue.
      */
-    public function store(StoreIssueRequest $request): RedirectResponse|JsonResponse
+    public function store(StoreIssueRequest $request, IssueRoutingService $routingService): RedirectResponse|JsonResponse
     {
         Log::info("Raise Issue Request >>>>", ['response' => json_encode($request->all())]);
 
@@ -246,9 +248,16 @@ class IssueController extends Controller
             
             $issue = $this->issueService->create($request->validated(),$request->file('attachment'));
 
-
-            $issueSlaService = app(IssueSlaService::class);
-            $issueSlaService->createForIssue($issue);
+            if($issue){
+                 $routingService->route($issue);
+            }
+            
+            /**
+             *  To Enable SLA Config
+             */
+            
+            // $issueSlaService = app(IssueSlaService::class);
+            // $issueSlaService->createForIssue($issue);
 
             Log::info('Has File', [
                 'hasFile' => $request->hasFile('attachment'),

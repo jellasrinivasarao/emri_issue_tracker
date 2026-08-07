@@ -200,7 +200,7 @@ class Issue extends Model
         return $this->belongsTo(
             ProjectSupportConfiguration::class,
             'support_config_id',
-            'support_config_id'
+            'support_configuration_id'
         );
     }
 

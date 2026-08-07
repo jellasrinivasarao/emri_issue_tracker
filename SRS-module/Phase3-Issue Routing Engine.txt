@@ -1,0 +1,30 @@
+app/
+├── Http/
+│   └── Controllers/
+│       └── IssueController.php
+│
+├── Models/
+│   ├── Issue.php
+│   ├── ProjectSupportConfiguration.php
+│   ├── WorkingCalendar.php
+│   ├── WorkingSchedule.php
+│   ├── CalendarHoliday.php
+│   └── IssueRoutingLog.php
+│
+├── Services/
+│   ├── IssueRouting/
+│   │   ├── IssueRoutingService.php
+│   │   ├── BusinessHoursService.php
+│   │   ├── VendorRoutingService.php
+│   │   └── HoItRoutingService.php
+│   │
+│   └── Issue/
+│       └── IssueService.php
+│
+├── Enums/
+│   ├── SupportType.php
+│   ├── IssueRoutingStatus.php
+│   └── IssuePriority.php
+│
+└── Repositories/
+    └── ...
