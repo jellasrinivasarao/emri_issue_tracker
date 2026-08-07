@@ -421,6 +421,109 @@ public function refreshCache(): void
                 }
 
 
+                public function getShiftsForDate(Carbon $date)
+                {
+                    $day = strtolower($date->format('l'));
+
+                    return $this->scheduleCache[$day] ?? collect();
+                }
+
+                public function getCurrentShift(Carbon $date)
+                {
+                    if (!$this->isWorkingDay($date)) {
+                        return null;
+                    }
+
+                    foreach ($this->getShiftsForDate($date) as $shift) {
+
+                        $start = Carbon::parse(
+                            $date->toDateString() . ' ' . $shift->start_time
+                        );
+
+                        $end = Carbon::parse(
+                            $date->toDateString() . ' ' . $shift->end_time
+                        );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Overnight Shift
+                        |--------------------------------------------------------------------------
+                        */
+
+                        if ($shift->end_time < $shift->start_time) {
+                            $end->addDay();
+                        }
+
+                        if (
+                            $date->gte($start) &&
+                            $date->lt($end)
+                        ) {
+                            return $shift;
+                        }
+                    }
+
+                    return null;
+                }
+
+
+                public function getNextShift(Carbon $date)
+                {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Check remaining shifts today
+                    |--------------------------------------------------------------------------
+                    */
+
+                    if ($this->isWorkingDay($date)) {
+
+                        foreach (
+                            $this->getShiftsForDate($date)
+                            as $shift
+                        ) {
+
+                            $start = Carbon::parse(
+                                $date->toDateString()
+                                . ' '
+                                . $shift->start_time
+                            );
+
+                            if ($start->gt($date)) {
+                                return $start;
+                            }
+                        }
+                    }
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Move to next working day
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $nextDay = $date->copy()->startOfDay();
+
+                    do {
+
+                        $nextDay->addDay();
+
+                    } while (
+                        !$this->isWorkingDay($nextDay)
+                    );
+
+                    $shifts = $this->getShiftsForDate($nextDay);
+
+                    $shift = $shifts->first();
+
+                    if (!$shift) {
+                        return null;
+                    }
+
+                    return Carbon::parse(
+                        $nextDay->toDateString()
+                        . ' '
+                        . $shift->start_time
+                    );
+                }
+
                 
 
 

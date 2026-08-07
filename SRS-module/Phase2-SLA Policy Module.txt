@@ -103,8 +103,96 @@ app
  │      ├── HolidayService.php
  │      ├── BusinessTimeCalculator.php
  │      └── IssueSlaService.php
+            SlaMonitorService.php
 
 
  php artisan make:seeder WorkingScheduleSeeder
  php artisan make:seeder WorkingCalendarSeeder
  php artisan make:seeder HolidaySeeder
+
+
+ Complete SLA Flow
+                     ┌───────────────────┐
+                    │   Issue Created   │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │ IssueSlaService   │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │ Find SLA Policy   │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │ Working Calendar  │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                    ┌───────────────────┐
+                    │  SlaCalculator    │
+                    └─────────┬─────────┘
+                              │
+                              ▼
+                 ┌─────────────────────────┐
+                 │ BusinessTimeCalculator  │
+                 └────────────┬────────────┘
+                              │
+                              ▼
+                 ┌─────────────────────────┐
+                 │ WorkingCalendarService  │
+                 └────────────┬────────────┘
+                              │
+                ┌─────────────┼──────────────┐
+                ▼             ▼              ▼
+             Schedule      Holiday        Shifts
+                │             │              │
+                └─────────────┼──────────────┘
+                              ▼
+                   Response Due Date
+                              +
+                   Resolution Due Date
+                              │
+                              ▼
+                       txn_issue_sla
+                              │
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+          Running          Paused           Completed
+             │                │
+             ▼                ▼
+          Warning          Resume
+             │
+             ▼
+           Breach
+             │
+             ▼
+      Issue Escalation
+
+Part 2D-4A — Correct Multi-Shift Business Time
+
+
+txn_issue
+    │
+    └── txn_issue_sla
+          │
+          ├── response_status
+          │      ├── RUNNING
+          │      ├── WARNING
+          │      ├── MET
+          │      └── BREACHED
+          │
+          ├── resolution_status
+          │      ├── RUNNING
+          │      ├── WARNING
+          │      ├── MET
+          │      └── BREACHED
+          │
+          └── overall_status
+                 ├── RUNNING
+                 ├── PAUSED
+                 ├── BREACHED
+                 └── COMPLETED

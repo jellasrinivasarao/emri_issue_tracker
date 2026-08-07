@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Carbon\Carbon;
-
 use App\Models\SlaPolicy;
 use App\Models\WorkingCalendar;
 
@@ -16,11 +15,6 @@ class SlaCalculator
                 $this->businessTime = $businessTime;
         }
     
-        // public function calculate(Carbon $start,int $minutes,int $calendarId): Carbon
-        // {
-            
-        // }
-
         public function calculate(Carbon $startAt,SlaPolicy $policy,WorkingCalendar $calendar): array {
 
 
@@ -30,12 +24,9 @@ class SlaCalculator
         |--------------------------------------------------------------------------
         */
 
-        $calendarService =
-            new WorkingCalendarService($calendar);
+        $calendarService = new WorkingCalendarService($calendar);
 
-        $this->businessTime->setCalendar(
-            $calendarService
-        );
+        $this->businessTime->setCalendar($calendarService);
 
         /*
         |--------------------------------------------------------------------------
@@ -43,11 +34,7 @@ class SlaCalculator
         |--------------------------------------------------------------------------
         */
 
-        $responseDueAt =
-            $this->businessTime->addMinutes(
-                $startAt,
-                (int) $policy->response_time_minutes
-            );
+        $responseDueAt = $this->businessTime->addMinutes($startAt,(int) $policy->response_time_minutes);
 
         /*
         |--------------------------------------------------------------------------
@@ -55,20 +42,11 @@ class SlaCalculator
         |--------------------------------------------------------------------------
         */
 
-        $resolutionDueAt =
-            $this->businessTime->addMinutes(
-                $startAt,
-                (int) $policy->resolution_time_minutes
-            );
+        $resolutionDueAt = $this->businessTime->addMinutes($startAt,(int) $policy->resolution_time_minutes);
 
         return [
-
-            'response_due_at' =>
-                $responseDueAt,
-
-            'resolution_due_at' =>
-                $resolutionDueAt,
-
+            'response_due_at' => $responseDueAt,
+            'resolution_due_at' =>$resolutionDueAt,
         ];
         
         }

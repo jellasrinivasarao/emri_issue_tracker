@@ -9,6 +9,7 @@ use App\Models\WorkingCalendar;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Illuminate\Support\Facades\Log;
 
 class IssueSlaService
 {
@@ -21,9 +22,7 @@ class IssueSlaService
     /**
      * Create SLA for a newly created issue.
      */
-    public function createForIssue(
-        Issue $issue
-    ): IssueSla {
+    public function createForIssue(Issue $issue): IssueSla {
 
         return DB::transaction(function () use ($issue) {
 
@@ -67,9 +66,7 @@ class IssueSlaService
             |--------------------------------------------------------------------------
             */
 
-            $startAt = Carbon::now(
-                $calendar->timezone ?? config('app.timezone')
-            );
+            $startAt = Carbon::now($calendar->timezone ?? config('app.timezone'));
 
             /*
             |--------------------------------------------------------------------------
@@ -77,11 +74,7 @@ class IssueSlaService
             |--------------------------------------------------------------------------
             */
 
-            $calculation = $this->slaCalculator->calculate(
-                $startAt,
-                $policy,
-                $calendar
-            );
+            $calculation = $this->slaCalculator->calculate($startAt,$policy,$calendar);
 
             /*
             |--------------------------------------------------------------------------
@@ -92,14 +85,14 @@ class IssueSlaService
             return IssueSla::create([
 
                 'issue_id' => $issue->issue_id,
-
                 'sla_policy_id' => $policy->sla_policy_id,
-
-                'response_due_at' =>
-                    $calculation['response_due_at'],
-
-                'resolution_due_at' =>
-                    $calculation['resolution_due_at'],
+                'response_due_at' => $calculation['response_due_at'],
+                'resolution_due_at' =>$calculation['resolution_due_at'],
+                'response_warning_at' => $calculation['response_warning_at'],
+                'resolution_warning_at' => $calculation['resolution_warning_at'],
+                'response_status' => 'RUNNING',
+                'resolution_status' => 'RUNNING',
+                'overall_status' =>'RUNNING',
 
                 'response_completed_at' => null,
 
@@ -130,16 +123,48 @@ class IssueSlaService
     /**
      * Find SLA policy applicable to issue.
      */
-    protected function findPolicy(
-        Issue $issue
-    ): ?SlaPolicy {
+
+    protected function findPolicy(Issue $issue): ?SlaPolicy {
+
+        Log::info('SLA lookup', [
+
+    'issue_id' =>
+        $issue->issue_id,
+
+    'project_id' =>
+        $issue->project_id,
+
+    'application_id' =>
+        $issue->application_id,
+
+    'service_id' =>
+        $issue->service_id,
+
+    'priority_id' =>
+        $issue->priority_id,
+
+    'issue_category_id' =>
+        $issue->issue_category_id,
+
+]);
+    
+            $policy = SlaPolicy::query()
+            ->where('is_active', 1)
+            ->where('project_id', $issue->project_id)
+            ->where('service_id', $issue->service_id)
+            ->where('priority_id', $issue->priority_id)
+            ->first();
+
+            return $policy;
+    
+    }
+    
+    protected function findPolicy1(Issue $issue): ?SlaPolicy {
 
         return SlaPolicy::query()
-
             ->where('is_active', 1)
-
             ->where('project_id', $issue->project_id)
-
+            ->where('service_id', $issue->service_id)
             ->where('priority_id', $issue->priority_id)
 
             ->where(function ($query) use ($issue) {
@@ -213,10 +238,11 @@ class IssueSlaService
             $sla->update([
 
                 'response_completed_at' => $completedAt,
+                'response_status' => now()->lte($sla->response_due_at) ? 'MET': 'BREACHED',
 
             ]);
 
-            return $sla;
+            return $sla->fresh();
         }
 
 
@@ -228,15 +254,15 @@ class IssueSlaService
 
             }
 
-            
-
             $sla->update([
-
                 'resolution_completed_at' => now(),
+                'resolution_status' => now()->lte($sla->resolution_due_at) ? 'MET': 'BREACHED',
 
             ]);
 
-            return $sla;
+            #$this->updateOverallStatus($sla->fresh());
+
+            return $sla->fresh();
         }
 
         public function checkResponseBreach(IssueSla $sla): bool {
@@ -370,6 +396,19 @@ class IssueSlaService
             return $sla;
         }
 
+
+    protected function calculateWarningAt(Carbon $startAt,int $slaMinutes,float $warningPercent,WorkingCalendar $calendar): Carbon {
+
+    $warningMinutes = (int) round(
+        $slaMinutes * ($warningPercent / 100)
+    );
+
+    return $this->slaCalculator->addBusinessMinutes(
+        $startAt,
+        $warningMinutes,
+        $calendar
+    );
+}
 
 
         

@@ -3,222 +3,31 @@
 namespace App\Services;
 
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
-use App\Models\WorkingCalendar;
-use App\Models\WorkingSchedule;
-use App\Models\CalendarHoliday;
 
 class BusinessTimeCalculator
 {
 
-    protected WorkingCalendarService $calendar;
+    protected ?WorkingCalendarService $calendar = null;
+
 
     public function setCalendar(WorkingCalendarService $calendar): void {
 
         $this->calendar = $calendar;
 
     }
-    
-    #protected WorkingCalendar $calendar;
 
-    protected $schedules;
+    public function addMinutes(Carbon $start,int $minutes): Carbon {
 
-    protected $holidays;
-
-    #WorkingCalendar $calendar
-    #WorkingCalendarService $calendar
-    public function __construct(WorkingCalendar $calendar)
-    {
-        #$this->calendar = $calendar;
-
-        /*
-        $this->schedules = WorkingSchedule::where(
-                'calendar_id',
-                $calendar->calendar_id
-            )
-            ->get()
-            ->keyBy('day_of_week');
-
-        $this->holidays = CalendarHoliday::where(
-                'calendar_id',
-                $calendar->calendar_id
-            )
-            ->pluck('holiday_date')
-            ->map(fn($d)=>Carbon::parse($d)->toDateString())
-            ->toArray();
-
-            */
-
-        $current = $this->calendar->moveToWorkingTime($current);
-
-        $end = $this->calendar->officeEnd($current);
-
-        $current = $this->calendar->nextWorkingDay($current);
-
-        $this->calendar->isHoliday($current);
-
-    }
-
-
-    public function addBusinessMinutes(
-    Carbon $start,
-    int $minutes
-): Carbon
-{
-    $current = $start->copy();
-
-    while ($minutes > 0) {
-
-        $current = $this->moveToWorkingTime($current);
-
-        $schedule = $this->getSchedule($current);
-
-        $end = Carbon::parse(
-            $current->toDateString() .
-            ' ' .
-            $schedule->end_time
-        );
-
-        $available = $current->diffInMinutes($end);
-
-        if ($available >= $minutes) {
-
-            return $current->addMinutes($minutes);
-
+        if (!$this->calendar) {
+            throw new \Exception('WorkingCalendarService has not been set.');
         }
-
-        $minutes -= $available;
-
-        $current = $this->nextWorkingDay($current);
-
-    }
-
-    return $current;
-}
-
-
-        protected function getSchedule(Carbon $date)
-        {
-            return $this->schedules[
-                strtolower(
-                    $date->format('l')
-                )
-            ];
-        }
-
-
-        protected function moveToWorkingTime(
-    Carbon $date
-): Carbon
-{
-
-    while (true) {
-
-        if ($this->isHoliday($date)) {
-
-            $date = $this->nextWorkingDay($date);
-
-            continue;
-
-        }
-
-        $schedule = $this->getSchedule($date);
-
-        if (!$schedule) {
-
-            $date = $this->nextWorkingDay($date);
-
-            continue;
-
-        }
-
-        $officeStart = Carbon::parse(
-            $date->toDateString() .
-            ' ' .
-            $schedule->start_time
-        );
-
-        $officeEnd = Carbon::parse(
-            $date->toDateString() .
-            ' ' .
-            $schedule->end_time
-        );
-
-        if ($date->lt($officeStart)) {
-
-            return $officeStart;
-
-        }
-
-        if ($date->gte($officeEnd)) {
-
-            $date = $this->nextWorkingDay($date);
-
-            continue;
-
-        }
-
-        return $date;
-
-    }
-
-}
-
-protected function isHoliday(
-    Carbon $date
-): bool
-{
-    return in_array(
-        $date->toDateString(),
-        $this->holidays
-    );
-}
-
-protected function nextWorkingDay(
-    Carbon $date
-): Carbon
-{
-
-    do {
-
-        $date = $date
-            ->copy()
-            ->addDay()
-            ->startOfDay();
-
-    } while (
-
-        $this->isHoliday($date)
-        ||
-
-        !$this->getSchedule($date)
-
-    );
-
-    $schedule = $this->getSchedule($date);
-
-    return Carbon::parse($date->toDateString().' '.$schedule->start_time);
-
-}
-
-
-#####
-public function addMinutes(
-        Carbon $start,
-        int $minutes
-    ): Carbon {
 
         if ($minutes <= 0) {
-
             return $start->copy();
-
         }
 
-        $current =
-            $this->calendar
-                ->moveToWorkingTime(
-                    $start->copy()
-                );
+        $current = $this->calendar->moveToWorkingTime($start->copy());
+        
 
         while ($minutes > 0) {
 
@@ -228,17 +37,11 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            $shift =
-                $this->calendar
-                    ->getShift($current);
+            $shift =$this->calendar->getShift($current);
 
             if (!$shift) {
 
-                $current =
-                    $this->calendar
-                        ->nextWorkingDay(
-                            $current
-                        );
+                $current = $this->calendar->nextWorkingDay($current);
 
                 continue;
             }
@@ -249,12 +52,7 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            $shiftEnd =
-                Carbon::parse(
-                    $current->toDateString()
-                    . ' '
-                    . $shift->end_time
-                );
+            $shiftEnd = Carbon::parse($current->toDateString(). ' '. $shift->end_time);
 
             /*
             |--------------------------------------------------------------------------
@@ -262,11 +60,7 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $shift->end_time
-                <
-                $shift->start_time
-            ) {
+            if ($shift->end_time<$shift->start_time) {
 
                 $shiftEnd->addDay();
 
@@ -278,9 +72,7 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            $break =
-                $this->calendar
-                    ->getLunchBreak($current);
+            $break = $this->calendar->getLunchBreak($current);
 
             /*
             |--------------------------------------------------------------------------
@@ -288,10 +80,7 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            $available =
-                $current->diffInMinutes(
-                    $shiftEnd
-                );
+            $available = $current->diffInMinutes($shiftEnd);
 
             /*
             |--------------------------------------------------------------------------
@@ -299,38 +88,25 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            if (
-                $break
-                &&
-                $current->lt($break['start'])
-            ) {
+            if ($break && $current->lt($break['start'])) {
 
-                $availableBeforeBreak =
-                    $current->diffInMinutes(
-                        $break['start']
-                    );
+                $availableBeforeBreak = $current->diffInMinutes($break['start']);
 
-                if (
-                    $minutes
-                    <=
-                    $availableBeforeBreak
-                ) {
+                if ($minutes <=$availableBeforeBreak) {
 
-                    return $current->addMinutes(
-                        $minutes
-                    );
+                    return $current->addMinutes($minutes);
 
                 }
 
-                $minutes -=
-                    $availableBeforeBreak;
+                $minutes -= $availableBeforeBreak;
 
-                $current =
-                    $break['end'];
+                $current = $break['end'];
 
                 continue;
             }
 
+
+            $available = $current->diffInMinutes($shiftEnd);
             /*
             |--------------------------------------------------------------------------
             | SLA fits inside current shift
@@ -339,9 +115,7 @@ public function addMinutes(
 
             if ($minutes <= $available) {
 
-                return $current->addMinutes(
-                    $minutes
-                );
+                return $current->addMinutes($minutes);
 
             }
 
@@ -359,11 +133,7 @@ public function addMinutes(
             |--------------------------------------------------------------------------
             */
 
-            $current =
-                $this->calendar
-                    ->nextWorkingDay(
-                        $current
-                    );
+            $current = $this->calendar->nextWorkingDay($current);
 
         }
 
