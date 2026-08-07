@@ -10,10 +10,15 @@ use Illuminate\Support\Facades\Route;
         </h2>
     </x-slot>
 
+<<<<<<< HEAD
 
     {{-- =========================================================
         DASHBOARD
     ========================================================== --}}
+=======
+    <!-- Signal to client navigation: hide sidebar when this page is loaded via AJAX -->
+    <div data-hide-sidebar hidden></div>
+>>>>>>> 9f75580f830b41a584b436fbc3d275935bc7c243
 
     <div class="py-10">
 

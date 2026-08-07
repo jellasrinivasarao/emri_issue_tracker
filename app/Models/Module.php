@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Module extends Model
 {
+    use HasFactory;
+
     protected $table = 'mst_module';
 
     protected $primaryKey = 'module_id';
@@ -14,12 +16,13 @@ class Module extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'module_code',
         'module_name',
+        'module_code',
         'description',
         'is_active',
         'created_at',
         'created_by',
+        'update_at',
         'updated_at',
         'updated_by',
     ];
@@ -27,6 +30,7 @@ class Module extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'created_at' => 'datetime',
+        'update_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 }

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ $title ?? 'Project State Mapping' }}</h2>
+        <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ $title ?? 'Vendor State Mapping' }}</h2>
     </x-slot>
 
     <div class="py-8">
@@ -17,7 +17,7 @@
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-5">
                     <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-center">
                         <div>
-                            <p class="text-sm text-slate-600">{{ $description ?? 'Manage state-to-project mappings and control active mappings.' }}</p>
+                            <p class="text-sm text-slate-600">{{ $description ?? 'Map states and projects to vendors and manage active vendor mappings.' }}</p>
                         </div>
                         <div class="flex items-center gap-3">
                             <div class="flex items-center justify-end rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
@@ -25,24 +25,28 @@
                                 <input id="mapping-search" type="text" placeholder="Search" class="ml-2 w-36 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
                             </div>
                             @if(data_get($permissions, 'export'))
-                                <button type="button" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
-                                <button type="button" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
-                                <button type="button" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                                <button type="button" onclick="exportVendorStateTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                                <button type="button" onclick="exportVendorStateTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                                <button type="button" onclick="exportVendorStateTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
                             @endif
                         </div>
                         <div class="flex justify-end">
-                            <button type="button" onclick="openProjectStateModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add Mapping</button>
+                            @if(data_get($permissions, 'create'))
+                                <button type="button" onclick="openVendorStateModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add Mapping</button>
+                            @endif
                         </div>
                     </div>
                 </div>
+
                 <div class="overflow-x-auto">
                     <div class="max-h-[420px] overflow-auto">
                         <table class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-purple-100 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">ID</th>
-                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">State</th>
-                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Project</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Vendor</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">State(s)</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Project(s)</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Status</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Actions</th>
                                 </tr>
@@ -51,30 +55,43 @@
                                 @forelse($mappings as $mapping)
                                     <tr>
                                         <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $mapping->mapping_id }}</td>
+                                        <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $mapping->vendor_name }}</td>
                                         <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $mapping->state_name }}</td>
                                         <td class="px-5 py-3 text-sm text-slate-600">{{ $mapping->project_name }}</td>
                                         <td class="px-5 py-3 text-sm"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $mapping->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $mapping->is_active ? 'Active' : 'Inactive' }}</span></td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <button type="button"
-                                                    data-mapping-id="{{ $mapping->mapping_id }}"
-                                                    data-state-id="{{ $mapping->state_id }}"
-                                                    data-project-id="{{ $mapping->project_id }}"
-                                                    data-is-active="{{ $mapping->is_active ? '1' : '0' }}"
-                                                    onclick="editProjectStateModal(this.dataset)"
-                                                    class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
-                                                <form method="POST" action="{{ route('project.state.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ $mapping->is_active ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">
-                                                        {{ $mapping->is_active ? 'Disable' : 'Activate' }}
-                                                    </button>
-                                                </form>
+                                                @if(data_get($permissions, 'edit'))
+                                                    <button type="button"
+                                                        data-mapping-id="{{ $mapping->mapping_id }}"
+                                                        data-vendor-id="{{ $mapping->vendor_id }}"
+                                                        data-state-id="{{ $mapping->state_id }}"
+                                                        data-project-id="{{ $mapping->project_id }}"
+                                                        data-is-active="{{ $mapping->is_active ? '1' : '0' }}"
+                                                        onclick="editVendorStateModal(this.dataset)"
+                                                        class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                                @endif
+                                                @if($mapping->is_active && data_get($permissions, 'deactivate'))
+                                                    <form method="POST" action="{{ route('vendor.state.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200">
+                                                            Disable
+                                                        </button>
+                                                    </form>
+                                                @elseif(! $mapping->is_active && data_get($permissions, 'activate'))
+                                                    <form method="POST" action="{{ route('vendor.state.mapping.toggle', ['mapping_id' => $mapping->mapping_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
+                                                            Activate
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="px-5 py-6 text-center text-sm text-slate-500">No project state mappings found.</td>
+                                        <td colspan="6" class="px-5 py-6 text-center text-sm text-slate-500">No vendor state mappings found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -85,16 +102,16 @@
         </div>
     </div>
 
-    <div id="project-state-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 px-4 py-8">
+    <div id="vendor-state-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 px-4 py-8">
         <div class="mx-auto max-w-2xl rounded-3xl bg-white shadow-2xl">
-            <form id="project-state-form" method="POST" action="">
+            <form id="vendor-state-form" method="POST" action="">
                 @csrf
                 <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
                     <div>
-                        <h3 id="project-state-modal-title" class="text-lg font-semibold text-slate-900">Add Mapping</h3>
-                        <p class="text-sm text-slate-600">Create or update a state-to-project mapping.</p>
+                        <h3 id="vendor-state-modal-title" class="text-lg font-semibold text-slate-900">Add Mapping</h3>
+                        <p class="text-sm text-slate-600">Create or update a vendor-to-state-project mapping.</p>
                     </div>
-                    <button type="button" onclick="closeProjectStateModal()" class="rounded-full p-2 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900">
+                    <button type="button" onclick="closeVendorStateModal()" class="rounded-full p-2 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
@@ -102,6 +119,16 @@
                 <div class="space-y-4 px-5 py-5">
                     <input type="hidden" id="mapping_id" name="mapping_id" value="" />
                     <input type="hidden" id="mapping_form_method" name="_method" value="POST" />
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-slate-700">Vendor</label>
+                        <select id="vendor_id" name="vendor_id" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                            <option value="">Select vendor</option>
+                            @foreach($vendors as $vendor)
+                                <option value="{{ $vendor->vendor_id }}">{{ $vendor->vendor_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
@@ -130,8 +157,8 @@
                     </div>
 
                     <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
-                        <button type="button" onclick="closeProjectStateModal()" class="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">Close</button>
-                        <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" id="project-state-modal-submit">Save</button>
+                        <button type="button" onclick="closeVendorStateModal()" class="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">Close</button>
+                        <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" id="vendor-state-modal-submit">Save</button>
                     </div>
                 </div>
             </form>
@@ -139,7 +166,7 @@
     </div>
 
     <script>
-        const optionsEndpoint = '{{ route('project.state.mapping.options') }}';
+        const optionsEndpoint = '{{ route('vendor.state.mapping.options') }}';
         const formState = {
             states: [],
             projects: [],
@@ -291,29 +318,36 @@
         async function loadRealTimeOptions() {
             const response = await fetch(optionsEndpoint, { headers: { 'Accept': 'application/json' } });
             if (!response.ok) {
-                console.error('Unable to load state/project options', response.statusText);
+                console.error('Unable to load options', response.statusText);
                 return;
             }
 
             const data = await response.json();
             stateSelect.setOptions(data.states || []);
             projectSelect.setOptions(data.projects || []);
+            const vendorSelect = document.getElementById('vendor_id');
+            if (vendorSelect && Array.isArray(data.vendors)) {
+                // replace vendor options
+                const current = vendorSelect.value;
+                vendorSelect.innerHTML = '<option value="">Select vendor</option>' + (data.vendors.map(v => `<option value="${v.vendor_id}">${v.vendor_name}</option>`).join(''));
+                vendorSelect.value = current;
+            }
         }
 
-        async function openProjectStateModal() {
+        async function openVendorStateModal() {
             await loadRealTimeOptions();
-            document.getElementById('project-state-modal-title').textContent = 'Add Mapping';
-            document.getElementById('project-state-form').action = '{{ route('project.state.mapping.store') }}';
+            document.getElementById('vendor-state-modal-title').textContent = 'Add Mapping';
+            document.getElementById('vendor-state-form').action = '{{ route('vendor.state.mapping.store') }}';
             document.getElementById('mapping_form_method').value = 'POST';
             document.getElementById('mapping_id').value = '';
             stateSelect.setItems([]);
             projectSelect.setItems([]);
-            document.getElementById('project-state-modal-submit').textContent = 'Save';
-            document.getElementById('project-state-modal').classList.remove('hidden');
+            document.getElementById('vendor-state-modal-submit').textContent = 'Save';
+            document.getElementById('vendor-state-modal').classList.remove('hidden');
         }
 
-        function closeProjectStateModal() {
-            document.getElementById('project-state-modal').classList.add('hidden');
+        function closeVendorStateModal() {
+            document.getElementById('vendor-state-modal').classList.add('hidden');
         }
 
         function closeMappingMessage() {
@@ -325,16 +359,22 @@
             }
         }
 
-        async function editProjectStateModal(data) {
+        function exportVendorStateTable(format) {
+            const params = new URLSearchParams({ format });
+            window.location.href = '{{ route('vendor.state.mapping') }}' + '?' + params.toString();
+        }
+
+        async function editVendorStateModal(data) {
             await loadRealTimeOptions();
-            document.getElementById('project-state-modal-title').textContent = 'Edit Mapping';
-            document.getElementById('project-state-form').action = '{{ url('/project-state-mapping') }}' + '/' + (data.mappingId || '');
+            document.getElementById('vendor-state-modal-title').textContent = 'Edit Mapping';
+            document.getElementById('vendor-state-form').action = '{{ url('/vendor-state-mapping') }}' + '/' + (data.mappingId || '');
             document.getElementById('mapping_form_method').value = 'PUT';
             document.getElementById('mapping_id').value = data.mappingId || '';
+            document.getElementById('vendor_id').value = data.vendorId || '';
             stateSelect.setItems([String(data.stateId || '')].filter(Boolean));
             projectSelect.setItems([String(data.projectId || '')].filter(Boolean));
-            document.getElementById('project-state-modal-submit').textContent = 'Update';
-            document.getElementById('project-state-modal').classList.remove('hidden');
+            document.getElementById('vendor-state-modal-submit').textContent = 'Update';
+            document.getElementById('vendor-state-modal').classList.remove('hidden');
         }
 
         function filterMappings() {

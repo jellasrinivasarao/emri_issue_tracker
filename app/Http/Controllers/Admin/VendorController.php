@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\VendorRequest;
 use App\Models\Vendor;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -62,7 +63,7 @@ class VendorController extends Controller
         ]);
     }
 
-    public function store(VendorRequest $request): RedirectResponse
+    public function store(VendorRequest $request): RedirectResponse|JsonResponse
     {
         $vendor = new Vendor();
         $vendor->vendor_name = trim($request->vendor_name);
@@ -78,10 +79,17 @@ class VendorController extends Controller
         $vendor->created_by = auth()->id();
         $vendor->save();
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Vendor created successfully.',
+                'vendor' => $vendor->refresh()->toArray(),
+            ], 201);
+        }
+
         return redirect()->route('vendor.master')->with('success', 'Vendor created successfully.');
     }
 
-    public function update(VendorRequest $request, Vendor $vendor): RedirectResponse
+    public function update(VendorRequest $request, Vendor $vendor): RedirectResponse|JsonResponse
     {
         $vendor->vendor_name = trim($request->vendor_name);
         $vendor->vendor_category = trim($request->vendor_category);
@@ -94,15 +102,29 @@ class VendorController extends Controller
         $vendor->Update_by = auth()->id();
         $vendor->save();
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Vendor updated successfully.',
+                'vendor' => $vendor->refresh()->toArray(),
+            ]);
+        }
+
         return redirect()->route('vendor.master')->with('success', 'Vendor updated successfully.');
     }
 
-    public function toggle(Request $request, Vendor $vendor): RedirectResponse
+    public function toggle(Request $request, Vendor $vendor): RedirectResponse|JsonResponse
     {
         $vendor->is_active = $vendor->is_active ? 0 : 1;
         $vendor->Update_at = now();
         $vendor->Update_by = auth()->id();
         $vendor->save();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Vendor status updated successfully.',
+                'vendor' => $vendor->refresh()->toArray(),
+            ]);
+        }
 
         return redirect()->route('vendor.master')->with('success', 'Vendor status updated successfully.');
     }

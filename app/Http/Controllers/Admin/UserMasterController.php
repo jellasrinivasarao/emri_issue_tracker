@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UserMasterRequest;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\State;
+use App\Models\Vendor;
+use App\Services\UserCreationMailService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -96,11 +99,16 @@ class UserMasterController extends Controller
             return redirect()->route('user.master')->with('error', 'Unsupported export format.');
         }
 
+        $states = State::query()->select('state_id', 'state_name')->orderBy('state_name')->get();
+        $vendors = Vendor::query()->select('vendor_id', 'vendor_name')->orderBy('vendor_name')->get();
+
         return view('pages.user-master', [
             'title' => 'User Master',
             'description' => 'Manage users, login details, and role assignments.',
             'users' => $users,
             'roles' => $roles,
+            'states' => $states,
+            'vendors' => $vendors,
         ]);
     }
 
@@ -134,12 +142,43 @@ class UserMasterController extends Controller
         }
         $user->official_email = $request->official_email;
         $user->mobile_number = $request->mobile_number;
-        $user->user_status = $request->user_status;
+        $user->user_status = $request->user_status ?? 'Active';
         $user->role_id = $request->role_id;
         $user->is_active = 1;
 
         if ($request->filled('password')) {
             $user->password_hash = Hash::make($request->password);
+        }
+
+        // Persist state(s) and vendor if columns exist
+        if (Schema::hasColumn('mst_user', 'state_id')) {
+            $stateIds = is_array($request->state_ids) ? array_values(array_filter($request->state_ids, fn($value) => $value !== null && $value !== '')) : [];
+            $columnType = Schema::getColumnType('mst_user', 'state_id');
+
+            if (! empty($stateIds)) {
+                if (in_array($columnType, ['string', 'text', 'json'], true)) {
+                    $user->state_id = implode(',', $stateIds);
+                } else {
+                    $user->state_id = $stateIds[0];
+                }
+            } elseif ($request->filled('state_id')) {
+                $user->state_id = $request->state_id;
+            }
+        }
+
+        if (Schema::hasColumn('mst_user', 'vendor_id') && $request->filled('vendor_id')) {
+            $user->vendor_id = $request->vendor_id;
+        }
+
+        // If current user is a State Admin, ensure they cannot assign outside their mapped state(s)
+        if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
+            $currentState = auth()->user()->state_id ?? null;
+            if ($currentState && $user->state_id) {
+                $assigned = (string) $user->state_id;
+                if (! str_contains($assigned, (string) $currentState)) {
+                    return redirect()->route('user.master')->with('error', 'You may only assign users to states you manage.');
+                }
+            }
         }
 
         if (Schema::hasColumn('mst_user', 'created_at')) {
@@ -150,9 +189,22 @@ class UserMasterController extends Controller
             $user->created_by = auth()->id();
         }
 
-        $user->save();
+        DB::transaction(function () use ($user, $request) {
+            $user->save();
+            if ($request->filled('role_id')) {
+                $user->roles()->sync([$request->role_id]);
+            }
+        });
 
-        return redirect()->route('user.master')->with('success', 'User created successfully.');
+        $mailService = new UserCreationMailService();
+        $mailResult = $mailService->send($user, $request->filled('password') ? $request->password : null, auth()->user());
+
+        $message = 'User created successfully.';
+        if (! $mailResult['success']) {
+            $message .= ' Mail delivery failed: ' . $mailResult['message'];
+        }
+
+        return redirect()->route('user.master')->with('success', $message);
     }
 
     public function update(UserMasterRequest $request, int $user_id): RedirectResponse
@@ -163,11 +215,43 @@ class UserMasterController extends Controller
         $user->login_id = $request->login_id;
         $user->official_email = $request->official_email;
         $user->mobile_number = $request->mobile_number;
-        $user->user_status = $request->user_status;
+        if ($request->filled('user_status')) {
+            $user->user_status = $request->user_status;
+        }
         $user->role_id = $request->role_id;
 
         if ($request->filled('password')) {
             $user->password_hash = Hash::make($request->password);
+        }
+
+        // Persist state(s) and vendor on update
+        if (Schema::hasColumn('mst_user', 'state_id')) {
+            $stateIds = is_array($request->state_ids) ? array_values(array_filter($request->state_ids, fn($value) => $value !== null && $value !== '')) : [];
+            $columnType = Schema::getColumnType('mst_user', 'state_id');
+
+            if (! empty($stateIds)) {
+                if (in_array($columnType, ['string', 'text', 'json'], true)) {
+                    $user->state_id = implode(',', $stateIds);
+                } else {
+                    $user->state_id = $stateIds[0];
+                }
+            } elseif ($request->filled('state_id')) {
+                $user->state_id = $request->state_id;
+            }
+        }
+
+        if (Schema::hasColumn('mst_user', 'vendor_id') && $request->filled('vendor_id')) {
+            $user->vendor_id = $request->vendor_id;
+        }
+
+        if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
+            $currentState = auth()->user()->state_id ?? null;
+            if ($currentState && $user->state_id) {
+                $assigned = (string) $user->state_id;
+                if (! str_contains($assigned, (string) $currentState)) {
+                    return redirect()->route('user.master')->with('error', 'You may only assign users to states you manage.');
+                }
+            }
         }
 
         if (Schema::hasColumn('mst_user', 'updated_at')) {
@@ -177,7 +261,12 @@ class UserMasterController extends Controller
             $user->updated_by = auth()->id();
         }
 
-        $user->save();
+        DB::transaction(function () use ($user, $request) {
+            $user->save();
+            if ($request->filled('role_id')) {
+                $user->roles()->sync([$request->role_id]);
+            }
+        });
 
         return redirect()->route('user.master')->with('success', 'User updated successfully.');
     }

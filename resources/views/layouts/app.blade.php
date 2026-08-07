@@ -18,7 +18,7 @@
                     'Administration' => ['administration'],
                     'Main Dashboard' => ['role.dashboard'],
                     'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
-                    'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping'],
+                    'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
                     'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping'],
                     'Operational Configuration' => ['working.hours', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
                     'Audit & Governance' => ['active.inactive.status', 'change.history', 'user.activity.log', 'system.audit.logs'],
@@ -127,22 +127,23 @@
                 @endunless
 
                 <div class="relative flex flex-1 flex-col min-h-0 box-border {{ $withoutSidebar ? '' : 'md:pl-[260px]' }}">
-                    <header class="sticky top-0 z-50 flex flex-wrap min-h-[48px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm">
-                        <div class="flex min-w-0 items-center gap-3">
-                            <button @click="sidebarOpen = !sidebarOpen" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 md:hidden">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                            </button>
-                            <div class="hidden items-center gap-3 md:flex">
-                                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">EM</div>
-                                <div>
-                                    <p class="text-xs uppercase tracking-[0.24em] text-slate-500">EMRI ISSUE TRACKER</p>
+                    <div id="page-shell">
+                        <header class="sticky top-0 z-50 flex flex-wrap min-h-[48px] items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <button @click="sidebarOpen = !sidebarOpen" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 md:hidden">
+                                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                </button>
+                                <div class="hidden items-center gap-3 md:flex">
+                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">EM</div>
+                                    <div>
+                                        <p class="text-xs uppercase tracking-[0.24em] text-slate-500">EMRI ISSUE TRACKER</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="ml-auto flex min-w-0 flex-wrap items-center gap-3">
-                            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 flex-shrink-0">
-                                Role: <span class="font-semibold text-slate-900">{{ auth()->user()->role_names ?: 'Central Admin' }}</span>
-                            </div>
+                            <div class="ml-auto flex min-w-0 flex-wrap items-center gap-3">
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 flex-shrink-0">
+                                    Role: <span class="font-semibold text-slate-900">{{ auth()->user()->role_names ?: 'Central Admin' }}</span>
+                                </div>
                             <button class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 shadow-sm hover:bg-slate-100">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                             </button>
@@ -160,10 +161,12 @@
                     </header>
 
                     <main class="flex-1 min-h-0 overflow-y-auto bg-slate-100">
-                        <div class="mx-auto flex h-full min-h-0 max-w-full w-full flex-col box-border px-4 py-5 sm:px-6 lg:px-8 overflow-x-hidden">
+                        <div id="page-content-wrapper" class="mx-auto flex h-full min-h-0 max-w-full w-full flex-col box-border px-4 py-5 sm:px-6 lg:px-8 overflow-x-hidden">
                             {{ $slot }}
+                            @stack('scripts')
                         </div>
                     </main>
+                    </div>
                 </div>
             </div>
 
