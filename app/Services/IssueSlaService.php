@@ -19,6 +19,58 @@ class IssueSlaService
         $this->slaCalculator = $slaCalculator;
     }
 
+
+    public function validateConfiguration(int $projectId,int $applicationId,int $serviceId,int $priorityId): array {
+
+    $policy = SlaPolicy::query()
+        ->where('project_id', $projectId)
+        ->where('application_id', $applicationId)
+        ->where('service_id', $serviceId)
+        ->where('priority_id', $priorityId)
+        ->where('is_active', 1)
+        ->where(function ($query) {
+            $query->whereNull('effective_from')
+                ->orWhere('effective_from', '<=', now());
+        })
+        ->where(function ($query) {
+            $query->whereNull('effective_to')
+                ->orWhere('effective_to', '>=', now());
+        })
+        ->first();
+
+    if (!$policy) {
+        return [
+            'valid' => false,
+            'message' => 'No active SLA policy configured.',
+        ];
+    }
+
+    if (!$policy->calendar_id) {
+        return [
+            'valid' => false,
+            'message' => 'No working calendar configured for SLA policy.',
+        ];
+    }
+
+    $calendar = WorkingCalendar::query()
+        ->where('calendar_id', $policy->calendar_id)
+        ->where('is_active', 1)
+        ->first();
+
+    if (!$calendar) {
+        return [
+            'valid' => false,
+            'message' => 'The working calendar configured for this SLA policy is inactive or missing.',
+        ];
+    }
+
+    return [
+        'valid' => true,
+        'policy' => $policy,
+        'calendar' => $calendar,
+    ];
+}
+
     /**
      * Create SLA for a newly created issue.
      */
@@ -26,6 +78,15 @@ class IssueSlaService
 
         return DB::transaction(function () use ($issue) {
 
+
+        Log::info('SLA lookup started', [
+        'issue_id' => $issue->issue_id,
+        'project_id' => $issue->project_id,
+        'application_id' => $issue->application_id,
+        'service_id' => $issue->service_id,
+        'priority_id' => $issue->priority_id,
+        'current_time' => now()->toDateTimeString(),
+    ]);
             /*
             |--------------------------------------------------------------------------
             | 1. Find matching SLA policy
@@ -64,6 +125,30 @@ class IssueSlaService
 
             }
 
+            Log::info('Exact SLA policy found', [
+        'sla_policy_id' => $policy->sla_policy_id,
+        'sla_policy_code' => $policy->sla_policy_code,
+        'project_id' => $policy->project_id,
+        'application_id' => $policy->application_id,
+        'service_id' => $policy->service_id,
+        'priority_id' => $policy->priority_id,
+        'calendar_id' => $policy->calendar_id,
+    ]);
+    
+
+    if (!$policy->calendar_id) {
+
+        Log::error('SLA policy has no calendar configured', [
+            'sla_policy_id' => $policy->sla_policy_id,
+            'issue_id' => $issue->issue_id,
+        ]);
+
+        throw new \RuntimeException(
+            'No working calendar configured for the SLA policy.'
+        );
+    }
+    
+
             /*
             |--------------------------------------------------------------------------
             | 2. Get Working Calendar
@@ -80,12 +165,24 @@ class IssueSlaService
                 ->first();
 
             if (!$calendar) {
-
+                Log::error('Active working calendar not found for SLA policy', [
+                    'sla_policy_id' => $policy->sla_policy_id,
+                    'calendar_id' => $policy->calendar_id,
+                    'issue_id' => $issue->issue_id,
+                ]);
                 throw new RuntimeException(
                     'Active working calendar not found for SLA policy.'
                 );
 
             }
+
+                Log::info('SLA calendar found', [
+        'sla_policy_id' => $policy->sla_policy_id,
+        'calendar_id' => $calendar->calendar_id,
+        'calendar_code' => $calendar->calendar_code,
+        'calendar_name' => $calendar->calendar_name,
+        'timezone' => $calendar->timezone,
+    ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -94,7 +191,9 @@ class IssueSlaService
             */
 
             
-            $startAt = Carbon::now($calendar->timezone ?? config('app.timezone'));
+            ###$startAt = Carbon::now($calendar->timezone ?? config('app.timezone'));
+
+            $startAt = $issue->created_at? Carbon::parse($issue->created_at): now();
 
             /*
             |--------------------------------------------------------------------------
@@ -204,6 +303,34 @@ class IssueSlaService
 
         return $policy;
     }
+
+
+
+
+            $candidates = SlaPolicy::query()
+            ->where('project_id', $issue->project_id)
+            ->where('application_id', $issue->application_id)
+            ->where('service_id', $issue->service_id)
+            ->get([
+                'sla_policy_id',
+                'sla_policy_code',
+                'priority_id',
+                'calendar_id',
+                'is_active',
+                'effective_from',
+                'effective_to',
+            ]);
+
+        Log::warning('SLA candidates', [
+            'issue_id' => $issue->issue_id,
+            'required' => [
+                'project_id' => $issue->project_id,
+                'application_id' => $issue->application_id,
+                'service_id' => $issue->service_id,
+                'priority_id' => $issue->priority_id,
+            ],
+            'candidates' => $candidates->toArray(),
+        ]);
 
 
 

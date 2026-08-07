@@ -2,606 +2,1359 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-
-
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
 use App\Models\WorkingCalendar;
 use App\Models\WorkingSchedule;
 use App\Models\CalendarHoliday;
 
 class WorkingCalendarService
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Calendar
+    |--------------------------------------------------------------------------
+    */
 
     protected WorkingCalendar $calendar;
 
-    protected array $holidayCache=[];
 
-    protected array $scheduleCache=[];
+    /*
+    |--------------------------------------------------------------------------
+    | Caches
+    |--------------------------------------------------------------------------
+    */
 
-    protected array $shiftCache=[];
-    
+    /**
+     * [
+     *     'monday' => Collection,
+     *     'tuesday' => Collection,
+     *     ...
+     * ]
+     */
+    protected array $scheduleCache = [];
 
-    protected $schedules;
 
-    protected array $holidays = [];
+    /**
+     * [
+     *     'YYYY-MM-DD',
+     *     ...
+     * ]
+     */
+    protected array $holidayCache = [];
 
-    public function __construct(WorkingCalendar $calendar) {
 
+    /**
+     * [
+     *     shift_no => Collection
+     * ]
+     */
+    protected array $shiftCache = [];
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Constructor
+    |--------------------------------------------------------------------------
+    */
+
+    public function __construct(WorkingCalendar $calendar)
+    {
         $this->calendar = $calendar;
 
         $this->loadCache();
-
-        $this->loadSchedules(); #Load Schedule
-
-        $this->loadHolidays(); #Load Holidays
-
     }
 
 
-    protected function loadCache(): void
+    /*
+    |--------------------------------------------------------------------------
+    | Calendar
+    |--------------------------------------------------------------------------
+    */
+
+    public function getCalendar(): WorkingCalendar
     {
+        return $this->calendar;
+    }
+
+
+    public function getCalendarId(): int
+    {
+        return (int) $this->calendar->calendar_id;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Load Cache
+    |--------------------------------------------------------------------------
+    */
+
+    protected function loadCacheOld(): void
+    {
+        $this->scheduleCache = [];
+
+        $this->holidayCache = [];
+
+        $this->shiftCache = [];
+
+
         /*
-        One database hit only.
+        |--------------------------------------------------------------------------
+        | Working Schedules
+        |--------------------------------------------------------------------------
         */
 
-        $schedules=WorkingSchedule::where(
-            'calendar_id',
-            $this->calendar->calendar_id
-        )
-        ->orderBy('shift_no')
-        ->get();
-
-        foreach($schedules as $row){
-
-            $day=strtolower($row->day_of_week);
-
-            $this->scheduleCache[$day][]=$row;
-
-            $this->shiftCache[$row->shift_no][]=$row;
-
-        }
-        $this->holidayCache=
-            CalendarHoliday::where(
+        $schedules = WorkingSchedule::query()
+            ->where(
                 'calendar_id',
                 $this->calendar->calendar_id
             )
-            ->pluck('holiday_date')
-            ->map(fn($d)=>Carbon::parse($d)->toDateString())
-            ->toArray();
-    }
+            ->where('is_active', 1)
+            ->orderBy('day_of_week')
+            ->orderBy('shift_no')
+            ->get();
 
 
-    protected function loadSchedules(): void
-    {
-        $this->schedules = WorkingSchedule::where('calendar_id',$this->calendar->calendar_id)
-            ->get()
-            ->keyBy(function ($item) {
-                return strtolower($item->day_of_week);
-            });
-    }
+        foreach ($schedules as $schedule) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Normalize day
+            |--------------------------------------------------------------------------
+            |
+            | Expected values:
+            |
+            | Monday
+            | Tuesday
+            | Wednesday
+            | Thursday
+            | Friday
+            | Saturday
+            | Sunday
+            |
+            */
+
+            $day = strtolower(
+                trim((string) $schedule->day_of_week)
+            );
 
 
-    protected function loadHolidays(): void
-    {
-        $this->holidays = CalendarHoliday::where('calendar_id',$this->calendar->calendar_id)
-            ->pluck('holiday_date')
-            ->map(function ($date) {
-                return Carbon::parse($date)->toDateString();
-            })->toArray();
-    }
+            /*
+            |--------------------------------------------------------------------------
+            | Day Cache
+            |--------------------------------------------------------------------------
+            */
 
-        public function getSchedule(Carbon $date): ?WorkingSchedule{
+            if (!isset($this->scheduleCache[$day])) {
 
-            return $this->schedules[
-                strtolower($date->format('l'))
-            ] ?? null;
+                $this->scheduleCache[$day] = collect();
+
+            }
+
+            $this->scheduleCache[$day]->push($schedule);
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Shift Cache
+            |--------------------------------------------------------------------------
+            */
+
+            $shiftNo = (int) ($schedule->shift_no ?? 1);
+
+            if (!isset($this->shiftCache[$shiftNo])) {
+
+                $this->shiftCache[$shiftNo] = collect();
+
+            }
+
+            $this->shiftCache[$shiftNo]->push($schedule);
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Holidays
+        |--------------------------------------------------------------------------
+        */
+
+        $holidays = CalendarHoliday::query()
+            ->where(
+                'calendar_id',
+                $this->calendar->calendar_id
+            )
+            ->pluck('holiday_date');
+
+
+        foreach ($holidays as $holiday) {
+
+            $this->holidayCache[] =
+                Carbon::parse($holiday)->toDateString();
 
         }
 
-        public function isWeekend(Carbon $date): bool
-        {
-            $day=strtolower($date->format('l'));
 
-            return empty($this->scheduleCache[$day]);
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | Remove duplicate holidays
+        |--------------------------------------------------------------------------
+        */
 
-
-        public function isHoliday(Carbon $date): bool
-        {
-
-            return in_array($date->toDateString(),$this->holidays);
-
-        }
-
-        public function isWorkingDay(Carbon $date): bool
-        {
-
-            return !$this->isWeekend($date) && !$this->isHoliday($date);
-            #return !$this->isHoliday($date) && $this->getSchedule($date);
-
-        }
-
-        public function getShift(
-    Carbon $date
-)
-{
-    $day=strtolower($date->format('l'));
-
-    if(
-        empty($this->scheduleCache[$day])
-    ){
-
-        return null;
-
-    }
-
-    foreach($this->scheduleCache[$day] as $shift){
-
-        $start=Carbon::parse(
-            $date->toDateString().' '.$shift->start_time
+        $this->holidayCache = array_values(
+            array_unique($this->holidayCache)
         );
-
-        $end=Carbon::parse(
-            $date->toDateString().' '.$shift->end_time
-        );
-
-        if($shift->end_time < $shift->start_time){
-            $end->addDay();
-        }
-
-        if($date->betweenIncluded($start,$end)){
-            return $shift;
-        }
-
     }
 
-    return $this->scheduleCache[$day][0];
-}
-
-
-public function getLunchBreak(
-    Carbon $date
-): ?array
+    protected function loadCache(): void
 {
-    $shift=$this->getShift($date);
+    $this->scheduleCache = [];
+    $this->holidayCache = [];
+    $this->shiftCache = [];
 
-    if(
-        !$shift ||
-        !$shift->break_start ||
-        !$shift->break_end
-    ){
-        return null;
+    $schedules = WorkingSchedule::query()
+        ->where('calendar_id', $this->calendar->calendar_id)
+        ->where('is_active', 1)
+        ->orderBy('day_of_week')
+        ->orderBy('shift_no')
+        ->get();
+
+    \Log::info('Working calendar schedules', [
+        'calendar_id' => $this->calendar->calendar_id,
+        'count' => $schedules->count(),
+        'schedules' => $schedules->map(function ($row) {
+            return [
+                'schedule_id' => $row->schedule_id ?? null,
+                'day_of_week' => $row->day_of_week,
+                'shift_no' => $row->shift_no,
+                'start_time' => $row->start_time,
+                'end_time' => $row->end_time,
+                'is_active' => $row->is_active,
+            ];
+        })->toArray(),
+    ]);
+
+    foreach ($schedules as $schedule) {
+
+        // $day = strtolower(
+        //     trim((string) $schedule->day_of_week)
+        // );
+
+        $day = (int) $schedule->day_of_week;
+
+        if (!isset($this->scheduleCache[$day])) {
+            $this->scheduleCache[$day] = collect();
+        }
+
+        $this->scheduleCache[$day]->push($schedule);
+
+        $shiftNo = (int) ($schedule->shift_no ?? 1);
+
+        if (!isset($this->shiftCache[$shiftNo])) {
+            $this->shiftCache[$shiftNo] = collect();
+        }
+
+        $this->shiftCache[$shiftNo]->push($schedule);
     }
 
-    return [
-
-        'start'=>Carbon::parse(
-            $date->toDateString().' '.$shift->break_start
-        ),
-
-        'end'=>Carbon::parse(
-            $date->toDateString().' '.$shift->break_end
+    $holidays = CalendarHoliday::query()
+        ->where(
+            'calendar_id',
+            $this->calendar->calendar_id
         )
+        ->pluck('holiday_date');
 
-    ];
+    foreach ($holidays as $holiday) {
+        $this->holidayCache[] =
+            Carbon::parse($holiday)->toDateString();
+    }
+
+    $this->holidayCache = array_values(
+        array_unique($this->holidayCache)
+    );
+
+    \Log::info('Working calendar cache loaded', [
+        'calendar_id' => $this->calendar->calendar_id,
+        'schedule_days' => array_keys($this->scheduleCache),
+        'holiday_count' => count($this->holidayCache),
+    ]);
 }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh Cache
+    |--------------------------------------------------------------------------
+    */
 
-public function isOfficeOpen(
-    Carbon $date
-): bool
-{
-    if(!$this->isWorkingDay($date)){
-
-        return false;
-
+    public function refreshCache(): void
+    {
+        $this->loadCache();
     }
 
-    $shift=$this->getShift($date);
 
-    if(!$shift){
+    /*
+    |--------------------------------------------------------------------------
+    | Schedule
+    |--------------------------------------------------------------------------
+    */
 
-        return false;
+    public function getSchedule(Carbon $date): ?WorkingSchedule
+    {
+        $shifts = $this->getShiftsForDate($date);
 
+        return $shifts->first();
     }
 
-    $start=Carbon::parse(
-        $date->toDateString().' '.$shift->start_time
-    );
 
-    $end=Carbon::parse(
-        $date->toDateString().' '.$shift->end_time
-    );
+    public function getShiftsForDate(Carbon $date)
+    {
+        // $day = strtolower(
+        //     $date->format('l')
+        // );
 
-    if($shift->end_time < $shift->start_time){
+        $day = $date->dayOfWeek;
 
-        $end->addDay();
-
+        return $this->scheduleCache[$day]?? collect();
     }
 
-    if(!$date->betweenIncluded($start,$end)){
 
-        return false;
+    /*
+    |--------------------------------------------------------------------------
+    | Working Day
+    |--------------------------------------------------------------------------
+    */
 
+    public function isWeekend(Carbon $date): bool
+    {
+        /*
+        |--------------------------------------------------------------------------
+        | In this implementation a day without an active schedule
+        | is considered a non-working day.
+        |--------------------------------------------------------------------------
+        */
+
+        return $this->getShiftsForDate($date)->isEmpty();
     }
 
-    $break=$this->getLunchBreak($date);
 
-    if($break){
+    public function isHoliday(Carbon $date): bool
+    {
+        return in_array(
+            $date->toDateString(),
+            $this->holidayCache,
+            true
+        );
+    }
 
-        if($date->betweenIncluded(
-            $break['start'],
-            $break['end']
-        )){
+
+    public function isWorkingDay(Carbon $date): bool
+    {
+        if ($this->isHoliday($date)) {
+            return false;
+        }
+
+        return !$this->isWeekend($date);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get Current Shift
+    |--------------------------------------------------------------------------
+    */
+
+    public function getShift(Carbon $date)
+    {
+        $shifts = $this->getShiftsForDate($date);
+
+        if ($shifts->isEmpty()) {
+            return null;
+        }
+
+
+        foreach ($shifts as $shift) {
+
+            $start = $this->shiftStart(
+                $date,
+                $shift
+            );
+
+            $end = $this->shiftEnd(
+                $date,
+                $shift
+            );
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Current time is inside shift
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                $date->gte($start) &&
+                $date->lt($end)
+            ) {
+
+                return $shift;
+
+            }
+        }
+
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shift Start
+    |--------------------------------------------------------------------------
+    */
+
+    protected function shiftStart(
+        Carbon $date,
+        WorkingSchedule $shift
+    ): Carbon {
+
+        return Carbon::parse(
+            $date->toDateString()
+            . ' '
+            . $shift->start_time
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shift End
+    |--------------------------------------------------------------------------
+    */
+
+    protected function shiftEnd(
+        Carbon $date,
+        WorkingSchedule $shift
+    ): Carbon {
+
+        $start = $this->shiftStart(
+            $date,
+            $shift
+        );
+
+
+        $end = Carbon::parse(
+            $date->toDateString()
+            . ' '
+            . $shift->end_time
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Overnight Shift
+        |--------------------------------------------------------------------------
+        */
+
+        if ($end->lte($start)) {
+
+            $end->addDay();
+
+        }
+
+
+        return $end;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lunch Break
+    |--------------------------------------------------------------------------
+    */
+
+    public function getLunchBreak(
+        Carbon $date
+    ): ?array {
+
+        $shift = $this->getShift($date);
+
+        if (!$shift) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | If current time isn't inside a shift,
+            | use the first shift for that day.
+            |--------------------------------------------------------------------------
+            */
+
+            $shift = $this->getSchedule($date);
+
+        }
+
+
+        if (!$shift) {
+            return null;
+        }
+
+
+        return $this->getLunchBreakForShift(
+            $date,
+            $shift
+        );
+    }
+
+
+    protected function getLunchBreakForShift(
+        Carbon $date,
+        WorkingSchedule $shift
+    ): ?array {
+
+        if (
+            empty($shift->break_start) ||
+            empty($shift->break_end)
+        ) {
+
+            return null;
+        }
+
+
+        $start = Carbon::parse(
+            $date->toDateString()
+            . ' '
+            . $shift->break_start
+        );
+
+
+        $end = Carbon::parse(
+            $date->toDateString()
+            . ' '
+            . $shift->break_end
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Overnight Break
+        |--------------------------------------------------------------------------
+        */
+
+        if ($end->lte($start)) {
+
+            $end->addDay();
+
+        }
+
+
+        return [
+            'start' => $start,
+            'end'   => $end,
+        ];
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Is Office Open
+    |--------------------------------------------------------------------------
+    */
+
+    public function isOfficeOpen(
+        Carbon $dateTime
+    ): bool {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Holiday / Weekend
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$this->isWorkingDay($dateTime)) {
 
             return false;
 
         }
 
-    }
 
-    return true;
-}
+        /*
+        |--------------------------------------------------------------------------
+        | Find Current Shift
+        |--------------------------------------------------------------------------
+        */
 
+        $shift = $this->getShift($dateTime);
 
-public function remainingOfficeMinutes(
-    Carbon $date
-): int
-{
-    if(!$this->isOfficeOpen($date)){
+        if (!$shift) {
 
-        return 0;
-
-    }
-
-    $shift=$this->getShift($date);
-
-    $end=Carbon::parse(
-        $date->toDateString().' '.$shift->end_time
-    );
-
-    if($shift->end_time < $shift->start_time){
-        $end->addDay();
-    }
-
-    $minutes=$date->diffInMinutes($end);
-
-    $break=$this->getLunchBreak($date);
-
-    if(
-        $break &&
-        $date->lt($break['start'])
-    ){
-
-        $minutes-=$break['start']
-            ->diffInMinutes($break['end']);
-
-    }
-
-    return max($minutes,0);
-}
-
-
-public function workingMinutesBetween(
-    Carbon $start,
-    Carbon $end
-): int
-{
-    if($start->gte($end)){
-        return 0;
-    }
-
-    $minutes=0;
-
-    $current=$start->copy();
-
-    while($current->lt($end)){
-
-        if($this->isOfficeOpen($current)){
-
-            $minutes++;
+            return false;
 
         }
 
-        $current->addMinute();
 
+        /*
+        |--------------------------------------------------------------------------
+        | Shift Time
+        |--------------------------------------------------------------------------
+        */
+
+        $start = $this->shiftStart(
+            $dateTime,
+            $shift
+        );
+
+
+        $end = $this->shiftEnd(
+            $dateTime,
+            $shift
+        );
+
+
+        if (
+            $dateTime->lt($start) ||
+            $dateTime->gte($end)
+        ) {
+
+            return false;
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Lunch Break
+        |--------------------------------------------------------------------------
+        */
+
+        $break = $this->getLunchBreakForShift(
+            $dateTime,
+            $shift
+        );
+
+
+        if ($break) {
+
+            if (
+                $dateTime->gte($break['start']) &&
+                $dateTime->lt($break['end'])
+            ) {
+
+                return false;
+
+            }
+        }
+
+
+        return true;
     }
 
-    return $minutes;
-}
-################### Whenever an admin updates:Working Calendar, Working Schedule,Holiday Call below Method
 
-public function refreshCache(): void
-{
-    $this->holidayCache=[];
+    /*
+    |--------------------------------------------------------------------------
+    | Remaining Office Minutes
+    |--------------------------------------------------------------------------
+    */
 
-    $this->scheduleCache=[];
+    public function remainingOfficeMinutes(
+        Carbon $dateTime
+    ): int {
 
-    $this->shiftCache=[];
+        /*
+        |--------------------------------------------------------------------------
+        | Find current shift
+        |--------------------------------------------------------------------------
+        */
 
-    $this->loadCache();
-}
+        $shift = $this->getShift($dateTime);
 
+        if (!$shift) {
 
-
-        public function officeStart(Carbon $date): Carbon{
-
-                    $schedule = $this->getSchedule($date);
-
-                    return Carbon::parse($date->toDateString().' '.$schedule->start_time);
-        }
-
-        public function officeEnd(Carbon $date): Carbon{
-
-                $schedule = $this->getSchedule($date);
-
-                return Carbon::parse($date->toDateString().' '.$schedule->end_time);
+            return 0;
 
         }
-        
-        
-        public function nextWorkingDay(Carbon $date): Carbon{
 
-                do {
 
-                    $date = $date
+        $end = $this->shiftEnd(
+            $dateTime,
+            $shift
+        );
 
-                        ->copy()
 
-                        ->addDay()
+        /*
+        |--------------------------------------------------------------------------
+        | If currently inside lunch
+        |--------------------------------------------------------------------------
+        */
 
-                        ->startOfDay();
+        $break = $this->getLunchBreakForShift(
+            $dateTime,
+            $shift
+        );
 
-                }
 
-                while (!$this->isWorkingDay($date));
+        if ($break) {
 
-                return $this->officeStart($date);
+            if (
+                $dateTime->gte($break['start']) &&
+                $dateTime->lt($break['end'])
+            ) {
+
+                $dateTime = $break['end'];
+
+            }
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Total remaining minutes
+        |--------------------------------------------------------------------------
+        */
+
+        if ($dateTime->gte($end)) {
+
+            return 0;
+
+        }
+
+
+        $minutes = $dateTime->diffInMinutes(
+            $end
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Subtract future lunch break
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $break &&
+            $dateTime->lt($break['start']) &&
+            $break['start']->lt($end)
+        ) {
+
+            $breakMinutes = $break['start']->diffInMinutes(
+                $break['end']
+            );
+
+
+            $minutes -= $breakMinutes;
+
+        }
+
+
+        return max(
+            0,
+            $minutes
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Working Minutes Between
+    |--------------------------------------------------------------------------
+    */
+
+    public function workingMinutesBetween(
+        Carbon $start,
+        Carbon $end
+    ): int {
+
+        if ($start->gte($end)) {
+            return 0;
+        }
+
+
+        $minutes = 0;
+
+        $current = $start->copy();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Safety limit
+        |--------------------------------------------------------------------------
+        */
+
+        $maxIterations = 366 * 24 * 60;
+
+        $iterations = 0;
+
+
+        while ($current->lt($end)) {
+
+            if ($this->isOfficeOpen($current)) {
+
+                $minutes++;
 
             }
 
 
-            public function previousWorkingDay(Carbon $date): Carbon{
+            $current->addMinute();
 
-                    do {
+            $iterations++;
 
-                        $date = $date
 
-                            ->copy()
+            if ($iterations > $maxIterations) {
 
-                            ->subDay()
+                throw new \RuntimeException(
+                    'Working minutes calculation exceeded 366 days.'
+                );
 
-                            ->startOfDay();
+            }
+        }
 
-                    }
 
-                    while (!$this->isWorkingDay($date));
+        return $minutes;
+    }
 
-                    return $this->officeStart($date);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Office Start
+    |--------------------------------------------------------------------------
+    */
+
+    public function officeStart(
+        Carbon $date
+    ): Carbon {
+
+        $schedule = $this->getSchedule(
+            $date
+        );
+
+
+        if (!$schedule) {
+
+            throw new \RuntimeException(
+                'No working schedule configured for '
+                . $date->format('l')
+            );
+
+        }
+
+
+        return $this->shiftStart(
+            $date,
+            $schedule
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Office End
+    |--------------------------------------------------------------------------
+    */
+
+    public function officeEnd(
+        Carbon $date
+    ): Carbon {
+
+        $schedule = $this->getSchedule(
+            $date
+        );
+
+
+        if (!$schedule) {
+
+            throw new \RuntimeException(
+                'No working schedule configured for '
+                . $date->format('l')
+            );
+
+        }
+
+
+        return $this->shiftEnd(
+            $date,
+            $schedule
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Next Working Day
+    |--------------------------------------------------------------------------
+    */
+
+    public function nextWorkingDay(
+        Carbon $date
+    ): Carbon {
+
+        $current = $date->copy();
+
+
+        for ($i = 0; $i < 366; $i++) {
+
+            $current
+                ->startOfDay()
+                ->addDay();
+
+
+            if (!$this->isWorkingDay($current)) {
+
+                continue;
+
+            }
+
+
+            return $this->officeStart(
+                $current
+            );
+        }
+
+
+        throw new \RuntimeException(
+            'No next working day found within 366 days for calendar '
+            . $this->calendar->calendar_id
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Previous Working Day
+    |--------------------------------------------------------------------------
+    */
+
+    public function previousWorkingDay(
+        Carbon $date
+    ): Carbon {
+
+        $current = $date->copy();
+
+
+        for ($i = 0; $i < 366; $i++) {
+
+            $current
+                ->startOfDay()
+                ->subDay();
+
+
+            if (!$this->isWorkingDay($current)) {
+
+                continue;
+
+            }
+
+
+            return $this->officeStart(
+                $current
+            );
+        }
+
+
+        throw new \RuntimeException(
+            'No previous working day found within 366 days for calendar '
+            . $this->calendar->calendar_id
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Move To Working Time
+    |--------------------------------------------------------------------------
+    */
+
+    public function moveToWorkingTime(
+        Carbon $dateTime
+    ): Carbon {
+
+        $current = $dateTime->copy();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Search maximum 366 days
+        |--------------------------------------------------------------------------
+        */
+
+        for ($days = 0; $days < 366; $days++) {
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Holiday / Non-working day
+            |--------------------------------------------------------------------------
+            */
+
+            if (!$this->isWorkingDay($current)) {
+
+                $current = $current
+                    ->copy()
+                    ->startOfDay()
+                    ->addDay();
+
+                continue;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Get all shifts for this day
+            |--------------------------------------------------------------------------
+            */
+
+            $shifts = $this->getShiftsForDate(
+                $current
+            );
+
+
+            if ($shifts->isEmpty()) {
+
+                $current = $current
+                    ->copy()
+                    ->startOfDay()
+                    ->addDay();
+
+                continue;
+            }
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Check each shift
+            |--------------------------------------------------------------------------
+            */
+
+            foreach ($shifts as $shift) {
+
+                $start = $this->shiftStart(
+                    $current,
+                    $shift
+                );
+
+
+                $end = $this->shiftEnd(
+                    $current,
+                    $shift
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Before shift
+                |--------------------------------------------------------------------------
+                */
+
+                if ($current->lt($start)) {
+
+                    return $start;
+
                 }
 
 
-                // public function moveToWorkingTime(Carbon $date): Carbon{
+                /*
+                |--------------------------------------------------------------------------
+                | After shift
+                |--------------------------------------------------------------------------
+                */
 
-                //         while (true) {
+                if ($current->gte($end)) {
 
-                //             if (!$this->isWorkingDay($date)) {
+                    continue;
 
-                //                 $date = $this->nextWorkingDay($date);
-
-                //                 continue;
-
-                //             }
-
-                //             $officeStart = $this->officeStart($date);
-
-                //             $officeEnd = $this->officeEnd($date);
-
-                //             if ($date->lt($officeStart)) {
-
-                //                 return $officeStart;
-
-                //             }
-
-                //             if ($date->gte($officeEnd)) {
-
-                //                 $date = $this->nextWorkingDay($date);
-
-                //                 continue;
-
-                //             }
-
-                //             return $date;
-
-                //         }
-
-                // }
-
-                public function moveToWorkingTime(Carbon $dateTime): Carbon
-                {
-                    $current = $dateTime->copy();
-
-                    for ($i = 0; $i < 366; $i++) {
-
-                        if ($this->isOfficeOpen($current)) {
-                            return $current;
-                        }
-
-                        $current
-                            ->startOfDay()
-                            ->addDay();
-                    }
-
-                    throw new \RuntimeException(
-                        'No working time found within 366 days for calendar.'
-                    );
                 }
 
 
-                public function getShiftsForDate(Carbon $date)
-                {
-                    $day = strtolower($date->format('l'));
+                /*
+                |--------------------------------------------------------------------------
+                | Inside shift
+                |--------------------------------------------------------------------------
+                */
 
-                    return $this->scheduleCache[$day] ?? collect();
-                }
+                $break = $this->getLunchBreakForShift(
+                    $current,
+                    $shift
+                );
 
-                public function getCurrentShift(Carbon $date)
-                {
-                    if (!$this->isWorkingDay($date)) {
-                        return null;
+
+                /*
+                |--------------------------------------------------------------------------
+                | Inside lunch break
+                |--------------------------------------------------------------------------
+                */
+
+                if ($break) {
+
+                    if (
+                        $current->gte($break['start']) &&
+                        $current->lt($break['end'])
+                    ) {
+
+                        return $break['end'];
+
                     }
-
-                    foreach ($this->getShiftsForDate($date) as $shift) {
-
-                        $start = Carbon::parse(
-                            $date->toDateString() . ' ' . $shift->start_time
-                        );
-
-                        $end = Carbon::parse(
-                            $date->toDateString() . ' ' . $shift->end_time
-                        );
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Overnight Shift
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if ($shift->end_time < $shift->start_time) {
-                            $end->addDay();
-                        }
-
-                        if (
-                            $date->gte($start) &&
-                            $date->lt($end)
-                        ) {
-                            return $shift;
-                        }
-                    }
-
-                    return null;
                 }
 
 
-                public function getNextShift(Carbon $date)
-                {
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Check remaining shifts today
-                    |--------------------------------------------------------------------------
-                    */
+                /*
+                |--------------------------------------------------------------------------
+                | Valid working time
+                |--------------------------------------------------------------------------
+                */
 
-                    if ($this->isWorkingDay($date)) {
+                return $current;
+            }
 
-                        foreach (
-                            $this->getShiftsForDate($date)
-                            as $shift
-                        ) {
 
-                            $start = Carbon::parse(
-                                $date->toDateString()
-                                . ' '
-                                . $shift->start_time
-                            );
+            /*
+            |--------------------------------------------------------------------------
+            | No remaining shift today
+            |--------------------------------------------------------------------------
+            */
 
-                            if ($start->gt($date)) {
-                                return $start;
-                            }
-                        }
-                    }
+            $current = $current
+                ->copy()
+                ->startOfDay()
+                ->addDay();
+        }
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Move to next working day
-                    |--------------------------------------------------------------------------
-                    */
 
-                    $nextDay = $date->copy()->startOfDay();
+        throw new \RuntimeException(
+            'No working time found within 366 days for calendar '
+            . $this->calendar->calendar_id
+        );
+    }
 
-                    do {
 
-                        $nextDay->addDay();
+    /*
+    |--------------------------------------------------------------------------
+    | Current Shift
+    |--------------------------------------------------------------------------
+    */
 
-                    } while (
-                        !$this->isWorkingDay($nextDay)
-                    );
+    public function getCurrentShift(
+        Carbon $date
+    ) {
 
-                    $shifts = $this->getShiftsForDate($nextDay);
+        if (!$this->isWorkingDay($date)) {
 
-                    $shift = $shifts->first();
+            return null;
 
-                    if (!$shift) {
-                        return null;
-                    }
+        }
 
-                    return Carbon::parse(
-                        $nextDay->toDateString()
-                        . ' '
-                        . $shift->start_time
-                    );
+
+        return $this->getShift(
+            $date
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Next Shift
+    |--------------------------------------------------------------------------
+    */
+
+    public function getNextShift(
+        Carbon $date
+    ): ?Carbon {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remaining shifts today
+        |--------------------------------------------------------------------------
+        */
+
+        if ($this->isWorkingDay($date)) {
+
+            $shifts = $this->getShiftsForDate(
+                $date
+            );
+
+
+            foreach ($shifts as $shift) {
+
+                $start = $this->shiftStart(
+                    $date,
+                    $shift
+                );
+
+
+                if ($start->gt($date)) {
+
+                    return $start;
+
                 }
-
-                
-
-
-    ############ SLA Logic ENDS ########################
-    
-    // public function create(array $data): WorkingCalendar
-    // {
-    //     return DB::transaction(function () use ($data) {
-
-    //         $data['created_by'] = Auth::id();
-
-    //         $calendar = WorkingCalendar::create($data);
-
-    //         return $calendar;
-    //     });
-    // }
-
-    // public function update(WorkingCalendar $calendar,array $data): WorkingCalendar {
-
-    //     return DB::transaction(function () use ($calendar, $data) {
-
-    //         $data['updated_by'] = Auth::id();
-
-    //         $calendar->update($data);
-
-    //         return $calendar->refresh();
-    //     });
-    // }
-
-    // public function delete(WorkingCalendar $calendar): void {
-
-    //     DB::transaction(function () use ($calendar) {
-
-    //         $calendar->update([
-    //             'deleted_by' => Auth::id(),
-    //         ]);
-
-    //         $calendar->delete();
-    //     });
-    // }
-
-    // public function activate(WorkingCalendar $calendar): void {
-
-    //     $calendar->update([
-    //         'is_active' => true,
-    //         'updated_by' => Auth::id(),
-    //     ]);
-    // }
-
-    // public function deactivate(WorkingCalendar $calendar): void {
-
-    //     $calendar->update([
-    //         'is_active' => false,
-    //         'updated_by' => Auth::id(),
-    //     ]);
-    // }
+            }
+        }
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Search next working day
+        |--------------------------------------------------------------------------
+        */
 
-    
+        $nextDay = $date->copy();
+
+
+        for ($i = 0; $i < 366; $i++) {
+
+            $nextDay
+                ->startOfDay()
+                ->addDay();
+
+
+            if (!$this->isWorkingDay($nextDay)) {
+
+                continue;
+
+            }
+
+
+            $shifts = $this->getShiftsForDate(
+                $nextDay
+            );
+
+
+            $shift = $shifts->first();
+
+
+            if (!$shift) {
+
+                continue;
+
+            }
+
+
+            return $this->shiftStart(
+                $nextDay,
+                $shift
+            );
+        }
+
+
+        return null;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Get Shift By Number
+    |--------------------------------------------------------------------------
+    */
+
+    public function getShiftsByNumber(
+        int $shiftNo
+    ) {
+
+        return $this->shiftCache[$shiftNo]
+            ?? collect();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Debugging
+    |--------------------------------------------------------------------------
+    */
+
+    public function getScheduleCache(): array
+    {
+        return $this->scheduleCache;
+    }
+
+
+    public function getHolidayCache(): array
+    {
+        return $this->holidayCache;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CRUD - Optional
+    |--------------------------------------------------------------------------
+    */
+
+    public function create(
+        array $data
+    ): WorkingCalendar {
+
+        return DB::transaction(
+            function () use ($data) {
+
+                $data['created_by'] =
+                    Auth::id();
+
+                return WorkingCalendar::create(
+                    $data
+                );
+            }
+        );
+    }
+
+
+    public function update(
+        WorkingCalendar $calendar,
+        array $data
+    ): WorkingCalendar {
+
+        return DB::transaction(
+            function () use (
+                $calendar,
+                $data
+            ) {
+
+                $data['updated_by'] =
+                    Auth::id();
+
+                $calendar->update(
+                    $data
+                );
+
+                return $calendar->refresh();
+            }
+        );
+    }
+
+
+    public function delete(
+        WorkingCalendar $calendar
+    ): void {
+
+        DB::transaction(
+            function () use ($calendar) {
+
+                $calendar->update([
+                    'deleted_by' =>
+                        Auth::id(),
+                ]);
+
+                $calendar->delete();
+            }
+        );
+    }
+
+
+    public function activate(
+        WorkingCalendar $calendar
+    ): void {
+
+        $calendar->update([
+            'is_active' => true,
+            'updated_by' =>
+                Auth::id(),
+        ]);
+    }
+
+
+    public function deactivate(
+        WorkingCalendar $calendar
+    ): void {
+
+        $calendar->update([
+            'is_active' => false,
+            'updated_by' =>
+                Auth::id(),
+        ]);
+    }
 }

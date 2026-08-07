@@ -63,8 +63,7 @@ class BusinessTimeCalculator
             |--------------------------------------------------------------------------
             */
 
-            $workingTime = $this->calendar
-                ->moveToWorkingTime($current->copy());
+            $workingTime = $this->calendar->moveToWorkingTime($current->copy());
 
             /*
             |--------------------------------------------------------------------------

@@ -8,7 +8,7 @@ use App\Models\WorkingCalendar;
 use App\Models\WorkingSchedule;
 use App\Models\CalendarHoliday;
 
-class BusinessTimeCalculator
+class BusinessTimeCalculator2
 {
 
     protected ?WorkingCalendarService $calendar = null;

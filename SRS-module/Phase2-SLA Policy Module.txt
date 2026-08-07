@@ -109,8 +109,9 @@ app
  php artisan make:seeder WorkingScheduleSeeder
  php artisan make:seeder WorkingCalendarSeeder
  php artisan make:seeder HolidaySeeder
+ php artisan make:seeder WorkingScheduleSeederLatest
 
-
+php artisan db:seed --class=WorkingScheduleSeederLatest
  Complete SLA Flow
                      ┌───────────────────┐
                     │   Issue Created   │

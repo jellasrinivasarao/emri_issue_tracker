@@ -17,9 +17,11 @@ class DatabaseSeeder extends Seeder
            // RoleMenuSeeder::class,
            /// IssueCategorySeeder::class
 
-            WorkingCalendarSeeder::class,
-            WorkingScheduleSeeder::class,
-            HolidaySeeder::class,
+            //WorkingCalendarSeeder::class,
+           // WorkingScheduleSeeder::class,
+           // HolidaySeeder::class,
+
+           WorkingScheduleSeederLatest::class,
         ]);
     }
 }

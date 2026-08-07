@@ -271,11 +271,20 @@ class IssueService
      */
     protected function generateTicketNumber(): string
     {
+        // $last = $this->repository->latest();
+
+        // $next = $last? ($last->issue_id + 1): 1;
+
+        // return sprintf('ISSUE-%s-%06d',date('Y'),$next);
+
+        $today = date('Y-m-d');
+
         $last = $this->repository->latest();
 
-        $next = $last? ($last->issue_id + 1): 1;
+        $next = $last ? ($last->issue_id + 1) : 1;
 
-        return sprintf('ISSUE-%s-%06d',date('Y'),$next);
+        return sprintf('ISSUE-%s-%03d', $today, $next);
+
     }
 
     /**
