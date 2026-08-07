@@ -137,3 +137,6 @@ php artisan make:request StoreIssueRequest
 
 php artisan make:model IssueUpdate
 php artisan make:model IssueAttachment
+
+srinivasarao_jella@emri.in
+Srinu8688$@

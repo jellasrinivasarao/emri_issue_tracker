@@ -20,6 +20,7 @@ use App\Models\Module;
 
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
+use App\Services\IssueSlaService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -245,10 +246,14 @@ class IssueController extends Controller
             
             $issue = $this->issueService->create($request->validated(),$request->file('attachment'));
 
+
+            $issueSlaService = app(IssueSlaService::class);
+            $issueSlaService->createForIssue($issue);
+
             Log::info('Has File', [
-    'hasFile' => $request->hasFile('attachment'),
-    'file' => $request->file('attachment'),
-]);
+                'hasFile' => $request->hasFile('attachment'),
+                'file' => $request->file('attachment'),
+            ]);
 
             if ($request->expectsJson()) {
                 return response()->json([

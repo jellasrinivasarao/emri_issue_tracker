@@ -93,6 +93,8 @@ php artisan make:request UpdateSlaPolicyRequest
 
 php artisan make:controller Admin/SlaPolicyController
 
+php artisan make:controller IssueUpdateController
+
 Part 2D Roadmap
 app
  ├── Services

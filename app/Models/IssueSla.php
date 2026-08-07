@@ -27,6 +27,13 @@ class IssueSla extends Model
         'resolution_breached_at',
         'total_paused_minutes',
         'is_active',
+        'response_completed_at',
+        'resolution_completed_at',
+        'is_response_breached',
+        'is_resolution_breached',
+        'is_paused',
+        'paused_at',
+        'created_at',
     ];
 
     protected $casts = [
@@ -41,8 +48,31 @@ class IssueSla extends Model
         'resolution_due_at' => 'datetime',
         'response_breached_at' => 'datetime',
         'resolution_breached_at' => 'datetime',
-
         'total_paused_minutes' => 'integer',
         'is_active' => 'boolean',
+        'response_completed_at' =>'datetime',
+        'resolution_completed_at' =>'datetime',
+        'paused_at' =>'datetime',
+        'is_response_breached' =>'boolean',
+        'is_resolution_breached' =>'boolean',
     ];
+
+
+    public function issue()
+    {
+        return $this->belongsTo(
+            Issue::class,
+            'issue_id',
+            'issue_id'
+        );
+    }
+
+    public function policy()
+    {
+        return $this->belongsTo(
+            SlaPolicy::class,
+            'sla_policy_id',
+            'sla_policy_id'
+        );
+    }
 }
