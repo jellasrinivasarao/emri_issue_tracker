@@ -4,11 +4,13 @@ namespace App\Services\IssueRouting;
 
 use App\Enums\IssueRoutingStatus;
 use App\Models\Issue;
+use App\Models\IssueHistory;
 use App\Models\IssueAssignment;
 use App\Models\ProjectSupportConfiguration;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Illuminate\Support\Facades\Log;
 
 class IssueRoutingService
 {
@@ -30,26 +32,23 @@ class IssueRoutingService
         $configuration = $issue->configuration;
 
 
+        Log::info('IssueRoutingService', [
+                'issue_id' => $issue->issue_id,
+                'project_id' => $issue->project_id,
+                'support_config_id' => $issue->support_config_id,
 
-        dd([
-    'issue_id' => $issue->issue_id,
-    'project_id' => $issue->project_id,
-    'support_config_id' => $issue->support_config_id,
+                'configuration_id' =>
+                $issue->configuration?->support_config_id,
 
-    'configuration_id' =>
-        $issue->configuration?->support_config_id,
+                'configuration_project_id' =>
+                $issue->configuration?->project_id,
 
-    'configuration_project_id' =>
-        $issue->configuration?->project_id,
+                'configuration_active' =>
+                $issue->configuration?->is_active,
 
-    'configuration_active' =>
-        $issue->configuration?->is_active,
-
-    'auto_routing_enabled' =>
-        $issue->configuration?->auto_routing_enabled,
-]);
-
-
+                'auto_routing_enabled' =>
+                $issue->configuration?->auto_routing_enabled,
+            ]);
 
         if (! $configuration && $issue->support_config_id) {
             $configuration = ProjectSupportConfiguration::find(
@@ -256,7 +255,11 @@ protected function writeHistory(
 
 
 
-    protected function findMatchingRule(Issue $issue): ?Model
+
+/**
+ * Find the best matching routing rule.
+ */
+protected function findMatchingRule(Issue $issue): ?Model
 {
     $configuration = $issue->configuration;
 
@@ -267,27 +270,34 @@ protected function writeHistory(
     return $configuration->routingRules()
         ->where('is_active', true)
         ->where('project_id', $issue->project_id)
+
+        // Category: exact match preferred, NULL = fallback
         ->where(function ($query) use ($issue) {
-            $query->whereNull('issue_category_id')
-                ->orWhere(
-                    'issue_category_id',
-                    $issue->issue_category_id
-                );
+            $query->whereNull('issue_category')
+                ->orWhere('issue_category', $issue->issue_category);
         })
+
+        // Priority: exact match preferred, NULL = fallback
         ->where(function ($query) use ($issue) {
-            $query->whereNull('priority_id')
-                ->orWhere(
-                    'priority_id',
-                    $issue->priority_id
-                );
+            $query->whereNull('priority')
+                ->orWhere('priority', $issue->priority);
         })
+
+        // Exact category before generic category rule
         ->orderByRaw(
-            'CASE WHEN issue_category_id IS NULL THEN 1 ELSE 0 END'
+            'CASE WHEN issue_category IS NULL THEN 1 ELSE 0 END'
         )
+
+        // Exact priority before generic priority rule
         ->orderByRaw(
-            'CASE WHEN priority_id IS NULL THEN 1 ELSE 0 END'
+            'CASE WHEN priority IS NULL THEN 1 ELSE 0 END'
         )
-        ->orderBy('routing_priority')
+
+        // Lower routing priority wins
+        ->orderBy('routing_level')
+
         ->first();
 }
+
+
 }
