@@ -15,19 +15,42 @@ class IssueAssignment extends Model
 
     protected $fillable = [
         'issue_id',
-        'routing_rule_id',
-        'support_team_id',
-        'assignment_level',
-        'support_level',
-        'assignment_type',
-        'status',
+        
+        'assigned_from_organisation_id',
+        'assigned_to_organisation_id',
+
+        'assigned_from_group_id',
+        'assigned_to_group_id',
+
+        'assigned_to_user_id',
+        'assigned_to_role_id',
+
+        'assignment_reason',
         'assigned_at',
-        'created_by',
-        'remarks',
+
+        'assigned_by_user_id',
+
+        'is_current',
     ];
 
     protected $casts = [
+        'assignment_id' => 'integer',
+        'issue_id' => 'integer',
+
+        'assigned_from_organisation_id' => 'integer',
+        'assigned_to_organisation_id' => 'integer',
+
+        'assigned_from_group_id' => 'integer',
+        'assigned_to_group_id' => 'integer',
+
+        'assigned_to_user_id' => 'integer',
+        'assigned_to_role_id' => 'integer',
+
+        'assigned_by_user_id' => 'integer',
+
         'assigned_at' => 'datetime',
+
+        'is_current' => 'boolean',
     ];
 
     public function issue(): BelongsTo
@@ -65,4 +88,6 @@ class IssueAssignment extends Model
             'id'
         );
     }
+
+    
 }

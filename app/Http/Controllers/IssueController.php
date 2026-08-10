@@ -307,13 +307,14 @@ class IssueController extends Controller
     /**
      * Show issue.
      */
-    public function show(Issue $issue)
+    public function show(Issue $issues)
     {
 
-        $issue->load([
+    
+        $issues->load([
             'configuration',
             'team',
-            'assignments',
+            //'assignments',
             'histories',
             'attachments'
         ]);
@@ -326,11 +327,11 @@ class IssueController extends Controller
             ->get();
 
 
-
+        dd($issues);
         return view(
             'issues.show',
             compact(
-                'issue',
+                'issues',
                 'teams'
             )
         );

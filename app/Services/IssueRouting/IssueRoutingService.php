@@ -114,13 +114,39 @@ $this->writeHistory(
 
 
         $assignment = IssueAssignment::create([
-            'issue_id' => $issue->issue_id,
-            'routing_rule_id' => $rule->routing_rule_id,
-            'support_team_id' => $rule->support_team_id,
-            'assignment_level' => $rule->routing_level,
-            'assignment_type' => 'AUTO',
-            'status' => 'ASSIGNED',
-            'assigned_at' => now(),
+    // 'issue_id' => $issue->issue_id,
+    // 'routing_rule_id' => $rule->routing_rule_id,
+    // 'support_team_id' => $rule->support_team_id,
+    // 'assignment_level' => $rule->routing_level,
+    // 'assignment_type' => 'AUTO',
+    // 'status' => 'ASSIGNED',
+    // 'assigned_at' => now(),
+
+                'issue_id' => $issue->issue_id,
+    'assigned_from_organisation_id' =>
+        $issue->current_owner_organisation_id,
+
+    'assigned_to_organisation_id' => $team->organisation_id ?? null,
+
+    'assigned_from_group_id' =>
+        $issue->current_owner_group_id,
+
+    'assigned_to_group_id' =>
+        $team->group_id ?? null,
+
+    'assigned_to_user_id' => null,
+
+    'assigned_to_role_id' =>
+        $team->role_id ?? null,
+
+    'assignment_reason' =>
+        'Automatically assigned by Issue Routing Engine',
+
+    'assigned_at' => now(),
+
+    'assigned_by_user_id' => auth()->id(),
+
+    'is_current' => true,
         ]);
 
         $issue->update([
