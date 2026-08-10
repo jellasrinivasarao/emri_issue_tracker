@@ -304,13 +304,13 @@ class IssueService
 
         // return sprintf('ISSUE-%s-%06d',date('Y'),$next);
 
-        $today = date('Y-m-d');
+        $today = date('Ymd');
 
         $last = $this->repository->latest();
 
         $next = $last ? ($last->issue_id + 1) : 1;
 
-        return sprintf('ISSUE-%s-%03d', $today, $next);
+        return sprintf('IS-%s%03d', $today, $next);
 
     }
 
