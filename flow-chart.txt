@@ -1,0 +1,578 @@
+                        +----------------------+
+                        | Authentication       |
+                        | Users / Roles        |
+                        +----------+-----------+
+                                   |
+                     Role Privileges / Menu
+                                   |
+        -------------------------------------------------------
+        |                     MASTER DATA                     |
+        -------------------------------------------------------
+        State
+        Organisation
+        Head Office
+        Vendor
+        Project
+        Service
+        Application
+        Module
+        Priority
+        Issue Category
+        Issue Status
+        Support Group
+        Working Calendar
+        Holiday
+        Working Schedule
+        Project ↔ Application
+        Project ↔ Service
+        Support Group ↔ User
+                                   |
+                                   |
+        -------------------------------------------------------
+        |                CONFIGURATION ENGINE                 |
+        -------------------------------------------------------
+        SLA Policy
+        Escalation Policy
+        Issue Routing
+        Notification Rules
+                                   |
+                                   |
+        -------------------------------------------------------
+        |                  ISSUE ENGINE                       |
+        -------------------------------------------------------
+        Create Issue
+        Assignment
+        Update
+        Attachment
+        Timeline
+        Status History
+        SLA Engine
+        Escalation Engine
+        Audit Log
+                                   |
+                                   |
+        -------------------------------------------------------
+        |               AUTOMATION ENGINE                     |
+        -------------------------------------------------------
+        Scheduler
+        Queue Jobs
+        Email
+        SMS
+        Push Notification
+        Auto Escalation
+        SLA Reminder
+                                   |
+                                   |
+        -------------------------------------------------------
+        |                  DASHBOARD                          |
+        -------------------------------------------------------
+        Open
+        Pending
+        Assigned
+        SLA Breached
+        Escalated
+        Closed
+
+Phase 1 – Master Modules
+State
+
+Organisation
+
+Head Office
+
+Vendor
+
+Support Group
+
+Project
+
+Application
+
+Application Module
+
+Service
+
+Priority
+
+Issue Category
+
+Issue Status
+
+Working Calendar
+
+Working Schedule
+
+Holiday
+
+Project ↔ Application
+
+Project ↔ Service
+
+Support Group ↔ User        
+
+Phase 2 – Configuration Engine
+
+cfg_sla_policy
+
+cfg_issue_routing
+
+cfg_escalation_policy
+
+cfg_notification
+
+Phase 3 – Transaction Engine
+
+txn_issue
+
+txn_issue_assignment
+
+txn_issue_update
+
+txn_issue_attachment
+
+txn_issue_status_history
+
+txn_issue_sla
+
+txn_issue_escalation
+
+txn_notification
+
+txn_audit_log
+
+
+User Creates Issue
+
+↓
+
+Generate Ticket Number
+
+↓
+
+Validate Request
+
+↓
+
+Project
+
+↓
+
+Application
+
+↓
+
+Module
+
+↓
+
+Service
+
+↓
+
+Priority
+
+↓
+
+Category
+
+↓
+
+↓
+
+Issue Routing Engine
+
+↓
+
+Find Support Group
+
+↓
+
+Assign User
+
+↓
+
+Read SLA Policy
+
+↓
+
+Calculate SLA
+
+↓
+
+Insert txn_issue
+
+↓
+
+Insert Assignment
+
+↓
+
+Insert SLA
+
+↓
+
+Insert History
+
+↓
+
+Send Notification
+
+↓
+
+Dashboard
+
+
+Assignment Flow
+
+Issue
+
+↓
+
+Support Group
+
+↓
+
+Available User
+
+↓
+
+Assign
+
+↓
+
+History
+
+↓
+
+Notification
+
+
+SLA Engine
+
+Issue Created
+
+↓
+
+Find SLA Policy
+
+↓
+
+Working Calendar
+
+↓
+
+Holiday
+
+↓
+
+Calculate Response Time
+
+↓
+
+Calculate Resolution Time
+
+↓
+
+Store Deadline
+
+↓
+
+Start SLA Timer
+
+
+Escalation Engine
+
+
+Scheduler
+
+↓
+
+Pending Issues
+
+↓
+
+SLA Breached?
+
+↓
+
+YES
+
+↓
+
+Escalation Level 1
+
+↓
+
+HO Support Group
+
+↓
+
+Still Pending
+
+↓
+
+Vendor
+
+↓
+
+Still Pending
+
+↓
+
+Head Office Manager
+
+↓
+
+Management
+
+
+Scheduler
+Every 5 minutes
+
+
+php artisan schedule:run
+
+↓
+
+Check SLA
+
+↓
+
+Reminder
+
+↓
+
+Escalation
+
+↓
+
+Notification
+
+
+
+Dashboard
+
+Open Issues
+
+My Issues
+
+Today's Issues
+
+Resolved
+
+Closed
+
+Pending Vendor
+
+Pending Customer
+
+Escalated
+
+Breached SLA
+
+Overdue
+
+Average Resolution Time
+
+Average Response Time
+
+app/
+
+Models/
+
+Services/
+
+Repositories/
+
+Observers/
+
+Notifications/
+
+Jobs/
+
+Events/
+
+Listeners/
+
+Console/
+
+Policies/
+
+Rules/
+
+Traits/
+
+Http/
+
+    Controllers/
+
+        Admin/
+
+        Issue/
+
+        Dashboard/
+
+    Requests/
+
+resources/views/
+
+admin/
+
+configuration/
+
+issues/
+
+dashboard/
+
+layouts/
+
+components/
+
+routes/
+
+admin.php
+
+issue.php
+
+dashboard.php
+
+
+Services Layer
+
+IssueService
+
+AssignmentService
+
+RoutingService
+
+SlaService
+
+EscalationService
+
+NotificationService
+
+AttachmentService
+
+AuditService
+
+DashboardService
+
+Queue Jobs
+
+
+CalculateSlaJob
+
+IssueEscalationJob
+
+IssueReminderJob
+
+SendMailJob
+
+SendSmsJob
+
+SendNotificationJob
+
+
+Notifications
+
+Issue Created
+
+Issue Assigned
+
+Issue Updated
+
+Issue Closed
+
+Issue Escalated
+
+SLA Warning
+
+SLA Breached
+
+Vendor Assigned
+
+
+Timeline
+
+Issue Created
+
+↓
+
+Assigned
+
+↓
+
+Accepted
+
+↓
+
+In Progress
+
+↓
+
+Pending
+
+↓
+
+Vendor
+
+↓
+
+Resolved
+
+↓
+
+Verified
+
+↓
+
+Closed
+
+Reports
+
+
+Project Wise
+
+Service Wise
+
+Application Wise
+
+Priority Wise
+
+Engineer Wise
+
+Vendor Wise
+
+SLA Report
+
+Escalation Report
+
+Ageing Report
+
+TAT Report
+
+Daily Report
+
+Monthly Report
+
+
+Security
+
+
+Role Based Access
+
+Privilege Based Menu
+
+Permission Middleware
+
+Audit Log
+
+Soft Delete
+
+Activity History
+
+API Authentication
+
+CSRF Protection
+
+

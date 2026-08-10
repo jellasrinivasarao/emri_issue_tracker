@@ -1,0 +1,28 @@
+<?php
+
+namespace Database\Seeders;
+
+// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        $this->call([
+            //MenuSeeder::class,
+           // RoleMenuSeeder::class,
+           /// IssueCategorySeeder::class,
+
+            //WorkingCalendarSeeder::class,
+           // WorkingScheduleSeeder::class,
+           // HolidaySeeder::class,
+
+          // WorkingScheduleSeederLatest::class,
+           SupportRoutingSeeder::class,
+        ]);
+    }
+}

@@ -1,0 +1,133 @@
+app/Models/
+
+User.php
+Organisation.php
+OrganisationType.php
+State.php
+HeadOffice.php
+Vendor.php
+
+Project.php
+Application.php
+ApplicationModule.php
+Service.php
+
+IssueCategory.php
+IssueStatus.php
+Priority.php
+
+SupportGroup.php
+WorkingCalendar.php
+WorkingSchedule.php
+CalendarHoliday.php
+
+IssueRouting.php
+SlaPolicy.php
+
+Module.php
+
+Issue.php
+IssueAssignment.php
+IssueAttachment.php
+IssueEscalation.php
+IssueSla.php
+IssueStatusHistory.php
+IssueUpdate.php
+
+Role.php
+Privilege.php
+UserRole.php
+RolePrivilege.php
+UserProject.php
+ProjectApplication.php
+ProjectService.php
+SupportGroupUser.php
+
+
+##############
+mst_project
+    │
+    └── Project Support Configuration
+             │
+             ├── Support Level 1
+             │      └── HO IT
+             │
+             └── Support Level 2
+                    └── Vendor
+
+mst_issue_category
+mst_issue_priority
+mst_issue_type
+
+mst_support_team
+mst_support_team_member
+
+
+>>> mst_issue_routing_rule
+
+t_issue
+t_issue_assignment
+t_issue_status_history
+t_issue_comment
+t_issue_attachment
+t_issue_sla
+t_issue_escalation
+
+
+app/
+├── Models/
+│   ├── ProjectSupportConfiguration.php
+│   ├── SupportTeam.php
+│   ├── SupportTeamMember.php
+│   ├── IssueRoutingRule.php
+│   ├── Issue.php
+│   ├── IssueAssignment.php
+│   ├── IssueStatusHistory.php
+│   ├── IssueComment.php
+│   ├── IssueSla.php
+│   └── IssueEscalation.php
+│
+├── Http/
+│   └── Controllers/
+│       ├── ProjectSupportConfigurationController.php
+│       ├── SupportTeamController.php
+│       ├── IssueRoutingRuleController.php
+│       └── IssueController.php
+│
+└── Services/
+    ├── SupportConfigurationService.php
+    ├── IssueRoutingService.php
+    ├── IssueAssignmentService.php
+    ├── IssueSlaService.php
+    └── IssueEscalationService.php
+
+php artisan make:model ProjectSupportConfiguration -c
+php artisan make:model SupportTeam -c
+php artisan make:model IssueRoutingRule -c
+
+php artisan make:model IssueHistory
+php artisan make:model IssueAssignment
+php artisan make:model IssueStatusHistory
+php artisan make:model IssueRoutingConfiguration
+
+php artisan make:controller IssueRoutingController
+php artisan route:list --name=project-support-configurations
+php artisan make:model Module
+
+######################## 06/08/2026
+php artisan make:model IssueSla
+php artisan make:model IssueEscalation
+
+
+Working Calendar Engine (Calendar, Schedule, Holidays, Business Hours)
+SLA Policy Module (CRUD + business-hour calculations)
+Escalation Policy Module (multi-level escalation configuration)
+Issue Routing Engine (automatic routing by Project/Application/Service/State)
+Issue Management Engine (ticket lifecycle)
+Assignment Engine
+SLA Engine
+Escalation Engine
+Notifications & Scheduler
+Dashboard & Reports
+
+
