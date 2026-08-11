@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\Admin\AdminConfigController;
+use App\Http\Controllers\Admin\WorkingCalendarController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\ForcePasswordController;
@@ -343,25 +344,128 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
 
     // Working calendar CRUD endpoints
-    Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
+    // Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.store');
+
+    // Route::put('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'update'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.update');
+
+    // Route::delete('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'destroy'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.destroy');
+
+
+
+
+
+    Route::get('/working-calendars', [WorkingCalendarController::class, 'index'])
+        ->middleware('menu.access:working.hours')
+        ->name('working.calendars');
+
+    Route::post('/working-calendars', [WorkingCalendarController::class, 'store'])
         ->middleware(['auth','menu.access:working.hours'])
         ->name('working.calendars.store');
 
-    Route::put('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'update'])
+    Route::put('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'update'])
         ->middleware(['auth','menu.access:working.hours'])
         ->name('working.calendars.update');
 
-    Route::delete('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'destroy'])
+    Route::post('/working-calendars/{calendar_id}/toggle', [WorkingCalendarController::class, 'toggle'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.toggle');
+
+    Route::delete('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'destroy'])
         ->middleware(['auth','menu.access:working.hours'])
         ->name('working.calendars.destroy');
 
-    Route::get('/holiday-calendar', [AdminConfigController::class, 'holidayCalendar'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
-    Route::get('/sla-configuration', [AdminConfigController::class, 'slaConfiguration'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
 
-    Route::get('/automatic-routing', [AdminConfigController::class, 'automaticRouting'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+
+            // Holiday calendar CRUD
+
+        Route::get('/holiday-calendar', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'index'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
+        
+        Route::post('/holiday-calendar', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'store'])
+            ->middleware(['auth','menu.access:holiday.calendar'])
+            ->name('holiday.calendar.store');
+
+        Route::put('/holiday-calendar/{holiday_id}', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'update'])
+            ->middleware(['auth','menu.access:holiday.calendar'])
+            ->name('holiday.calendar.update');
+
+        Route::post('/holiday-calendar/{holiday_id}/toggle', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'toggle'])
+            ->middleware(['auth','menu.access:holiday.calendar'])
+            ->name('holiday.calendar.toggle');
+
+        Route::delete('/holiday-calendar/{holiday_id}', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'destroy'])
+            ->middleware(['auth','menu.access:holiday.calendar'])
+            ->name('holiday.calendar.destroy');
+
+        
+    
+    
+
+    Route::get('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'index'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+
+    // SLA CRUD
+    Route::post('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.store');
+
+    Route::put('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.update');
+
+    Route::post('/sla-configuration/{sla_id}/toggle', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.toggle');
+
+    Route::delete('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.destroy');
+
+
+
+
+    Route::get('/automatic-routing', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'index'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+
+    // Automatic routing CRUD
+    Route::post('/automatic-routing', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'store'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.store');
+
+    Route::put('/automatic-routing/{id}', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'update'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.update');
+
+    Route::post('/automatic-routing/{id}/toggle', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.toggle');
+
+    Route::delete('/automatic-routing/{id}', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'destroy'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.destroy');
 
     Route::get('/notification-configuration', [AdminConfigController::class, 'notificationConfiguration'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+
+    // Notification / Mail configuration CRUD (admin)
+    Route::post('/notification-configuration', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.store');
+
+    Route::put('/notification-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.update');
+
+    Route::post('/notification-configuration/{id}/toggle', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.toggle');
+
+    Route::delete('/notification-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.destroy');
 
     Route::get('/mail-configuration', [PageController::class, 'mailConfiguration'])->middleware('menu.access:mail.configuration')->name('mail.configuration');
 
