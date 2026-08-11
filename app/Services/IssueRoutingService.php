@@ -66,21 +66,21 @@ class IssueRoutingService
             ->where('is_active', 1)
 
             ->where(function ($query) use ($issue) {
-                $query->whereNull('issue_category_id')
-                    ->orWhere('issue_category_id', $issue->issue_category_id);
+                $query->whereNull('issue_category')
+                    ->orWhere('issue_category', $issue->issue_category_id);
             })
 
             ->where(function ($query) use ($issue) {
-                $query->whereNull('issue_type_id')
-                    ->orWhere('issue_type_id', $issue->issue_type_id);
+                $query->whereNull('issue_type')
+                    ->orWhere('issue_type', $issue->issue_type_id);
             })
 
             ->where(function ($query) use ($issue) {
-                $query->whereNull('priority_id')
-                    ->orWhere('priority_id', $issue->priority_id);
+                $query->whereNull('priority')
+                    ->orWhere('priority', $issue->priority_id);
             })
 
-            ->orderByDesc('routing_priority')
+            ->orderByDesc('routing_level')
 
             ->first();
     }
