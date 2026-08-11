@@ -495,7 +495,7 @@ class IssueController extends Controller
             'currentAssignee',
             'team',
             'configuration',
-            'sla',
+            //'sla',
             'updates',
             'statusHistory',
             'histories',
