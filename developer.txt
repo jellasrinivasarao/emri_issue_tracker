@@ -1,6 +1,8 @@
 php artisan make:model OrganisationType -m
 php artisan make:request Admin/OrganisationTypeRequest
 php artisan make:controller Admin/OrganisationTypeController
+php artisan make:controller Admin/WorkingCalendarMasterController
+php artisan make:request Admin/WorkingCalendarRequest
 
 php artisan make:model Organisation -m
 php artisan make:model HeadOffice -m

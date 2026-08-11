@@ -22,7 +22,9 @@ use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\WorkingCalendarMasterController;
 
+        
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -327,7 +329,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    Route::get('/working-hours', [PageController::class, 'genericAdminPage'])->middleware('menu.access:working.hours')->name('working.hours');
+    #Route::get('/working-hours', [PageController::class, 'genericAdminPage'])->middleware('menu.access:working.hours')->name('working.hours');
 
     Route::get('/holiday-calendar', [PageController::class, 'genericAdminPage'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
@@ -581,6 +583,24 @@ Route::prefix('ajax')->name('ajax.')->group(function () {
 
     
 
+
+
+
+
+    Route::middleware('auth')
+    ->prefix('working-hours')
+    ->name('working.hours.')
+    ->group(function () {
+
+        Route::get('/', [WorkingCalendarMasterController::class, 'index'])->name('index');
+
+        Route::post('/', [WorkingCalendarMasterController::class, 'store'])->name('store');
+
+        Route::put('/{working_hour_id}', [WorkingCalendarMasterController::class, 'update'])->name('update');
+
+        Route::post('/{working_hour_id}/toggle', [WorkingCalendarMasterController::class, 'toggle'])->name('toggle');
+    });
+        
 });
 
 

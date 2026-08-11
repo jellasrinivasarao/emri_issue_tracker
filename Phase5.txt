@@ -1,0 +1,28 @@
+Part 1 — Working Hours + Holiday Calendar
+→ mst_working_calendar
+→ mst_working_schedule
+→ mst_calendar_holiday
+
+Part 2 — Project Support Configuration
+→ your existing mst_project_support_configuration
+
+Part 3 — HO Intervention
+→ new mst_ho_intervention
+
+Part 4 — Automatic Routing Configuration
+→ your existing mst_issue_routing_rule
+
+Part 5 — Vendor Level-2 Mapping
+
+Part 6 — SLA Configuration
+
+Part 7 — connect all of them to IssueRoutingService
+
+This will give you the exact Operational Configuration section shown in your screenshot, while keeping the routing engine configuration-driven rather than hard-coded.
+
+
+
+// Working Hours
+Route::resource('working-calendars', WorkingCalendarController::class);
+Route::resource('working-schedules', WorkingScheduleController::class);
+Route::resource('calendar-holidays', CalendarHolidayController::class);
