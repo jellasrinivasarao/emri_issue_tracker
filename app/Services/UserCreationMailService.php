@@ -25,6 +25,14 @@ class UserCreationMailService
             ->orderByDesc('mail_setting_id')
             ->first();
 
+        $loginPage = rtrim(config('mail.app_url', config('app.url')), '/');
+        // If the configured app URL already ends with '/login', don't append another '/login'
+        if (preg_match('#/login$#i', $loginPage)) {
+            $loginUrl = $loginPage;
+        } else {
+            $loginUrl = $loginPage . '/login';
+        }
+
         $subject = 'Your EMRI Issue Tracker account has been created';
         $body = "Hello {$user->user_name},\n\n";
         $body .= "Your EMRI Issue Tracker account has been created successfully.\n";
@@ -32,6 +40,7 @@ class UserCreationMailService
         if ($password) {
             $body .= "Temporary Password: {$password}\n";
         }
+        $body .= "\nYou can log in here: {$loginUrl}\n";
         $body .= "\nPlease log in and change your password after first sign-in.";
 
         $mailLog = new MailLog();

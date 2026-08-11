@@ -47,6 +47,7 @@
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Vendor</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">State(s)</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Project(s)</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Application(s)</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Status</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Actions</th>
                                 </tr>
@@ -58,6 +59,7 @@
                                         <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $mapping->vendor_name }}</td>
                                         <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $mapping->state_name }}</td>
                                         <td class="px-5 py-3 text-sm text-slate-600">{{ $mapping->project_name }}</td>
+                                        <td class="px-5 py-3 text-sm text-slate-600">{{ $mapping->application_name }}</td>
                                         <td class="px-5 py-3 text-sm"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $mapping->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $mapping->is_active ? 'Active' : 'Inactive' }}</span></td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
@@ -67,6 +69,7 @@
                                                         data-vendor-id="{{ $mapping->vendor_id }}"
                                                         data-state-id="{{ $mapping->state_id }}"
                                                         data-project-id="{{ $mapping->project_id }}"
+                                                        data-application-id="{{ $mapping->application_id }}"
                                                         data-is-active="{{ $mapping->is_active ? '1' : '0' }}"
                                                         onclick="editVendorStateModal(this.dataset)"
                                                         class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
@@ -130,7 +133,7 @@
                         </select>
                     </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
+<div class="grid gap-4 md:grid-cols-3">
                         <div>
                             <label class="mb-1 block text-sm font-medium text-slate-700">States</label>
                             <div id="state-select" class="relative">
@@ -154,6 +157,18 @@
                                 <div data-multi-select-hidden class="hidden"></div>
                             </div>
                         </div>
+
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-slate-700">Applications</label>
+                            <div id="application-select" class="relative">
+                                <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-emerald-100" data-multi-select="applications">
+                                    <div class="flex flex-wrap gap-2" data-multi-select-chips></div>
+                                    <input type="text" class="min-w-[140px] flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" placeholder="Search applications" data-multi-select-input autocomplete="off" />
+                                </div>
+                                <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
+                                <div data-multi-select-hidden class="hidden"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
@@ -170,10 +185,11 @@
         const formState = {
             states: [],
             projects: [],
+            applications: [],
         };
 
         function formatOptionLabel(item) {
-            return item.state_name || item.project_name || '';
+            return item.state_name || item.project_name || item.application_name || '';
         }
 
         function getOptionById(list, id) {
@@ -249,7 +265,7 @@
 
                     const hidden = document.createElement('input');
                     hidden.type = 'hidden';
-                    hidden.name = name === 'states' ? 'state_ids[]' : 'project_ids[]';
+                    hidden.name = name === 'states' ? 'state_ids[]' : (name === 'projects' ? 'project_ids[]' : 'application_ids[]');
                     hidden.value = value;
                     hiddenContainer.appendChild(hidden);
                 });
@@ -314,6 +330,7 @@
 
         const stateSelect = initMultiSelect('states');
         const projectSelect = initMultiSelect('projects');
+        const applicationSelect = initMultiSelect('applications');
 
         async function loadRealTimeOptions() {
             const response = await fetch(optionsEndpoint, { headers: { 'Accept': 'application/json' } });
@@ -325,6 +342,7 @@
             const data = await response.json();
             stateSelect.setOptions(data.states || []);
             projectSelect.setOptions(data.projects || []);
+            applicationSelect.setOptions(data.applications || []);
             const vendorSelect = document.getElementById('vendor_id');
             if (vendorSelect && Array.isArray(data.vendors)) {
                 // replace vendor options
@@ -342,6 +360,7 @@
             document.getElementById('mapping_id').value = '';
             stateSelect.setItems([]);
             projectSelect.setItems([]);
+            applicationSelect.setItems([]);
             document.getElementById('vendor-state-modal-submit').textContent = 'Save';
             document.getElementById('vendor-state-modal').classList.remove('hidden');
         }
@@ -373,6 +392,7 @@
             document.getElementById('vendor_id').value = data.vendorId || '';
             stateSelect.setItems([String(data.stateId || '')].filter(Boolean));
             projectSelect.setItems([String(data.projectId || '')].filter(Boolean));
+            applicationSelect.setItems([String(data.applicationId || '')].filter(Boolean));
             document.getElementById('vendor-state-modal-submit').textContent = 'Update';
             document.getElementById('vendor-state-modal').classList.remove('hidden');
         }

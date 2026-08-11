@@ -279,6 +279,15 @@
                     matrix.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }
+
+            var roleSelect = document.getElementById('role_id');
+            var roleHidden = document.querySelector('#permForm input[name="role_id"]');
+            if (roleSelect && roleHidden) {
+                roleHidden.value = roleSelect.value;
+                roleSelect.addEventListener('change', function () {
+                    roleHidden.value = this.value;
+                });
+            }
         });
     </script>
     @endpush

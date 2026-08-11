@@ -25,6 +25,7 @@ class UserMasterRequest extends FormRequest
 
         $stateRequired = $roleName && str_contains(strtolower($roleName), 'state');
         $vendorRequired = $roleName && str_contains(strtolower($roleName), 'vendor');
+        $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
 
         return [
             'employee_code' => ['nullable', 'string', 'max:50'],
@@ -44,7 +45,7 @@ class UserMasterRequest extends FormRequest
             'state_id' => ['nullable', 'integer', 'exists:mst_state,state_id'],
             'state_ids' => $stateRequired ? ['required', 'array', 'min:1'] : ['nullable', 'array'],
             'state_ids.*' => ['integer', 'exists:mst_state,state_id'],
-            'vendor_id' => $vendorRequired ? ['required', 'integer', 'exists:mst_vendor,vendor_id'] : ['nullable', 'integer', 'exists:mst_vendor,vendor_id'],
+            'vendor_id' => $vendorRequired && ! $currentUserIsVendorAdmin ? ['required', 'integer', 'exists:mst_vendor,vendor_id'] : ['nullable', 'integer', 'exists:mst_vendor,vendor_id'],
         ];
     }
 }

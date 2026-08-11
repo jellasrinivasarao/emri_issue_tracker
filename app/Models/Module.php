@@ -20,17 +20,9 @@ class Module extends Model
         'module_code',
         'description',
         'is_active',
-        'created_at',
-        'created_by',
-        'update_at',
-        'updated_at',
-        'updated_by',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'created_at' => 'datetime',
-        'update_at' => 'datetime',
-        'updated_at' => 'datetime',
     ];
 }

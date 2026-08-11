@@ -3,9 +3,9 @@
         <h2 class="text-xl font-semibold leading-tight text-gray-800">{{ $title ?? __('User Master') }}</h2>
     </x-slot>
 
-    <div class="py-8 h-full min-h-0 box-border overflow-hidden">
-        <div class="mx-auto flex h-full min-h-0 max-w-7xl flex-col box-border px-4 sm:px-6 lg:px-8 overflow-hidden">
-            <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <div class="py-8 h-full min-h-0 box-border">
+        <div class="mx-auto flex h-full min-h-0 w-full max-w-full flex-col box-border px-4 sm:px-6 lg:px-8">
+            <div class="flex h-full min-h-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-5">
                         <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-center">
                             <div>
@@ -269,6 +269,8 @@
         const rolesMap = @json($roles->pluck('role_name','role_id'));
         const currentUserStateId = @json(auth()->user()->state_id ?? null);
         const currentUserIsStateAdmin = @json(auth()->user()->hasRole('State Admin'));
+        const currentUserIsVendorAdmin = @json(auth()->user()->hasRole('Vendor Admin'));
+        const currentUserVendorId = @json(auth()->user()->vendor_id ?? null);
         // Multi-select state helper (reused pattern from other pages)
         const stateOptions = @json($states ?? []);
         const oldStateIds = @json(old('state_ids', []));
@@ -531,7 +533,7 @@
                 }
             }
             if (vendorSelect) {
-                vendorSelect.value = data.vendorId || '';
+                vendorSelect.value = currentUserIsVendorAdmin ? (currentUserVendorId || '') : (data.vendorId || '');
             }
             updateFieldsByRole();
         }
@@ -569,8 +571,15 @@
                 }
             }
 
-            // If role is Vendor Admin show vendor select
-            if (roleName.includes('vendor') && roleName.includes('admin')) {
+            // If current user is Vendor Admin, hide vendor selection and auto-assign vendor_id.
+            if (currentUserIsVendorAdmin) {
+                if (vendorGroup) vendorGroup.classList.add('hidden');
+                const vendorSelect = document.getElementById('vendor_id');
+                if (vendorSelect) {
+                    vendorSelect.classList.add('hidden');
+                    vendorSelect.value = currentUserVendorId || '';
+                }
+            } else if (roleName.includes('vendor') && roleName.includes('admin')) {
                 if (vendorGroup) vendorGroup.classList.remove('hidden');
                 const vendorSelect = document.getElementById('vendor_id');
                 if (vendorSelect) {

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -41,18 +43,19 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $loginId = $this->string('login_id');
+        $loginId = $this->string('login_id')->toString();
         $password = $this->input('password');
-        $attempts = [
-            ['login_id' => $loginId, 'password' => $password],
-            ['official_email' => $loginId, 'password' => $password],
-        ];
+        $remember = $this->boolean('remember');
 
-        foreach ($attempts as $credentials) {
-            if (Auth::attempt($credentials, $this->boolean('remember'))) {
-                RateLimiter::clear($this->throttleKey());
-                return;
-            }
+        $user = User::query()
+            ->where('login_id', $loginId)
+            ->orWhere('official_email', $loginId)
+            ->first();
+
+        if ($user && Hash::check($password, $user->getAuthPassword())) {
+            Auth::login($user, $remember);
+            RateLimiter::clear($this->throttleKey());
+            return;
         }
 
         RateLimiter::hit($this->throttleKey());

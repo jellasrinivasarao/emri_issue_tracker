@@ -29,7 +29,18 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('role.dashboard'));
+        // Keep the first authenticated page stable and role-dashboard driven.
+        $user = $request->user();
+        $redirectRoute = route('role.dashboard');
+
+        if (is_null($user->password_changed_at)) {
+            // Ensure we have a sensible intended URL after password change
+            $request->session()->put('url.intended', $redirectRoute);
+            return redirect()->route('password.force.change');
+        }
+
+        $request->session()->put('url.intended', $redirectRoute);
+        return redirect()->intended($redirectRoute);
     }
 
     /**

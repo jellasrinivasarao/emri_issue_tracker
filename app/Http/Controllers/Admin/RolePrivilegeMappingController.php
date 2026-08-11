@@ -13,11 +13,26 @@ class RolePrivilegeMappingController extends Controller
 {
     public function index(): View
     {
-        // Load available roles, active menus and privileges
-        $roles = DB::table('mst_role')
-            ->select('role_id', 'role_name')
-            ->orderBy('role_name')
-            ->get();
+        // Load available roles, filtered by map_role_hierarchy for the current user
+        $currentRoleId = auth()->user()->role_id ?? null;
+        if ($currentRoleId) {
+            $mapped = DB::table('map_role_hierarchy')->where('parent_role_id', $currentRoleId)->pluck('child_role_id')->toArray();
+            if (! empty($mapped)) {
+                $roles = DB::table('mst_role')
+                    ->select('role_id', 'role_name')
+                    ->whereIn('role_id', array_values(array_unique($mapped)))
+                    ->orderBy('role_name')
+                    ->get();
+            } else {
+                // no mapped child roles: return empty collection
+                $roles = collect();
+            }
+        } else {
+            $roles = DB::table('mst_role')
+                ->select('role_id', 'role_name')
+                ->orderBy('role_name')
+                ->get();
+        }
 
         $privileges = DB::table('mst_privilege')
             ->select('privilege_id', 'privilege_code', 'privilege_name', 'display_order', 'is_active')
@@ -26,12 +41,29 @@ class RolePrivilegeMappingController extends Controller
             ->orderBy('privilege_id')
             ->get();
 
-        $menus = DB::table('mst_menu')
+// Determine if current role has explicit menu assignments via map_role_privilege
+        $allowedMenuIds = [];
+        if (! empty($currentRoleId)) {
+            $allowedMenuIds = DB::table('map_role_privilege')
+                ->where('role_id', $currentRoleId)
+                ->where('is_allowed', 1)
+                ->pluck('menu_id')
+                ->toArray();
+        }
+
+        $menusQuery = DB::table('mst_menu')
             ->select('menu_id', 'parent_menu_id', 'display_name as menu_name', 'route_name', 'uri', 'display_order', 'is_active')
             ->where('is_active', 1)
             ->where('route_name', '<>', 'organization.setup')
-            ->orderBy('display_order')
-            ->get();
+            ->orderBy('display_order');
+
+        // Load all active menus from menu master so permissions can be granted for any menu,
+        // even if the role does not yet have entries in map_role_privilege.
+        if (! auth()->user()->hasRole('Central Admin')) {
+            $menusQuery->where('route_name', '<>', 'role.privilege.mapping');
+        }
+
+        $menus = $menusQuery->get();
 
         // Build nested menu tree
         $menuTree = $this->buildMenuTree($menus);

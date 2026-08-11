@@ -22,7 +22,7 @@ class UserMasterController extends Controller
 {
     public function index(Request $request): View|Response
     {
-        $users = User::query()
+        $usersQuery = User::query()
             ->with('roles')
             ->select(
                 'user_id',
@@ -33,20 +33,29 @@ class UserMasterController extends Controller
                 'mobile_number',
                 'user_status',
                 'role_id',
-                'is_active'
+                'is_active',
+                'created_by'
             )
-            ->orderBy('user_name')
-            ->get();
+            ->orderBy('user_name');
+
+        if (! auth()->user()?->hasRole('Central Admin') && Schema::hasColumn('mst_user', 'created_by')) {
+            $usersQuery->where('created_by', auth()->id());
+        }
+
+        $users = $usersQuery->get();
 
         $currentRoleId = auth()->user()->role_id ?? null;
         if ($currentRoleId) {
             $mapped = DB::table('map_role_hierarchy')->where('parent_role_id', $currentRoleId)->pluck('child_role_id')->toArray();
-            $mapped[] = $currentRoleId;
-            $roles = Role::query()
-                ->select('role_id', 'role_name')
-                ->whereIn('role_id', array_unique($mapped))
-                ->orderBy('role_name')
-                ->get();
+            if (! empty($mapped)) {
+                $roles = Role::query()
+                    ->select('role_id', 'role_name')
+                    ->whereIn('role_id', array_values(array_unique($mapped)))
+                    ->orderBy('role_name')
+                    ->get();
+            } else {
+                $roles = collect();
+            }
         } else {
             $roles = Role::query()
                 ->select('role_id', 'role_name')
@@ -101,6 +110,8 @@ class UserMasterController extends Controller
 
         $states = State::query()->select('state_id', 'state_name')->orderBy('state_name')->get();
         $vendors = Vendor::query()->select('vendor_id', 'vendor_name')->orderBy('vendor_name')->get();
+        $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
+        $currentUserVendorId = Schema::hasColumn('mst_user', 'vendor_id') ? auth()->user()->vendor_id : null;
 
         return view('pages.user-master', [
             'title' => 'User Master',
@@ -109,6 +120,8 @@ class UserMasterController extends Controller
             'roles' => $roles,
             'states' => $states,
             'vendors' => $vendors,
+            'currentUserIsVendorAdmin' => $currentUserIsVendorAdmin,
+            'currentUserVendorId' => $currentUserVendorId,
         ]);
     }
 
@@ -166,8 +179,12 @@ class UserMasterController extends Controller
             }
         }
 
-        if (Schema::hasColumn('mst_user', 'vendor_id') && $request->filled('vendor_id')) {
-            $user->vendor_id = $request->vendor_id;
+        if (Schema::hasColumn('mst_user', 'vendor_id')) {
+            if (auth()->user()?->hasRole('Vendor Admin') && ! empty(auth()->user()->vendor_id)) {
+                $user->vendor_id = auth()->user()->vendor_id;
+            } elseif ($request->filled('vendor_id')) {
+                $user->vendor_id = $request->vendor_id;
+            }
         }
 
         // If current user is a State Admin, ensure they cannot assign outside their mapped state(s)
@@ -210,7 +227,6 @@ class UserMasterController extends Controller
     public function update(UserMasterRequest $request, int $user_id): RedirectResponse
     {
         $user = User::findOrFail($user_id);
-        $user->employee_code = $request->employee_code;
         $user->user_name = $request->user_name;
         $user->login_id = $request->login_id;
         $user->official_email = $request->official_email;
@@ -240,8 +256,12 @@ class UserMasterController extends Controller
             }
         }
 
-        if (Schema::hasColumn('mst_user', 'vendor_id') && $request->filled('vendor_id')) {
-            $user->vendor_id = $request->vendor_id;
+        if (Schema::hasColumn('mst_user', 'vendor_id')) {
+            if (auth()->user()?->hasRole('Vendor Admin') && ! empty(auth()->user()->vendor_id)) {
+                $user->vendor_id = auth()->user()->vendor_id;
+            } elseif ($request->filled('vendor_id')) {
+                $user->vendor_id = $request->vendor_id;
+            }
         }
 
         if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {

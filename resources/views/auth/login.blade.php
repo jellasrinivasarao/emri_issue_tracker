@@ -1,47 +1,45 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
-
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
-
-        <!-- Login ID or Email -->
-        <div>
-            <x-input-label for="login_id" :value="__('Login ID or Email')" />
-            <x-text-input id="login_id" class="block mt-1 w-full" type="text" name="login_id" :value="old('login_id')" required autofocus autocomplete="username" />
-            <x-input-error :messages="$errors->get('login_id')" class="mt-2" />
+    <div class="w-full max-w-lg rounded-[32px] border border-slate-200 bg-white/95 p-8 shadow-2xl shadow-slate-300/20 backdrop-blur-xl sm:p-10 lg:max-w-xl">
+        <div class="flex flex-col items-center gap-4 text-center">
+            <img src="{{ asset('images/logo.png') }}" alt="EMRI Logo" class="w-full max-w-[240px] object-contain" />
+            <div>
+                <h1 class="text-2xl font-semibold text-slate-900">EMRI ISSUE TRACKER</h1>
+                <p class="mt-2 text-sm text-slate-500">Enter your credentials to sign in to your account.</p>
+            </div>
         </div>
 
-        <!-- Password -->
-        <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+        <x-auth-session-status class="mt-6 rounded-3xl border border-emerald-100 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-700" :status="session('status')" />
 
-            <x-text-input id="password" class="block mt-1 w-full"
-                            type="password"
-                            name="password"
-                            required autocomplete="current-password" />
+        <form method="POST" action="{{ route('login') }}" class="mt-8 space-y-5">
+            @csrf
 
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
-        </div>
+            <div class="space-y-2">
+                <label for="login_id" class="block text-sm font-semibold text-slate-700">Username / Email</label>
+                <input id="login_id" name="login_id" type="text" value="{{ old('login_id') }}" required autofocus autocomplete="username" class="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Enter username or email" />
+                <x-input-error :messages="$errors->get('login_id')" class="mt-2 text-sm text-rose-600" />
+            </div>
 
-        <!-- Remember Me -->
-        <div class="block mt-4">
-            <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
-            </label>
-        </div>
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <label for="password" class="block text-sm font-semibold text-slate-700">Password</label>
+                    @if (Route::has('password.request'))
+                        <a href="{{ route('password.request') }}" class="text-sm font-medium text-sky-600 hover:text-sky-700">Forgot Password?</a>
+                    @endif
+                </div>
+                <input id="password" name="password" type="password" required autocomplete="current-password" class="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Enter password" />
+                <x-input-error :messages="$errors->get('password')" class="mt-2 text-sm text-rose-600" />
+            </div>
 
-        <div class="flex items-center justify-end mt-4">
-            @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}">
-                    {{ __('Forgot your password?') }}
-                </a>
-            @endif
+            <div class="flex items-center justify-between text-sm text-slate-600">
+                <label class="inline-flex items-center gap-2">
+                    <input id="remember_me" type="checkbox" name="remember" class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
+                    Remember me
+                </label>
+            </div>
 
-            <x-primary-button class="ms-3">
-                {{ __('Log in') }}
-            </x-primary-button>
-        </div>
-    </form>
+            <button type="submit" class="mt-2 w-full rounded-[28px] bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/10 transition duration-200 hover:bg-slate-800">Sign In</button>
+        </form>
+
+        <div class="mt-6 text-center text-sm text-slate-500">© 2026 EMRI Green Health Services. All rights reserved.</div>
+    </div>
 </x-guest-layout>

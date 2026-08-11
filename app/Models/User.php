@@ -74,6 +74,8 @@ class User extends Authenticatable
         'user_status',
         'last_login_at',
         'password_changed_at',
+        'password_reset_otp',
+        'password_reset_otp_expires_at',
     ];
 
     /**
@@ -103,6 +105,7 @@ class User extends Authenticatable
     protected $casts = [
         'last_login_at' => 'datetime',
         'password_changed_at' => 'datetime',
+        'password_reset_otp_expires_at' => 'datetime',
     ];
 
     /**
@@ -113,6 +116,22 @@ class User extends Authenticatable
     public function getAuthPassword()
     {
         return $this->password_hash;
+    }
+
+    /**
+     * Get the e-mail address where password reset links are sent.
+     */
+    public function getEmailForPasswordReset(): ?string
+    {
+        return $this->official_email;
+    }
+
+    /**
+     * Get the e-mail address where mail notifications are sent.
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        return $this->official_email;
     }
 
     public function getNameAttribute(): ?string

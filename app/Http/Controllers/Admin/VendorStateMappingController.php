@@ -21,14 +21,17 @@ class VendorStateMappingController extends Controller
             ->join('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
             ->join('mst_state as s', 'm.state_id', '=', 's.state_id')
             ->join('mst_project as p', 'm.project_id', '=', 'p.project_id')
+            ->leftJoin('mst_application as a', 'm.application_id', '=', 'a.application_id')
             ->select(
                 'm.mapping_id',
                 'm.vendor_id',
                 'm.state_id',
                 'm.project_id',
+                'm.application_id',
                 'v.vendor_name',
                 's.state_name',
                 'p.project_name',
+                'a.application_name',
                 'm.is_active',
                 'm.created_by',
                 'm.created_at',
@@ -38,6 +41,7 @@ class VendorStateMappingController extends Controller
             ->orderBy('v.vendor_name')
             ->orderBy('s.state_name')
             ->orderBy('p.project_name')
+            ->orderBy('a.application_name')
             ->get();
 
         $vendors = DB::table('mst_vendor')
@@ -56,6 +60,12 @@ class VendorStateMappingController extends Controller
             ->select('project_id', 'project_name')
             ->where('is_active', 1)
             ->orderBy('project_name')
+            ->get();
+
+        $applications = DB::table('mst_application')
+            ->select('application_id', 'application_name')
+            ->where('is_active', 1)
+            ->orderBy('application_name')
             ->get();
 
         if ($format) {
@@ -106,20 +116,24 @@ class VendorStateMappingController extends Controller
         $vendorId = $data['vendor_id'];
         $stateIds = $data['state_ids'];
         $projectIds = $data['project_ids'];
+        $applicationIds = $data['application_ids'];
         $timestamp = now();
         $userId = auth()->id();
 
         $insertData = [];
         foreach ($stateIds as $stateId) {
             foreach ($projectIds as $projectId) {
-                $insertData[] = [
-                    'vendor_id' => $vendorId,
-                    'state_id' => $stateId,
-                    'project_id' => $projectId,
-                    'is_active' => 1,
-                    'created_by' => $userId,
-                    'created_at' => $timestamp,
-                ];
+                foreach ($applicationIds as $applicationId) {
+                    $insertData[] = [
+                        'vendor_id' => $vendorId,
+                        'state_id' => $stateId,
+                        'project_id' => $projectId,
+                        'application_id' => $applicationId,
+                        'is_active' => 1,
+                        'created_by' => $userId,
+                        'created_at' => $timestamp,
+                    ];
+                }
             }
         }
 
@@ -136,6 +150,7 @@ class VendorStateMappingController extends Controller
         $vendorId = $data['vendor_id'];
         $stateIds = $data['state_ids'];
         $projectIds = $data['project_ids'];
+        $applicationIds = $data['application_ids'];
         $timestamp = now();
         $userId = auth()->id();
 
@@ -147,10 +162,13 @@ class VendorStateMappingController extends Controller
         $combinations = [];
         foreach ($stateIds as $stateId) {
             foreach ($projectIds as $projectId) {
-                $combinations[] = [
-                    'state_id' => $stateId,
-                    'project_id' => $projectId,
-                ];
+                foreach ($applicationIds as $applicationId) {
+                    $combinations[] = [
+                        'state_id' => $stateId,
+                        'project_id' => $projectId,
+                        'application_id' => $applicationId,
+                    ];
+                }
             }
         }
 
@@ -160,6 +178,7 @@ class VendorStateMappingController extends Controller
             ->where('vendor_id', $vendorId)
             ->where('state_id', $firstCombination['state_id'])
             ->where('project_id', $firstCombination['project_id'])
+            ->where('application_id', $firstCombination['application_id'])
             ->where('mapping_id', '<>', $mapping_id)
             ->exists();
 
@@ -173,6 +192,7 @@ class VendorStateMappingController extends Controller
                 'vendor_id' => $vendorId,
                 'state_id' => $firstCombination['state_id'],
                 'project_id' => $firstCombination['project_id'],
+                'application_id' => $firstCombination['application_id'],
                 'updated_by' => $userId,
                 'update_at' => $timestamp,
             ]);
@@ -183,6 +203,7 @@ class VendorStateMappingController extends Controller
                 'vendor_id' => $vendorId,
                 'state_id' => $combination['state_id'],
                 'project_id' => $combination['project_id'],
+                'application_id' => $combination['application_id'],
                 'is_active' => 1,
                 'created_by' => $userId,
                 'created_at' => $timestamp,
@@ -216,10 +237,17 @@ class VendorStateMappingController extends Controller
             ->orderBy('project_name')
             ->get();
 
+        $applications = DB::table('mst_application')
+            ->select('application_id', 'application_name')
+            ->where('is_active', 1)
+            ->orderBy('application_name')
+            ->get();
+
         return response()->json([
             'vendors' => $vendors,
             'states' => $states,
             'projects' => $projects,
+            'applications' => $applications,
         ]);
     }
 

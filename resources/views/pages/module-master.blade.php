@@ -45,7 +45,6 @@
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Module Name</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Description</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Status</th>
-                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Audit</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Actions</th>
                                 </tr>
                             </thead>
@@ -55,12 +54,6 @@
                                         <td class="px-5 py-3 text-sm font-semibold text-slate-900">{{ $module->module_name }}</td>
                                         <td class="px-5 py-3 text-sm text-slate-600">{{ $module->description ?? '-' }}</td>
                                         <td class="px-5 py-3 text-sm"><span class="rounded-full {{ (int)$module->is_active === 1 ? 'bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700' : 'bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700' }}">{{ (int)$module->is_active === 1 ? 'Active' : 'Inactive' }}</span></td>
-                                        <td class="px-5 py-3 text-sm text-slate-600">
-                                            <div class="text-xs">
-                                                <div>Created By: {{ $module->created_by ?? '-' }}</div>
-                                                <div>Updated By: {{ $module->updated_by ?? '-' }}</div>
-                                            </div>
-                                        </td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 @if(data_get($permissions, 'edit'))
@@ -82,7 +75,7 @@
                                     </tr>
                                 @empty
                                     <tr class="empty-row">
-                                        <td colspan="5" class="px-5 py-6 text-center text-sm text-slate-500">No modules found.</td>
+                                        <td colspan="4" class="px-5 py-6 text-center text-sm text-slate-500">No modules found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

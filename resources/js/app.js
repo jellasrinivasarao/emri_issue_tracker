@@ -4,6 +4,23 @@ import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 
+window.drawerState = function drawerState() {
+    return {
+        drawerOpen: false,
+        selectedStatus: 'In Progress',
+        selectedTicket: null,
+        activeTab: 'details',
+        init() {
+            this.drawerOpen = false;
+            this.activeTab = 'details';
+        },
+    };
+};
+
+// Ensure visible debug logging in environments where console.debug may be filtered
+window.__EMRI_DEBUG = window.__EMRI_DEBUG ?? true;
+console.log('[app.js] __EMRI_DEBUG set =>', !!window.__EMRI_DEBUG);
+
 let loadingTimer = null;
 let isNavigating = false;
 
@@ -79,29 +96,67 @@ function executeInlineScripts(root) {
 function replacePageContent(html, url) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    const newContentWrapper = doc.getElementById('page-content-wrapper');
-    const contentWrapper = document.getElementById('page-content-wrapper');
+    const newShell = doc.getElementById('page-shell');
+    const oldShell = document.getElementById('page-shell');
     const newTitle = doc.querySelector('title');
 
-    if (!newContentWrapper || !contentWrapper) {
+    if (!newShell || !oldShell) {
+        console.log('[nav] missing page-shell in fetched HTML', { newShell: !!newShell, oldShell: !!oldShell, url });
         return false;
     }
 
-    contentWrapper.innerHTML = newContentWrapper.innerHTML;
+    // Replace the page shell (header + main content) while keeping the aside in DOM
+    oldShell.innerHTML = newShell.innerHTML;
 
     if (newTitle) {
         document.title = newTitle.textContent;
     }
 
-    executeInlineScripts(contentWrapper);
+    executeInlineScripts(oldShell);
 
     if (window.Alpine && typeof window.Alpine.initTree === 'function') {
-        window.Alpine.initTree(contentWrapper);
+        window.Alpine.initTree(oldShell);
     } else if (window.Alpine && typeof window.Alpine.discoverUninitializedComponents === 'function') {
-        window.Alpine.discoverUninitializedComponents(contentWrapper);
+        window.Alpine.discoverUninitializedComponents(oldShell);
     }
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    // After replacing content, check if the new page signals to hide the sidebar
+    const wantsNoSidebar = !!oldShell.querySelector('[data-hide-sidebar]');
+    console.log('[nav] navigation fetched', { url, wantsNoSidebar });
+
+    // Notify Alpine layout to update sidebar state in a robust way
+    try {
+        window.dispatchEvent(new CustomEvent('layout:sidebar', { detail: { noSidebar: wantsNoSidebar } }));
+    } catch (e) {
+        console.warn('[nav] failed to dispatch layout event', e);
+    }
+
+    try {
+        // Toggle aside visibility using Tailwind's `hidden` class so utility styles apply correctly.
+        const asides = document.querySelectorAll('aside');
+        asides.forEach(a => {
+            if (wantsNoSidebar) {
+                a.classList.add('hidden');
+            } else {
+                a.classList.remove('hidden');
+            }
+        });
+
+        // Toggle content padding that reserves space for the sidebar (Tailwind class)
+        const contentContainer = document.querySelector('.relative.flex.flex-1.flex-col.min-h-0.box-border');
+        if (contentContainer) {
+            const sidebarClass = 'md:pl-[260px]';
+            if (wantsNoSidebar) {
+                contentContainer.classList.remove(sidebarClass);
+            } else {
+                contentContainer.classList.add(sidebarClass);
+            }
+        }
+    } catch (e) {
+        console.warn('Sidebar toggle failed', e);
+    }
 
     if (url) {
         window.history.pushState({}, '', url);

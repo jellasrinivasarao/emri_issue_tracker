@@ -17,7 +17,7 @@ class ModuleMasterController extends Controller
     public function index(Request $request): View|Response
     {
         $modules = Module::query()
-            ->select('module_id', 'module_name', 'description', 'is_active', 'created_by', 'updated_by')
+            ->select('module_id', 'module_name', 'description', 'is_active')
             ->orderBy('module_name')
             ->get();
 
@@ -78,14 +78,6 @@ class ModuleMasterController extends Controller
         $module->description = $request->module_description;
         $module->is_active = true;
 
-        if (Schema::hasColumn('mst_module', 'created_at')) {
-            $module->created_at = now();
-        }
-
-        if (Schema::hasColumn('mst_module', 'created_by')) {
-            $module->created_by = auth()->id();
-        }
-
         $module->save();
 
         return redirect()->route('module.master')->with('success', 'Module created successfully.');
@@ -101,20 +93,6 @@ class ModuleMasterController extends Controller
 
         $module->module_name = $request->module_name;
         $module->description = $request->module_description;
-
-        if (Schema::hasColumn('mst_module', 'update_at')) {
-            $module->update_at = now();
-        }
-        if (Schema::hasColumn('mst_module', 'updated_at')) {
-            $module->updated_at = now();
-        }
-
-        if (Schema::hasColumn('mst_module', 'updated_by')) {
-            $module->updated_by = auth()->id();
-        }
-        if (Schema::hasColumn('mst_module', 'update_by')) {
-            $module->update_by = auth()->id();
-        }
 
         $updated = $module->save();
 
@@ -134,20 +112,6 @@ class ModuleMasterController extends Controller
 
         $newStatus = ((int) $module->is_active === 1) ? 0 : 1;
         $module->is_active = $newStatus;
-
-        if (Schema::hasColumn('mst_module', 'update_at')) {
-            $module->update_at = now();
-        }
-        if (Schema::hasColumn('mst_module', 'updated_at')) {
-            $module->updated_at = now();
-        }
-
-        if (Schema::hasColumn('mst_module', 'updated_by')) {
-            $module->updated_by = auth()->id();
-        }
-        if (Schema::hasColumn('mst_module', 'update_by')) {
-            $module->update_by = auth()->id();
-        }
 
         $module->save();
 

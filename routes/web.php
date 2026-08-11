@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Auth\ForcePasswordController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,6 +42,13 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
+    Route::get('/role-issue-dashboard', [PageController::class, 'roleIssueDashboard'])
+        ->middleware('menu.access:role.issue.dashboard')
+        ->name('role.issue.dashboard');
+
+    Route::post('/role-issue-dashboard/update', [PageController::class, 'updateIssueStatus'])
+        ->middleware(['auth', 'menu.access:role.issue.dashboard'])
+        ->name('role.issue.update');
 
     Route::get('/issues', [PageController::class, 'issues'])
         ->middleware('menu.access:issues')
@@ -246,6 +254,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:user.support.group.mapping'])
         ->name('user.support.group.mapping');
 
+    // Forced password change for first-time logins
+    Route::get('/password/force-change', [ForcePasswordController::class, 'show'])->name('password.force.change');
+    Route::post('/password/force-change', [ForcePasswordController::class, 'update'])->name('password.force.change.update');
+
     Route::get('/project-application-module', [ProjectApplicationModuleMappingController::class, 'index'])
         ->middleware(['auth','menu.access:project.application.module.mapping'])
         ->name('project.application.module.mapping');
@@ -336,6 +348,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/automatic-routing', [PageController::class, 'genericAdminPage'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
 
     Route::get('/notification-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+
+    Route::get('/mail-configuration', [PageController::class, 'mailConfiguration'])->middleware('menu.access:mail.configuration')->name('mail.configuration');
 
     Route::get('/priority-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
 

@@ -14,7 +14,7 @@ body{
 }
 body{
     font-family:'Segoe UI',sans-serif;
-    padding-top:72px;
+    padding-top:0 !important;
     background:#f3f7ff;
     color:#1f2937;
 }
