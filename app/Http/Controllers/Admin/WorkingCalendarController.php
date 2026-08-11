@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WorkingCalendarStoreRequest;
 use App\Http\Requests\WorkingCalendarUpdateRequest;
+use App\Models\State;
 use App\Models\WorkingCalendar;
 use App\Models\Organisation;
 use Illuminate\Http\RedirectResponse;
@@ -15,7 +16,7 @@ class WorkingCalendarController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = WorkingCalendar::query()->with('organisation');
+        $query = WorkingCalendar::query()->with(['organisation', 'state']);
 
         if ($search = $request->input('search')) {
             $search = trim($search);
@@ -33,6 +34,10 @@ class WorkingCalendarController extends Controller
             $query->where('is_active', $request->input('status'));
         }
 
+        if ($request->filled('state_id')) {
+            $query->where('state_id', $request->input('state_id'));
+        }
+
         $calendars = $query->orderBy('calendar_name')->paginate(20)->withQueryString();
 
         $organisations = Organisation::query()
@@ -40,7 +45,12 @@ class WorkingCalendarController extends Controller
             ->orderBy('organisation_name')
             ->get(['organisation_id', 'organisation_name']);
 
-        return view('admin.operational.working-hours', compact('calendars', 'organisations'));
+        $states = State::query()
+            ->where('is_active', true)
+            ->orderBy('state_name')
+            ->get(['state_id', 'state_name']);
+
+        return view('admin.operational.working-hours', compact('calendars', 'organisations', 'states'));
     }
 
     public function store(WorkingCalendarStoreRequest $request): RedirectResponse
@@ -52,6 +62,7 @@ class WorkingCalendarController extends Controller
             'calendar_name' => $data['calendar_name'],
             'timezone' => $data['timezone'] ?? config('app.timezone'),
             'organisation_id' => $data['organisation_id'] ?? null,
+            'state_id' => $data['state_id'] ?? null,
             'is_active' => $request->boolean('is_active', true),
         ]);
 
@@ -69,6 +80,7 @@ class WorkingCalendarController extends Controller
             'calendar_name' => $data['calendar_name'],
             'timezone' => $data['timezone'] ?? $calendar->timezone,
             'organisation_id' => $data['organisation_id'] ?? $calendar->organisation_id,
+            'state_id' => $data['state_id'] ?? null,
             'is_active' => $request->boolean('is_active', $calendar->is_active),
         ]);
 

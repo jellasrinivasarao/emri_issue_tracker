@@ -3,8 +3,9 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
-class WorkingCalendarUpdateRequest extends FormRequest
+class WorkingCalendarStateRequest extends FormRequest
 {
     public function authorize(): bool
     {

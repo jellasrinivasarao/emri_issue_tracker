@@ -93,6 +93,20 @@ class WorkingCalendarEngine
 
         $dayOfWeek = $now->dayOfWeekIso;
 
+        // Treat 2nd and 4th Saturdays of the month as non-working days when configured
+        // (business rule: 2nd and 4th Saturday off). Saturday in ISO is 6.
+        if ($dayOfWeek === 6) {
+            $dayOfMonth = (int) $now->day;
+            $weekOfMonth = (int) (ceil($dayOfMonth / 7));
+            if (in_array($weekOfMonth, [2, 4], true)) {
+                return $this->result(
+                    false,
+                    'WEEKLY_SPECIAL_OFF',
+                    $now
+                );
+            }
+        }
+
         /*
         |--------------------------------------------------------------------------
         | 5. Load today's schedules

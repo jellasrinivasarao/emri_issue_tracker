@@ -20,7 +20,33 @@ class IssueRoutingRuleController extends Controller
     /**
      * Display routing rules.
      */
+
     public function index(Request $request)
+    {
+        $query = IssueRoutingRule::query();
+        
+        $rules = $query
+                ->with([
+                    'project',
+                    'supportConfig',
+                    'application',
+                    'state',
+                    'vendor',
+                    'hoIt',
+                    'supportTeam',
+                ])
+                ->orderBy('project_id')
+                ->orderBy('routing_level')
+                ->orderByDesc('is_default')
+                ->orderBy('rule_name')
+                ->paginate(15)
+                ->withQueryString();
+
+        return view('admin.issue-routing-rules.index',compact('rules','projects','supportConfigs')
+        );
+    
+    }
+    public function index1(Request $request)
     {
         $query = IssueRoutingRule::query()
             ->with([

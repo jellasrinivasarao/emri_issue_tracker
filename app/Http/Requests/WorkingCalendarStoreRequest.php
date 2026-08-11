@@ -18,6 +18,7 @@ class WorkingCalendarStoreRequest extends FormRequest
             'calendar_name' => ['required', 'string', 'max:191'],
             'timezone' => ['nullable', 'string', 'max:100'],
             'organisation_id' => ['nullable', 'integer'],
+            'state_id' => ['nullable', 'integer', 'exists:mst_state,state_id'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

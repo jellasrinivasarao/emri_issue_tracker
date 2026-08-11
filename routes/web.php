@@ -21,6 +21,9 @@ use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\Admin\AdminConfigController;
 use App\Http\Controllers\Admin\WorkingCalendarController;
+use App\Http\Controllers\Admin\WorkingScheduleController;
+use App\Http\Controllers\Admin\WorkingHoursController;
+
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\ForcePasswordController;
@@ -380,8 +383,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:working.hours'])
         ->name('working.calendars.destroy');
 
+    Route::get('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'index'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules');
 
+    Route::post('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'store'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.store');
 
+    Route::put('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'update'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.update');
+
+    Route::post('/working-calendars/{calendar_id}/schedules/{schedule_id}/toggle', [WorkingScheduleController::class, 'toggle'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.toggle');
+
+    Route::delete('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'destroy'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.destroy');
+
+    Route::resource('working-schedules', WorkingHoursController::class);
+
+    Route::patch('working-schedules/{working_schedule}/toggle-status',
+        [WorkingHoursController::class, 'toggleStatus']
+    )->name('working-schedules.toggle-status');
 
             // Holiday calendar CRUD
 
