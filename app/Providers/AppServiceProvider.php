@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
+use App\Interfaces\IssueRepositoryInterface;
+use App\Repositories\IssueRepository;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -15,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(IssueRepositoryInterface::class,IssueRepository::class);
     }
 
     /**

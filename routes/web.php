@@ -386,3 +386,7 @@ if (app()->environment('local')) {
 
 require __DIR__.'/auth.php';
 
+use App\Http\Controllers\IssueController;
+Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
+Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
+Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
