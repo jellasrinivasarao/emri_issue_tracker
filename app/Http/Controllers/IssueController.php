@@ -21,21 +21,26 @@ use App\Models\Module;
 use App\Services\IssueService;
 #use App\Services\IssueRoutingService;
 use App\Services\IssueRouting\IssueRoutingService;
-
+use App\Services\IssueWorkflowService;
 use App\Services\IssueSlaService;
+
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
-
-
 use App\Http\Requests\StoreIssueRequest;
+
 
 class IssueController extends Controller
 {
-    public function __construct(protected IssueService $issueService,protected IssueRoutingService $routingService) {
+    public function __construct(
+        protected IssueService $issueService,
+        protected IssueRoutingService $routingService,
+        protected IssueWorkflowService $workflowService)
+    {
+        // Constructor code if needed
     }
 
 
@@ -477,12 +482,25 @@ class IssueController extends Controller
             try {
 
             $issues->load([
-                'service',
-                'project',
-                'application',
-                'module',
-                'priority',
-                'status',
+            'state',
+            'project',
+            'service',
+            'application',
+            'module',
+            'category',
+            'priority',
+            'status',
+            'raisedBy',
+            'currentOwner',
+            'currentAssignee',
+            'team',
+            'configuration',
+            'sla',
+            'updates',
+            'statusHistory',
+            'histories',
+            'attachments',
+            'escalations',
             ]);
 
              $teams = SupportTeam::where('is_active',1)
@@ -673,48 +691,17 @@ class IssueController extends Controller
     {
         try {
 
-            DB::transaction(function () use ($issue) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | Change status to In Progress
-                |--------------------------------------------------------------------------
-                |
-                | Your status table should contain:
-                |
-                | In Progress
-                |
-                */
+            $this->workflowService->startWork(
+                $issue,
+                Auth::id()
+            );
 
-                $statusId = $this->getStatusId('In Progress');
+            return back()->with(
+                'success',
+                'Issue moved to In Progress.'
+            );
 
-                if ($statusId) {
-
-                    $issue->status_id = $statusId;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Current User
-                |--------------------------------------------------------------------------
-                */
-
-                if (Auth::check()) {
-
-                    $issue->current_owner_user_id =
-                        Auth::id();
-
-                }
-
-                $issue->save();
-
-            });
-
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Work started successfully.',
-            ]);
 
         } catch (Throwable $e) {
 
@@ -749,6 +736,7 @@ class IssueController extends Controller
             'message' => [
                 'required',
                 'string',
+                'min:5',
                 'max:2000',
             ],
         ]);
@@ -756,43 +744,17 @@ class IssueController extends Controller
 
         try {
 
-            DB::transaction(function () use (
-                $request,
-                $issue
-            ) {
 
-                $statusId =
-                    $this->getStatusId('Pending');
+         $this->workflowService->requestInformation(
+                $issue,
+                $request->message,
+                Auth::id()
+            );
 
-                if ($statusId) {
-
-                    $issue->status_id =
-                        $statusId;
-                }
-
-                $issue->save();
-
-                /*
-                |--------------------------------------------------------------------------
-                | Add update record here
-                |--------------------------------------------------------------------------
-                |
-                | Example:
-                |
-                | IssueUpdate::create(...)
-                |
-                | Keep this section for your existing
-                | issue update/history table.
-                |
-                */
-
-            });
-
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Information request submitted.',
-            ]);
+            return back()->with(
+                'success',
+                'Information request submitted.'
+            );
 
         } catch (Throwable $e) {
 
@@ -818,37 +780,57 @@ class IssueController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function escalateVendor(Issue $issue)
+    public function escalateVendor(Request $request,Issue $issue)
     {
+
+    $request->validate([
+            'reason' => [
+                'required',
+                'string',
+                'min:5',
+                'max:2000',
+            ],
+        ]);
         try {
+            
+        $this->workflowService->escalateToVendor(
+                $issue,
+                $request->reason,
+                Auth::id()
+            );
 
-            DB::transaction(function () use ($issue) {
+            return back()->with(
+                'success',
+                'Issue escalated successfully.'
+            );
+            
+            // DB::transaction(function () use ($issue) {
 
-                /*
-                |--------------------------------------------------------------------------
-                | IMPORTANT
-                |--------------------------------------------------------------------------
-                |
-                | Your existing IssueRoutingService should be called here.
-                |
-                */
+            //     /*
+            //     |--------------------------------------------------------------------------
+            //     | IMPORTANT
+            //     |--------------------------------------------------------------------------
+            //     |
+            //     | Your existing IssueRoutingService should be called here.
+            //     |
+            //     */
 
-                if (class_exists(
-                    \App\Services\IssueRoutingService::class
-                )) {
+            //     if (class_exists(
+            //         \App\Services\IssueRoutingService::class
+            //     )) {
 
-                    app(
-                        \App\Services\IssueRoutingService::class
-                    )->route($issue);
-                }
+            //         app(
+            //             \App\Services\IssueRoutingService::class
+            //         )->route($issue);
+            //     }
 
-            });
+            // });
 
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Issue escalated successfully.',
-            ]);
+            // return response()->json([
+            //     'success' => true,
+            //     'message' => 'Issue escalated successfully.',
+            // ]);
 
         } catch (Throwable $e) {
 
@@ -883,6 +865,7 @@ class IssueController extends Controller
             'resolution_summary' => [
                 'required',
                 'string',
+                'min:10',
                 'max:5000',
             ],
         ]);
@@ -890,38 +873,49 @@ class IssueController extends Controller
 
         try {
 
-            DB::transaction(function () use (
-                $request,
-                $issue
-            ) {
+        $this->workflowService->submitResolution(
+                $issue,
+                $request->resolution_summary,
+                Auth::id()
+            );
 
-                $statusId =
-                    $this->getStatusId('Resolved');
+            return back()->with(
+                'success',
+                'Resolution submitted successfully.'
+            );
 
-                if ($statusId) {
+            // DB::transaction(function () use (
+            //     $request,
+            //     $issue
+            // ) {
 
-                    $issue->status_id =
-                        $statusId;
-                }
+            //     $statusId =
+            //         $this->getStatusId('Resolved');
 
-                $issue->resolution_summary =
-                    $request->resolution_summary;
+            //     if ($statusId) {
 
-                $issue->resolved_by =
-                    Auth::id();
+            //         $issue->status_id =
+            //             $statusId;
+            //     }
 
-                $issue->resolved_at =
-                    now();
+            //     $issue->resolution_summary =
+            //         $request->resolution_summary;
 
-                $issue->save();
+            //     $issue->resolved_by =
+            //         Auth::id();
 
-            });
+            //     $issue->resolved_at =
+            //         now();
+
+            //     $issue->save();
+
+            // });
 
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Resolution submitted successfully.',
-            ]);
+            // return response()->json([
+            //     'success' => true,
+            //     'message' => 'Resolution submitted successfully.',
+            // ]);
 
         } catch (Throwable $e) {
 
@@ -1076,6 +1070,73 @@ class IssueController extends Controller
             //     $sla['sla_remaining_label'],
 
         ];
+    }
+
+
+
+
+    public function addUpdate(
+        Request $request,
+        Issue $issue
+    ) {
+
+        $request->validate([
+            'message' => [
+                'required',
+                'string',
+                'min:2',
+                'max:5000',
+            ],
+        ]);
+
+        $issue->updates()->create([
+            'update_type' => 'General Update',
+            'update_message' => $request->message,
+            'created_by' => Auth::id(),
+            'created_at' => now(),
+        ]);
+
+        return back()->with(
+            'success',
+            'Issue update added.'
+        );
+    }
+
+
+    public function uploadAttachment(
+        Request $request,
+        Issue $issue
+    ) {
+
+        $request->validate([
+            'attachment' => [
+                'required',
+                'file',
+                'max:10240',
+                'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,txt',
+            ],
+        ]);
+
+        $file = $request->file('attachment');
+
+        $path = $file->store(
+            'issues/' . $issue->issue_id,
+            'public'
+        );
+
+        $issue->attachments()->create([
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'uploaded_by' => Auth::id(),
+            'created_at' => now(),
+        ]);
+
+        return back()->with(
+            'success',
+            'Attachment uploaded successfully.'
+        );
     }
 
 }

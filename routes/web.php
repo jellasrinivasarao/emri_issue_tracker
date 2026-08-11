@@ -518,6 +518,18 @@ Route::middleware(['auth'])->group(function () {
 
 
     Route::post(
+        '/issues/{issue}/updates',
+        [IssueController::class, 'addUpdate']
+    )->name('issues.updates.store');
+
+
+    Route::post(
+        '/issues/{issue}/attachments',
+        [IssueController::class, 'uploadAttachment']
+    )->name('issues.attachments.store');
+
+
+    Route::post(
         '/issues/{issue}/submit-resolution',
         [IssueController::class, 'submitResolution']
     )->name('issues.submit-resolution');
