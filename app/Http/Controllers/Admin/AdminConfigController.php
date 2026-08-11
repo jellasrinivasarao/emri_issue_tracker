@@ -97,7 +97,28 @@ class AdminConfigController extends Controller
 
     public function issueCategoryConfiguration()
     {
-        return view('admin.operational.issue-category-configuration');
+        $user = auth()->user();
+
+        $query = \App\Models\IssueCategory::query()->orderBy('category_name');
+
+        $routeName = 'issue.category.configuration';
+        $permissions = [
+            'view' => $user?->hasPrivilegeOnRoute($routeName, 'view'),
+            'create' => $user?->hasPrivilegeOnRoute($routeName, 'create'),
+            'edit' => $user?->hasPrivilegeOnRoute($routeName, 'edit'),
+            'delete' => $user?->hasPrivilegeOnRoute($routeName, 'delete'),
+            'export' => $user?->hasPrivilegeOnRoute($routeName, 'export'),
+            'activate' => $user?->hasPrivilegeOnRoute($routeName, 'activate'),
+            'deactivate' => $user?->hasPrivilegeOnRoute($routeName, 'deactivate'),
+        ];
+
+        $categories = $query->paginate(20);
+
+        return view('admin.operational.issue-category-configuration', [
+            'categories' => $categories,
+            'permissions' => $permissions,
+            'title' => 'Issue Category Configuration',
+        ]);
     }
 
     public function vendorLevel2Mapping()

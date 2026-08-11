@@ -475,6 +475,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/issue-category-configuration', [AdminConfigController::class, 'issueCategoryConfiguration'])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
 
+    // Issue category CRUD
+    Route::post('/issue-category-configuration', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.store');
+
+    Route::put('/issue-category-configuration/{id}', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.update');
+
+    Route::post('/issue-category-configuration/{id}/toggle', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.toggle');
+
+    Route::delete('/issue-category-configuration/{id}', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.destroy');
+
     Route::get('/vendor-level2-mapping', [AdminConfigController::class, 'vendorLevel2Mapping'])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
 
     Route::get('/active-inactive-status', [PageController::class, 'genericAdminPage'])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
@@ -507,3 +524,39 @@ use App\Http\Controllers\IssueController;
 Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
 Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
 Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
+
+use App\Http\Controllers\Admin\IssueRoutingRuleController;
+Route::resource('issue-routing-rules',IssueRoutingRuleController::class)->middleware('menu.access:issue.routing.rules');
+
+Route::patch('issue-routing-rules/{issueRoutingRule}/toggle',
+[IssueRoutingRuleController::class, 'toggle']
+)->name('issue-routing-rules.toggle')->middleware('menu.access:issue.routing.rules');
+
+
+        Route::get(
+            'issue-routing-rules/dependencies/support-configs',
+            [IssueRoutingRuleController::class, 'supportConfigs']
+        )->name(
+            'issue-routing-rules.dependencies.support-configs'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/applications',
+            [IssueRoutingRuleController::class, 'applications']
+        )->name(
+            'issue-routing-rules.dependencies.applications'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/states',
+            [IssueRoutingRuleController::class, 'states']
+        )->name(
+            'issue-routing-rules.dependencies.states'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/targets',
+            [IssueRoutingRuleController::class, 'targets']
+        )->name(
+            'issue-routing-rules.dependencies.targets'
+        );
