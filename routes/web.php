@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\UserRoleMappingController;
 use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
+use App\Http\Controllers\Admin\AdminConfigController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\ForcePasswordController;
@@ -339,25 +340,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    Route::get('/working-hours', [PageController::class, 'genericAdminPage'])->middleware('menu.access:working.hours')->name('working.hours');
+    Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
 
-    Route::get('/holiday-calendar', [PageController::class, 'genericAdminPage'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
+    Route::get('/holiday-calendar', [AdminConfigController::class, 'holidayCalendar'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
-    Route::get('/sla-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+    Route::get('/sla-configuration', [AdminConfigController::class, 'slaConfiguration'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
 
-    Route::get('/automatic-routing', [PageController::class, 'genericAdminPage'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+    Route::get('/automatic-routing', [AdminConfigController::class, 'automaticRouting'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
 
-    Route::get('/notification-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+    Route::get('/notification-configuration', [AdminConfigController::class, 'notificationConfiguration'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
 
     Route::get('/mail-configuration', [PageController::class, 'mailConfiguration'])->middleware('menu.access:mail.configuration')->name('mail.configuration');
 
-    Route::get('/priority-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
+    Route::get('/priority-configuration', [AdminConfigController::class, 'priorityConfiguration'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
 
-    Route::get('/severity-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:severity.configuration')->name('severity.configuration');
+    Route::get('/severity-configuration', [AdminConfigController::class, 'severityConfiguration'])->middleware('menu.access:severity.configuration')->name('severity.configuration');
 
-    Route::get('/issue-category-configuration', [PageController::class, 'genericAdminPage'])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
+    Route::get('/issue-category-configuration', [AdminConfigController::class, 'issueCategoryConfiguration'])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
 
-    Route::get('/vendor-level2-mapping', [PageController::class, 'genericAdminPage'])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
+    Route::get('/vendor-level2-mapping', [AdminConfigController::class, 'vendorLevel2Mapping'])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
 
     Route::get('/active-inactive-status', [PageController::class, 'genericAdminPage'])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
 
