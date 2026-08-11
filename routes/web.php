@@ -498,6 +498,30 @@ Route::middleware(['auth'])->group(function () {
 
     Route::put('/issues/{issue}',[IssueController::class, 'update'])->name('issues.update');
 
+
+    Route::post(
+        '/issues/{issue}/start-work',
+        [IssueController::class, 'startWork']
+    )->name('issues.start-work');
+
+
+    Route::post(
+        '/issues/{issue}/request-information',
+        [IssueController::class, 'requestInformation']
+    )->name('issues.request-information');
+
+
+    Route::post(
+        '/issues/{issue}/escalate-vendor',
+        [IssueController::class, 'escalateVendor']
+    )->name('issues.escalate-vendor');
+
+
+    Route::post(
+        '/issues/{issue}/submit-resolution',
+        [IssueController::class, 'submitResolution']
+    )->name('issues.submit-resolution');
+
     Route::post(
         '/issues/{issue}/assign',
         [IssueController::class, 'assign']

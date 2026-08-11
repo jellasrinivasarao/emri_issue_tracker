@@ -140,3 +140,9 @@ php artisan make:model IssueAttachment
 
 srinivasarao_jella@emri.in
 Srinu8688$@
+
+
+
+{{ $issue->updated_at?->diffForHumans() }}
+
+{{ $issue->raised_at?->diffForHumans() ?? '-' }}

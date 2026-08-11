@@ -17,48 +17,69 @@ class Issue extends Model
     protected $keyType = 'int';
 
     protected $fillable = [
-    'issue_number',
-    'service_id',
-    'project_id',
-    'state_id',
-    'support_config_id',
-    'application_id',
-    'module_id',
-    'issue_category_id',
-    'priority_id',
-    'status_id',
-    'issue_title',
-    'issue_description',
-    'raised_by_user_id',
-    'raised_at',
-    'current_owner_organisation_id',
-    'current_owner_group_id',
-    'current_owner_user_id',
-    'current_owner_role_id',
-    'resolution_summary',
-    'resolved_by',
-    'resolved_at',
-    'closed_at',
-    'reopened_count',
+   'issue_number',
+'service_id',
+'project_id',
+'state_id',
+'support_config_id',
+'application_id',
+'module_id',
+'issue_category_id',
+'priority_id',
+'status_id',
+'issue_title',
+'issue_description',
+'raised_by_user_id',
+'raised_at',
+'current_owner_organisation_id',
+'current_owner_group_id',
+'current_owner_user_id',
+'current_owner_role_id',
+'resolution_summary',
+'resolved_by',
+'resolved_at',
+'closed_at',
+'reopened_count',
+'occurred_at'
 
     ];
 
 
     protected $casts = [
-        'occurred_at' => 'datetime',
-        'raised_at' => 'datetime',
-        'resolved_at' => 'datetime',
-        'closed_at' => 'datetime',
-        'is_active' => 'boolean',
-        'sla_due_at' => 'datetime',
-        'project_id' => 'integer',
-        'support_config_id' => 'integer',
-        'reported_by' => 'integer',
-        'current_team_id' => 'integer',
-        'current_assignee_id' => 'integer',
-        'opened_at' => 'datetime',
-        'assigned_at' => 'datetime',
+       'issue_id' => 'integer',
+'service_id' => 'integer',
+'project_id' => 'integer',
+'application_id' => 'integer',
+'module_id' => 'integer',
+'issue_category_id' => 'integer',
+'priority_id' => 'integer',
+'status_id' => 'integer',
+
+'raised_by_user_id' => 'integer',
+
+'current_owner_organisation_id' => 'integer',
+'current_owner_group_id' => 'integer',
+'current_owner_user_id' => 'integer',
+'current_owner_role_id' => 'integer',
+
+'reopened_count' => 'integer',
+
+'occurred_at' => 'datetime',
+'raised_at' => 'datetime',
+'resolved_at' => 'datetime',
+'closed_at' => 'datetime',
+'updated_at' => 'datetime',
+
+'is_active' => 'boolean',
+'sla_due_at' => 'datetime',
+'support_config_id' => 'integer',
+'reported_by' => 'integer',
+'current_team_id' => 'integer',
+'current_assignee_id' => 'integer',
+'opened_at' => 'datetime',
+'assigned_at' => 'datetime',
     ];
+
 
 
     public function state()
@@ -349,5 +370,17 @@ class Issue extends Model
             default => '#6b7280',
 
         };
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Route Model Binding
+    |--------------------------------------------------------------------------
+    */
+
+    public function getRouteKeyName()
+    {
+        return 'issue_id';
     }
 }

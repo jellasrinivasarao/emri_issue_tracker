@@ -28,6 +28,7 @@ class Module extends Model
     ];
 
     protected $casts = [
+        'module_id' => 'integer',
         'is_active' => 'boolean',
         'created_at' => 'datetime',
         'update_at' => 'datetime',

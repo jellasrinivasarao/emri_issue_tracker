@@ -30,6 +30,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 
+
 use App\Http\Requests\StoreIssueRequest;
 
 class IssueController extends Controller
@@ -150,18 +151,181 @@ class IssueController extends Controller
 
     public function index(Request $request)
     {
-        $issues = Issue::with([
-                'state',
-                'service',
-                'project',
-                'application',
-                'module',
-                'category',
-                'priority'
-            ])
-            ->latest()
-            ->paginate(15);
-        return view('issues.index',compact('issues'));
+                $query = Issue::query();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Search
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('search')) {
+
+            $search = trim($request->search);
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where('issue_number', 'LIKE', "%{$search}%")
+                    ->orWhere('issue_title', 'LIKE', "%{$search}%")
+                    ->orWhere('issue_description', 'LIKE', "%{$search}%");
+
+            });
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Status
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('status_id')) {
+            $query->where(
+                'status_id',
+                $request->status_id
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Priority
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('priority_id')) {
+            $query->where(
+                'priority_id',
+                $request->priority_id
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Service
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('service_id')) {
+            $query->where(
+                'service_id',
+                $request->service_id
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Project
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('project_id')) {
+            $query->where(
+                'project_id',
+                $request->project_id
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pagination
+        |--------------------------------------------------------------------------
+        */
+
+        $issues = $query
+            ->orderByDesc('issue_id')
+            ->paginate(10)
+            ->withQueryString();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Filter Masters
+        |--------------------------------------------------------------------------
+        |
+        | These use your existing models.
+        |
+        */
+
+        $statuses = collect();
+        $priorities = collect();
+        $services = collect();
+        $projects = collect();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Load masters safely
+        |--------------------------------------------------------------------------
+        */
+
+        try {
+
+            if (class_exists(\App\Models\IssueStatus::class)) {
+
+                $statuses = \App\Models\IssueStatus::query()
+                    ->where('is_active', 1)
+                    ->orderBy('status_name')
+                    ->get();
+
+            }
+
+        } catch (Throwable $e) {
+            Log::warning('Unable to load issue statuses: ' . $e->getMessage());
+        }
+
+
+        try {
+
+            if (class_exists(\App\Models\Priority::class)) {
+
+                $priorities = \App\Models\Priority::query()
+                    ->where('is_active', 1)
+                    ->orderBy('priority_name')
+                    ->get();
+
+            }
+
+        } catch (Throwable $e) {
+            Log::warning('Unable to load priorities: ' . $e->getMessage());
+        }
+
+
+        try {
+
+            if (class_exists(\App\Models\Service::class)) {
+
+                $services = \App\Models\Service::query()
+                    ->where('is_active', 1)
+                    ->orderBy('service_name')
+                    ->get();
+
+            }
+
+        } catch (Throwable $e) {
+            Log::warning('Unable to load services: ' . $e->getMessage());
+        }
+
+
+        try {
+
+            if (class_exists(\App\Models\Project::class)) {
+
+                $projects = \App\Models\Project::query()
+                    ->where('is_active', 1)
+                    ->orderBy('project_name')
+                    ->get();
+
+            }
+
+        } catch (Throwable $e) {
+            Log::warning('Unable to load projects: ' . $e->getMessage());
+        }
+
+
+        return view('issues.index', compact(
+            'issues',
+            'statuses',
+            'priorities',
+            'services',
+            'projects'
+        ));
     }
 
 
@@ -310,31 +474,42 @@ class IssueController extends Controller
     public function show(Issue $issues)
     {
 
-    
-        $issues->load([
-            'configuration',
-            'team',
-            //'assignments',
-            'histories',
-            'attachments'
-        ]);
+            try {
 
+            $issues->load([
+                'service',
+                'project',
+                'application',
+                'module',
+                'priority',
+                'status',
+            ]);
 
-
-        $teams = SupportTeam::where('is_active',1)
+             $teams = SupportTeam::where('is_active',1)
             ->orderBy('support_level')
             ->orderBy('team_name')
             ->get();
 
+            return response()->json([
+                'success' => true,
+                'issue' => $this->formatIssue($issues),
+            ]);
 
-        dd($issues);
-        return view(
-            'issues.show',
-            compact(
-                'issues',
-                'teams'
-            )
-        );
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Issue details failed',
+                [
+                    'issue_id' => $issues->issue_id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to load issue details.',
+            ], 500);
+        }
 
     }
 
@@ -484,6 +659,414 @@ class IssueController extends Controller
             'Issue closed successfully.'
         );
 
+    }
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Start Work
+    |--------------------------------------------------------------------------
+    */
+
+    public function startWork(Issue $issue)
+    {
+        try {
+
+            DB::transaction(function () use ($issue) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Change status to In Progress
+                |--------------------------------------------------------------------------
+                |
+                | Your status table should contain:
+                |
+                | In Progress
+                |
+                */
+
+                $statusId = $this->getStatusId('In Progress');
+
+                if ($statusId) {
+
+                    $issue->status_id = $statusId;
+                }
+
+                /*
+                |--------------------------------------------------------------------------
+                | Current User
+                |--------------------------------------------------------------------------
+                */
+
+                if (Auth::check()) {
+
+                    $issue->current_owner_user_id =
+                        Auth::id();
+
+                }
+
+                $issue->save();
+
+            });
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Work started successfully.',
+            ]);
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Start work failed',
+                [
+                    'issue_id' => $issue->issue_id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to start work.',
+            ], 500);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Request Information
+    |--------------------------------------------------------------------------
+    */
+
+    public function requestInformation(
+        Request $request,
+        Issue $issue
+    ) {
+
+        $request->validate([
+            'message' => [
+                'required',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+
+        try {
+
+            DB::transaction(function () use (
+                $request,
+                $issue
+            ) {
+
+                $statusId =
+                    $this->getStatusId('Pending');
+
+                if ($statusId) {
+
+                    $issue->status_id =
+                        $statusId;
+                }
+
+                $issue->save();
+
+                /*
+                |--------------------------------------------------------------------------
+                | Add update record here
+                |--------------------------------------------------------------------------
+                |
+                | Example:
+                |
+                | IssueUpdate::create(...)
+                |
+                | Keep this section for your existing
+                | issue update/history table.
+                |
+                */
+
+            });
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Information request submitted.',
+            ]);
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Request information failed',
+                [
+                    'issue_id' => $issue->issue_id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to request information.',
+            ], 500);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Escalate Vendor
+    |--------------------------------------------------------------------------
+    */
+
+    public function escalateVendor(Issue $issue)
+    {
+        try {
+
+            DB::transaction(function () use ($issue) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | IMPORTANT
+                |--------------------------------------------------------------------------
+                |
+                | Your existing IssueRoutingService should be called here.
+                |
+                */
+
+                if (class_exists(
+                    \App\Services\IssueRoutingService::class
+                )) {
+
+                    app(
+                        \App\Services\IssueRoutingService::class
+                    )->route($issue);
+                }
+
+            });
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Issue escalated successfully.',
+            ]);
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Vendor escalation failed',
+                [
+                    'issue_id' => $issue->issue_id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Submit Resolution
+    |--------------------------------------------------------------------------
+    */
+
+    public function submitResolution(
+        Request $request,
+        Issue $issue
+    ) {
+
+        $request->validate([
+            'resolution_summary' => [
+                'required',
+                'string',
+                'max:5000',
+            ],
+        ]);
+
+
+        try {
+
+            DB::transaction(function () use (
+                $request,
+                $issue
+            ) {
+
+                $statusId =
+                    $this->getStatusId('Resolved');
+
+                if ($statusId) {
+
+                    $issue->status_id =
+                        $statusId;
+                }
+
+                $issue->resolution_summary =
+                    $request->resolution_summary;
+
+                $issue->resolved_by =
+                    Auth::id();
+
+                $issue->resolved_at =
+                    now();
+
+                $issue->save();
+
+            });
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Resolution submitted successfully.',
+            ]);
+
+        } catch (Throwable $e) {
+
+            Log::error(
+                'Submit resolution failed',
+                [
+                    'issue_id' => $issue->issue_id,
+                    'error' => $e->getMessage(),
+                ]
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to submit resolution.',
+            ], 500);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Status Helper
+    |--------------------------------------------------------------------------
+    */
+
+    private function getStatusId(string $statusName): ?int
+    {
+        try {
+
+            if (!class_exists(
+                \App\Models\IssueStatus::class
+            )) {
+
+                return null;
+            }
+
+
+            $status =
+                \App\Models\IssueStatus::query()
+                    ->whereRaw(
+                        'LOWER(status_name) = ?',
+                        [
+                            strtolower($statusName)
+                        ]
+                    )
+                    ->first();
+
+
+            return $status?->status_id;
+
+        } catch (Throwable $e) {
+
+            return null;
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Format Issue
+    |--------------------------------------------------------------------------
+    */
+
+    private function formatIssue(Issue $issue): array
+    {
+        return [
+
+            'issue_id' =>
+                $issue->issue_id,
+
+            'issue_number' =>
+                $issue->issue_number,
+
+            'issue_title' =>
+                $issue->issue_title,
+
+            'issue_description' =>
+                $issue->issue_description,
+
+            'state' =>
+                $issue->state ?? null,
+
+            'service_id' =>
+                $issue->service_id,
+
+            'service_name' =>
+                $issue->service?->service_name
+                    ?? $issue->service?->name
+                    ?? $issue->service_id,
+
+            'project_id' =>
+                $issue->project_id,
+
+            'project_name' =>
+                $issue->project?->project_name
+                    ?? $issue->project?->name
+                    ?? $issue->project_id,
+
+            'application_id' =>
+                $issue->application_id,
+
+            'application_name' =>
+                $issue->application?->application_name
+                    ?? $issue->application?->name
+                    ?? $issue->application_id,
+
+            'module_id' =>
+                $issue->module_id,
+
+            'module_name' =>
+                $issue->module?->module_name
+                    ?? $issue->module?->name
+                    ?? $issue->module_id,
+
+            'priority_id' =>
+                $issue->priority_id,
+
+            'priority_name' =>
+                $issue->priority?->priority_name
+                    ?? $issue->priority?->name
+                    ?? '-',
+
+            'status_id' =>
+                $issue->status_id,
+
+            'status_name' =>
+                $issue->status?->status_name
+                    ?? $issue->status?->name
+                    ?? '-',
+
+            'raised_at' =>
+                optional($issue->raised_at)
+                    ->format('d M Y H:i'),
+
+            'resolved_at' =>
+                optional($issue->resolved_at)
+                    ->format('d M Y H:i'),
+
+            'owner_user_id' =>
+                $issue->current_owner_user_id,
+
+            'resolution_summary' =>
+                $issue->resolution_summary,
+
+        ];
     }
 
 }

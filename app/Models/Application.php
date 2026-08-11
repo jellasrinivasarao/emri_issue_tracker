@@ -23,6 +23,7 @@ class Application extends Model
     ];
 
     protected $casts = [
+        'application_id' => 'integer',
         'is_active' => 'boolean',
     ];
 

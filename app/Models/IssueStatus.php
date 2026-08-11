@@ -19,11 +19,13 @@ class IssueStatus extends Model
         'status_category',
         'is_closed_status',
         'display_order',
+        'description',
         'is_active',
     ];
 
     protected $casts = [
         'is_closed_status' => 'boolean',
+        'status_id' => 'integer',
         'is_active' => 'boolean',
     ];
 }

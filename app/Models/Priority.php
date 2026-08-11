@@ -24,6 +24,7 @@ class Priority extends Model
 
     protected $casts = [
         'priority_level' => 'integer',
+        'priority_id' => 'integer',
         'is_active' => 'boolean',
     ];
 

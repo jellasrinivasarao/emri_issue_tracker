@@ -24,6 +24,7 @@ class Service extends Model
     ];
 
     protected $casts = [
+        'service_id' => 'integer',
         'is_active' => 'boolean',
     ];
 
