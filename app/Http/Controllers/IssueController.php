@@ -987,6 +987,9 @@ class IssueController extends Controller
 
     private function formatIssue(Issue $issue): array
     {
+
+    #$sla = $this->calculateSla($issue);
+    
         return [
 
             'issue_id' =>
@@ -1065,6 +1068,12 @@ class IssueController extends Controller
 
             'resolution_summary' =>
                 $issue->resolution_summary,
+
+            //     'sla_remaining_minutes' =>
+            //     $sla['sla_remaining_minutes'],
+
+            // 'sla_remaining_label' =>
+            //     $sla['sla_remaining_label'],
 
         ];
     }

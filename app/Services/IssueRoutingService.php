@@ -332,4 +332,93 @@ class IssueRoutingService
             return $assignment;
         });
     }
+
+
+
+    public function calculateSla(Issue $issue): array
+{
+    /*
+    |--------------------------------------------------------------------------
+    | Replace this with your existing SLA service.
+    |--------------------------------------------------------------------------
+    */
+
+    $slaHours = null;
+
+    if (
+        isset($issue->routingRule) &&
+        $issue->routingRule
+    ) {
+        $slaHours =
+            $issue->routingRule->sla_hours;
+    }
+
+    if (!$slaHours) {
+
+        return [
+            'sla_remaining_minutes' => null,
+            'sla_remaining_label' => '-',
+        ];
+    }
+
+
+    $start =
+        $issue->raised_at
+        ?? now();
+
+
+    $deadline =
+        $start->copy()
+            ->addHours($slaHours);
+
+
+    $remaining =
+        now()->diffInMinutes(
+            $deadline,
+            false
+        );
+
+
+    if ($remaining <= 0) {
+
+        return [
+            'sla_remaining_minutes' =>
+                $remaining,
+
+            'sla_remaining_label' =>
+                'Breached',
+        ];
+    }
+
+
+    $hours =
+        intdiv($remaining, 60);
+
+
+    $minutes =
+        $remaining % 60;
+
+
+    if ($hours > 0) {
+
+        $label =
+            $hours . ' hr ' .
+            $minutes . ' min';
+
+    } else {
+
+        $label =
+            $minutes . ' min';
+
+    }
+
+
+    return [
+        'sla_remaining_minutes' =>
+            $remaining,
+
+        'sla_remaining_label' =>
+            $label . ' remaining',
+    ];
+}
 }

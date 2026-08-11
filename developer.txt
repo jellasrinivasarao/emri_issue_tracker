@@ -142,7 +142,7 @@ srinivasarao_jella@emri.in
 Srinu8688$@
 
 
-
+php artisan route:list --path=issues
 {{ $issue->updated_at?->diffForHumans() }}
 
 {{ $issue->raised_at?->diffForHumans() ?? '-' }}

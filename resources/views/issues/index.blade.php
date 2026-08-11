@@ -1,52 +1,21 @@
 <x-app-layout>
 
     <style>
-    /* @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap');
-
     [x-cloak] {
         display: none !important;
     }
 
-    .app-light-font,
-    .app-light-font * {
+    .issue-tracker {
         font-family: 'Manrope', 'Segoe UI', sans-serif;
-        color: #0f172a;
     }
 
-    .app-light-font h1,
-    .app-light-font h2,
-    .app-light-font h3,
-    .app-light-font h4 {
+    .issue-tracker * {
         font-family: 'Manrope', 'Segoe UI', sans-serif;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        color: #0f172a;
     }
-
-    .app-light-font .soft-muted {
-        color: #64748b;
-    }
-
-    .app-light-font .card-strong {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        box-shadow: 0 16px 36px -18px rgba(15, 23, 42, 0.24);
-    }
-
-    .app-light-font .control-pill {
-        border: 1px solid #dbe3ee;
-        background: #f8fafc;
-        color: #334155;
-    }
-
-    .app-light-font .page-shell {
-        background: linear-gradient(180deg, #f8fbff 0%, #f4f7fb 100%);
-        border: 1px solid #e2e8f0;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    } */
 
     .issue-scroll::-webkit-scrollbar {
-        width: 5px;
-        height: 5px;
+        width: 6px;
+        height: 6px;
     }
 
     .issue-scroll::-webkit-scrollbar-track {
@@ -62,144 +31,372 @@
         width: 5px;
     }
 
+    .drawer-scroll::-webkit-scrollbar-track {
+        background: #ffffff;
+    }
+
     .drawer-scroll::-webkit-scrollbar-thumb {
         background: #cbd5e1;
         border-radius: 10px;
     }
+
+    .issue-row {
+        transition:
+            background-color 0.15s ease,
+            box-shadow 0.15s ease;
+    }
+
+    .issue-row:hover {
+        background: #f5f9ff;
+        box-shadow: inset 3px 0 0 #0754b8;
+    }
+
+    .filter-select {
+        appearance: auto;
+    }
+
+    .drawer-shadow {
+        box-shadow:
+            -12px 0 30px -20px rgba(15, 23, 42, 0.45),
+            0 0 0 1px rgba(15, 23, 42, 0.02);
+    }
+
+    .pagination-wrapper nav {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .pagination-wrapper nav>div:first-child {
+        display: none;
+    }
+
+    .pagination-wrapper nav span,
+    .pagination-wrapper nav a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 27px;
+        height: 27px;
+        border: 1px solid #dbe2ea;
+        border-radius: 4px;
+        padding: 0 7px;
+        font-size: 9px;
+        font-weight: 600;
+    }
+
+    .pagination-wrapper nav span {
+        color: #64748b;
+        background: #fff;
+    }
+
+    .pagination-wrapper nav a {
+        color: #475569;
+        background: #fff;
+    }
+
+    .pagination-wrapper nav a:hover {
+        color: #0754b8;
+        background: #f5f9ff;
+        border-color: #93c5fd;
+    }
+
+    .pagination-wrapper nav span[aria-current="page"] {
+        color: #fff;
+        background: #0754b8;
+        border-color: #0754b8;
+    }
     </style>
 
-    <div x-data="issueTracker()" x-cloak class="app-light-font space-y-4">
 
-        <section class="page-shell card-strong rounded-[24px] border border-slate-200 p-4 sm:p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div id="issue-tracker" x-data="issueTracker()" x-cloak
+        class="issue-tracker min-h-full bg-[#f6f8fb] text-slate-800">
+
+        {{-- ============================================================
+            PAGE HEADER
+        ============================================================= --}}
+
+        <section class="border-b border-slate-200 bg-white">
+
+            <div class="flex min-h-[62px] items-center justify-between px-5">
+
                 <div>
-                    <p class="soft-muted text-[11px] font-semibold uppercase tracking-[0.24em]">Operations</p>
-                    <h1 class="mt-1 text-2xl leading-tight">Issue Tracker</h1>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <a href="{{ route('issues.index') }}"
-                        class="control-pill inline-flex items-center rounded-full px-3 py-1.5 text-[11px] font-semibold transition hover:bg-slate-100">
-                        Refresh
-                    </a>
-                    <button type="button"
-                        class="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800 shadow-[0_10px_20px_-12px_rgba(15,23,42,0.9)]">
-                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.75"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14" />
-                        </svg>
-                        Export
-                    </button>
-                </div>
-            </div>
 
-            <form method="GET" action="{{ route('issues.index') }}" class="mt-5">
-
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div class="relative w-full max-w-[360px]">
-                        <input type="text" name="search" value="{{ request('search') }}"
-                            placeholder="Issue ID / Subject" class="h-10 w-full rounded-full border border-slate-300
-                            bg-white px-4 pr-24 text-[12px]
-                            text-slate-700 outline-none
-                            placeholder:text-slate-400
-                            focus:border-blue-500
-                            focus:ring-1 focus:ring-blue-500">
-
-                        <button type="submit"
-                            class="absolute right-1 top-1 flex h-8 items-center gap-1 rounded-full bg-[#0754B8] px-3 text-[10px] font-semibold text-white">
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <circle cx="11" cy="11" r="7" />
-                                <path stroke-linecap="round" stroke-width="2" d="M20 20l-4-4" />
-                            </svg>
-                            Search
-                        </button>
+                    <div class="text-[9px] font-semibold uppercase
+                                tracking-[0.18em] text-slate-400">
+                        Operations
                     </div>
 
-                    <a href="{{ route('issues.index') }}" class="text-[11px] font-semibold text-blue-600">
-                        Clear
-                    </a>
+                    <h1 class="mt-0.5 text-[18px] font-bold leading-tight
+                               tracking-tight text-slate-800">
+                        Issue Tracker
+                    </h1>
+
                 </div>
 
-                <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <span class="soft-muted mr-1 text-[10px] font-semibold uppercase tracking-[0.2em]">
+
+                <div class="flex items-center gap-2">
+
+                    {{-- Refresh --}}
+                    <a href="{{ route('issues.index') }}" class="inline-flex h-8 items-center rounded border
+                               border-slate-300 bg-white px-3
+                               text-[10px] font-semibold text-slate-600
+                               transition hover:bg-slate-50">
+                        Refresh
+                    </a>
+
+
+                    {{-- Export --}}
+                    <button type="button" @click="exportIssues()" class="inline-flex h-8 items-center gap-1.5 rounded
+                               bg-[#0754B8] px-3 text-[10px]
+                               font-semibold text-white shadow-sm
+                               transition hover:bg-[#06479c]">
+
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+                        </svg>
+
+                        Export
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        {{-- ============================================================
+            SEARCH + FILTERS
+        ============================================================= --}}
+
+        <section class="border-b border-slate-200 bg-white px-5 py-4">
+
+            <form method="GET" action="{{ route('issues.index') }}">
+
+                {{-- Search --}}
+                <div class="flex items-center gap-2">
+
+                    <div class="relative w-full max-w-[320px]">
+
+                        <input type="text" name="search" value="{{ request('search') }}"
+                            placeholder="Issue ID / Subject" class="h-9 w-full rounded border
+                                   border-slate-300 bg-white
+                                   px-3 pr-[75px] text-[10px]
+                                   text-slate-700 outline-none
+                                   placeholder:text-slate-400
+                                   focus:border-[#0754B8]
+                                   focus:ring-1 focus:ring-[#0754B8]" />
+
+                        <button type="submit" class="absolute right-1 top-1 flex h-7
+                                   items-center gap-1 rounded
+                                   bg-[#0754B8] px-2.5
+                                   text-[9px] font-semibold text-white
+                                   transition hover:bg-[#06479c]">
+
+                            <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="7" />
+                                <path stroke-linecap="round" d="m20 20-4-4" />
+                            </svg>
+
+                            Search
+
+                        </button>
+
+                    </div>
+
+
+                    <a href="{{ route('issues.index') }}" class="text-[10px] font-semibold text-[#0754B8]
+                               hover:underline">
+                        Clear
+                    </a>
+
+                </div>
+
+
+                {{-- Filters --}}
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+
+                    <span class="mr-1 text-[9px] font-bold uppercase
+                                 tracking-[0.15em] text-slate-400">
                         Filters:
                     </span>
 
-                    <select name="status_id" onchange="this.form.submit()"
-                        class="h-8 rounded-full border border-slate-300 bg-white px-3 text-[10px] text-slate-600 focus:border-blue-500">
+
+                    {{-- Status --}}
+                    <select name="status_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
                         <option value="">Status</option>
+
                         @foreach($statuses as $status)
-                        <option value="{{ $status->status_id }}" @selected( request('status_id')==$status->status_id )>
+
+                        <option value="{{ $status->status_id }}" @selected(request('status_id')==$status->status_id)
+                            >
                             {{ $status->status_name }}
                         </option>
+
                         @endforeach
+
                     </select>
 
-                    <select name="priority_id" onchange="this.form.submit()"
-                        class="h-8 rounded-full border border-slate-300 bg-white px-3 text-[10px] text-slate-600 focus:border-blue-500">
+
+                    {{-- Priority --}}
+                    <select name="priority_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
                         <option value="">Priority</option>
+
                         @foreach($priorities as $priority)
-                        <option value="{{ $priority->priority_id }}" @selected( request('priority_id')==$priority->
-                            priority_id )>
+
+                        <option value="{{ $priority->priority_id }}" @selected(request('priority_id')==$priority->
+                            priority_id)
+                            >
                             {{ $priority->priority_name }}
                         </option>
+
                         @endforeach
+
                     </select>
 
-                    <select name="service_id" onchange="this.form.submit()"
-                        class="h-8 rounded-full border border-slate-300 bg-white px-3 text-[10px] text-slate-600 focus:border-blue-500">
+
+                    {{-- Service --}}
+                    <select name="service_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
                         <option value="">Service</option>
+
                         @foreach($services as $service)
-                        <option value="{{ $service->service_id }}" @selected( request('service_id')==$service->
-                            service_id )>
+
+                        <option value="{{ $service->service_id }}" @selected(request('service_id')==$service->
+                            service_id)
+                            >
                             {{ $service->service_name }}
                         </option>
+
                         @endforeach
+
                     </select>
 
-                    <select name="project_id" onchange="this.form.submit()"
-                        class="h-8 rounded-full border border-slate-300 bg-white px-3 text-[10px] text-slate-600 focus:border-blue-500">
+
+                    {{-- Project --}}
+                    <select name="project_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
                         <option value="">Project</option>
+
                         @foreach($projects as $project)
-                        <option value="{{ $project->project_id }}" @selected( request('project_id')==$project->
-                            project_id )>
+
+                        <option value="{{ $project->project_id }}" @selected(request('project_id')==$project->
+                            project_id)
+                            >
                             {{ $project->project_name }}
                         </option>
+
                         @endforeach
+
                     </select>
 
-                    <select name="sla"
-                        class="h-8 rounded-full border border-slate-300 bg-white px-3 text-[10px] text-slate-600">
+
+                    {{-- SLA --}}
+                    <select name="sla" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
                         <option value="">SLA</option>
-                        <option value="breached">Breached</option>
-                        <option value="risk">At Risk</option>
-                        <option value="within">Within SLA</option>
+
+                        <option value="breached" @selected(request('sla')==='breached' )>
+                            Breached
+                        </option>
+
+                        <option value="risk" @selected(request('sla')==='risk' )>
+                            At Risk
+                        </option>
+
+                        <option value="within" @selected(request('sla')==='within' )>
+                            Within SLA
+                        </option>
+
                     </select>
 
-                    <button type="button"
-                        class="flex h-8 items-center gap-1 rounded-full border border-slate-300 px-3 text-[10px] font-semibold text-slate-600">
+
+                    {{-- More --}}
+                    <button type="button" @click="moreFilters = !moreFilters" class="inline-flex h-8 items-center gap-1
+                               rounded border border-slate-300
+                               bg-white px-3 text-[9px] font-semibold
+                               text-slate-600 hover:bg-slate-50">
+
                         More
-                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9l6 6 6-6" />
+
+                        <svg class="h-3 w-3 transition-transform" :class="moreFilters ? 'rotate-180' : ''" fill="none"
+                            stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
                         </svg>
+
                     </button>
+
                 </div>
+
+
+                {{-- More Filters --}}
+                <div x-show="moreFilters" x-transition class="mt-3 flex flex-wrap gap-2
+                           border-t border-slate-100 pt-3">
+
+                    <select name="state" class="h-8 min-w-[110px] rounded border
+                               border-slate-300 bg-white px-2.5
+                               text-[9px] text-slate-600">
+                        <option value="">State</option>
+                        <option value="Open" @selected(request('state')==='Open' )>
+                            Open
+                        </option>
+                        <option value="Closed" @selected(request('state')==='Closed' )>
+                            Closed
+                        </option>
+                    </select>
+
+
+                    <button type="submit" class="h-8 rounded bg-[#0754B8]
+                               px-3 text-[9px] font-semibold text-white
+                               hover:bg-[#06479c]">
+                        Apply Filters
+                    </button>
+
+                </div>
+
             </form>
+
         </section>
 
-        {{-- ========================================================
-            TABLE
-        ========================================================= --}}
 
-        <section
-            class="issue-scroll overflow-auto rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_14px_34px_-18px_rgba(15,23,42,0.3)] sm:px-6">
+        {{-- ============================================================
+            TABLE CONTAINER
+        ============================================================= --}}
 
+        <section class="issue-scroll m-4 overflow-auto rounded border
+                        border-slate-200 bg-white shadow-sm">
 
-            {{-- Toolbar --}}
-            <div class="flex items-center justify-between py-4">
+            {{-- Table Toolbar --}}
+            <div class="flex h-12 items-center justify-between
+                        border-b border-slate-200 px-4">
 
-
-                <span class="text-[10px] text-slate-500">
+                <span class="text-[9px] text-slate-500">
 
                     Showing
 
@@ -212,16 +409,13 @@
                 </span>
 
 
-                <button type="button" class="flex items-center gap-2 rounded-full
-                        border border-slate-300 bg-slate-50
-                        px-3 py-1.5 text-[10px]
-                        font-semibold text-slate-700 shadow-sm">
+                <button type="button" @click="exportIssues()" class="inline-flex h-7 items-center gap-1.5 rounded
+                           border border-slate-300 bg-slate-50
+                           px-2.5 text-[9px] font-semibold
+                           text-slate-600 hover:bg-slate-100">
 
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14" />
-
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
                     </svg>
 
                     Export
@@ -232,39 +426,61 @@
 
 
             {{-- Table --}}
-            <div class="overflow-hidden rounded-md border border-slate-200">
+            <div class="overflow-hidden">
 
+                <table class="w-full min-w-[1000px]">
 
-                <table class="w-full min-w-[950px]">
+                    <thead>
 
+                        <tr class="h-9 border-b border-slate-200
+                                   bg-[#f8fafc]">
 
-                    <thead class="bg-slate-50">
-
-                        <tr class="border-b border-slate-200">
-
-
-                            @foreach([
-                            'ID ↑',
-                            'State',
-                            'Service',
-                            'Project',
-                            'Subject',
-                            'Priority',
-                            'Status',
-                            'SLA ↓',
-                            'Updated ↓',
-                            'Actions'
-                            ] as $heading)
-
-                            <th class="px-3 py-3 text-left
-                                        text-[9px] font-bold uppercase
-                                        tracking-wide text-slate-500">
-
-                                {{ $heading }}
-
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                ID ↑
                             </th>
 
-                            @endforeach
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                State
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Service
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Project
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Subject
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Priority
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Status
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                SLA ↓
+                            </th>
+
+                            <th class="px-3 text-left text-[8px] font-bold
+                                       uppercase tracking-wide text-slate-500">
+                                Updated ↓
+                            </th>
+
+                            <th class="w-[50px] px-3"></th>
 
                         </tr>
 
@@ -273,9 +489,7 @@
 
                     <tbody class="divide-y divide-slate-100">
 
-
                         @forelse($issues as $issue)
-
 
                         @php
 
@@ -372,141 +586,150 @@
                         @endphp
 
 
-                        <tr onclick="window.issueTrackerOpen({{ $issue->issue_id }})" class="cursor-pointer transition
-                                    hover:bg-blue-50">
-
+                        <tr onclick="window.issueTrackerOpen({{ $issue->issue_id }})"
+                            class="issue-row h-[43px] cursor-pointer">
 
                             {{-- ID --}}
-                            <td class="whitespace-nowrap px-3 py-3
-                                        text-[10px] font-semibold
-                                        text-blue-600">
+                            <td class="whitespace-nowrap px-3">
 
-                                {{ $issue->issue_number }}
+                                <span class="text-[9px] font-semibold
+                                               text-[#0754B8]">
+                                    {{ $issue->issue_number }}
+                                </span>
 
                             </td>
 
 
                             {{-- State --}}
-                            <td class="px-3 py-3 text-[10px]
-                                        text-slate-600">
+                            <td class="px-3">
 
-                                {{ $issue->state ?? '-' }}
+                                <span class="text-[9px] text-slate-600">
+                                    {{ $issue->state ?? '-' }}
+                                </span>
 
                             </td>
 
 
                             {{-- Service --}}
-                            <td class="px-3 py-3 text-[10px]
-                                        text-slate-700">
+                            <td class="px-3">
 
-                                {{ $issue->service?->service_name
+                                <span class="text-[9px] text-slate-700">
+
+                                    {{
+                                            $issue->service?->service_name
                                             ?? $issue->service_id
-                                            ?? '-' }}
+                                            ?? '-'
+                                        }}
+
+                                </span>
 
                             </td>
 
 
                             {{-- Project --}}
-                            <td class="px-3 py-3 text-[10px]
-                                        text-slate-700">
+                            <td class="px-3">
 
-                                {{ $issue->project?->project_name
+                                <span class="text-[9px] text-slate-700">
+
+                                    {{
+                                            $issue->project?->project_name
                                             ?? $issue->project_id
-                                            ?? '-' }}
+                                            ?? '-'
+                                        }}
+
+                                </span>
 
                             </td>
 
 
                             {{-- Subject --}}
-                            <td class="max-w-[190px] px-3 py-3">
+                            <td class="max-w-[210px] px-3">
 
-
-                                <div class="truncate text-[10px]
-                                            font-medium text-slate-700">
-
+                                <div class="truncate text-[9px]
+                                               font-semibold text-slate-700" title="{{ $issue->issue_title }}">
                                     {{ $issue->issue_title }}
-
                                 </div>
 
                             </td>
 
 
                             {{-- Priority --}}
-                            <td class="px-3 py-3">
+                            <td class="px-3">
 
-
-                                <span class="inline-flex rounded-md
-                                            border px-2 py-1
-                                            text-[9px] font-semibold
-                                            {{ $priorityClass }}">
-
+                                <span class="inline-flex rounded border
+                                               px-2 py-1 text-[8px]
+                                               font-bold {{ $priorityClass }}">
                                     {{ $priorityName }}
-
                                 </span>
 
                             </td>
 
 
                             {{-- Status --}}
-                            <td class="px-3 py-3">
+                            <td class="px-3">
 
-
-                                <span class="inline-flex rounded-md
-                                            px-2 py-1 text-[9px]
-                                            font-semibold
-                                            {{ $statusClass }}">
-
+                                <span class="inline-flex rounded px-2 py-1
+                                               text-[8px] font-bold
+                                               {{ $statusClass }}">
                                     {{ $statusName }}
-
                                 </span>
 
                             </td>
 
 
                             {{-- SLA --}}
-                            <td class="px-3 py-3">
+                            <td class="px-3">
 
-                                <span class="text-[10px] font-semibold
-                                            text-green-600">
+                                @php
+                                $slaLabel =
+                                $issue->sla_remaining_label ?? '-';
 
-                                    {{ $issue->sla_remaining_label ?? '-' }}
+                                $slaLower =
+                                strtolower($slaLabel);
+                                @endphp
 
+                                <span class="text-[9px] font-bold
+                                        {{
+                                            str_contains($slaLower, 'breach')
+                                            ? 'text-red-600'
+                                            : (
+                                                str_contains($slaLower, 'min')
+                                                ? 'text-orange-600'
+                                                : 'text-green-600'
+                                            )
+                                        }}">
+                                    {{ $slaLabel }}
                                 </span>
 
                             </td>
 
 
                             {{-- Updated --}}
-                            <td class="whitespace-nowrap
-                                        px-3 py-3 text-[10px]
-                                        text-slate-500">
+                            <td class="whitespace-nowrap px-3">
 
-                                {{ $issue->updated_at?->diffForHumans()
-                                            ?? '-' }}
+                                <span class="text-[9px] text-slate-500">
+                                    {{ $issue->updated_at?->diffForHumans() ?? '-' }}
+                                </span>
 
                             </td>
 
 
                             {{-- Actions --}}
-                            <td class="px-3 py-3">
+                            <td class="px-3">
 
                                 <button type="button" onclick="
-                                                event.stopPropagation();
-                                                window.issueTrackerOpen(
-                                                    {{ $issue->issue_id }}
-                                                );
-                                            " class="rounded-md p-1 text-slate-400
-                                            hover:bg-slate-100
-                                            hover:text-blue-600">
+                                            event.stopPropagation();
+                                            window.issueTrackerOpen(
+                                                {{ $issue->issue_id }}
+                                            );
+                                        " class="rounded p-1 text-slate-400
+                                               transition hover:bg-slate-100
+                                               hover:text-[#0754B8]" title="View issue">
 
                                     <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-
                                         <circle cx="5" cy="12" r="2" />
-
                                         <circle cx="12" cy="12" r="2" />
-
                                         <circle cx="19" cy="12" r="2" />
-
                                     </svg>
 
                                 </button>
@@ -523,18 +746,14 @@
                             <td colspan="10" class="px-6 py-16 text-center">
 
                                 <div class="text-sm font-semibold
-                                            text-slate-500">
-
+                                               text-slate-500">
                                     No issues found
-
                                 </div>
 
                                 <div class="mt-1 text-[10px]
-                                            text-slate-400">
-
+                                               text-slate-400">
                                     Try changing your search
                                     or filters.
-
                                 </div>
 
                             </td>
@@ -551,26 +770,26 @@
 
 
             {{-- Pagination --}}
-            <div class="flex items-center justify-between py-4">
+            <div class="flex min-h-[52px] items-center justify-between
+                        border-t border-slate-200 px-4">
 
-
-                <span class="text-[10px] text-slate-500">
+                <span class="text-[9px] text-slate-500">
 
                     Showing
 
-                    <strong>
+                    <strong class="text-slate-700">
                         {{ $issues->firstItem() ?? 0 }}
                     </strong>
 
                     to
 
-                    <strong>
+                    <strong class="text-slate-700">
                         {{ $issues->lastItem() ?? 0 }}
                     </strong>
 
                     of
 
-                    <strong>
+                    <strong class="text-slate-700">
                         {{ $issues->total() }}
                     </strong>
 
@@ -579,7 +798,7 @@
                 </span>
 
 
-                <div>
+                <div class="pagination-wrapper">
 
                     {{ $issues->onEachSide(1)->links() }}
 
@@ -594,22 +813,23 @@
             DRAWER OVERLAY
         ============================================================= --}}
 
-        <div x-show="drawerOpen" x-transition.opacity @click="closeDrawer()" class="fixed inset-0 z-40 bg-slate-900/30"
-            style="display:none">
-        </div>
+        <div x-show="drawerOpen" x-transition:enter="transition-opacity duration-200"
+            x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+            x-transition:leave="transition-opacity duration-150" x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0" @click="closeDrawer()" class="fixed inset-0 z-40 bg-slate-900/30"
+            style="display:none"></div>
 
 
         {{-- ============================================================
             RIGHT DRAWER
         ============================================================= --}}
 
-        <aside x-show="drawerOpen" x-transition:enter="transition ease-out duration-300"
+        <aside x-show="drawerOpen" x-transition:enter="transition ease-out duration-250"
             x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="translate-x-full" class="fixed right-0 top-0 z-50 flex h-screen
-            w-[430px] max-w-[95vw] flex-col bg-white
-            shadow-2xl" style="display:none">
-
+            x-transition:leave-end="translate-x-full" class="drawer-shadow fixed right-0 top-0 z-50
+                   flex h-screen w-[400px] max-w-[95vw]
+                   flex-col border-l border-slate-200 bg-white" style="display:none">
 
             {{-- ========================================================
                 DRAWER HEADER
@@ -617,56 +837,40 @@
 
             <div class="shrink-0 border-b border-slate-200 px-5 py-4">
 
-
                 <div class="flex items-start justify-between">
-
 
                     <div class="min-w-0">
 
-
-                        <div x-text="issue.issue_number || 'Loading...'" class="text-[13px] font-bold text-slate-800">
-
+                        <div x-text="issue.issue_number || 'Loading...'" class="text-[12px] font-bold text-slate-800">
                         </div>
 
-
-                        <div x-text="issue.issue_title || ''" class="mt-1 truncate text-[11px]
-                            font-medium text-slate-600">
-
-                        </div>
+                        <div x-text="issue.issue_title || ''" class="mt-1 truncate text-[10px]
+                                   font-medium text-slate-600"></div>
 
                     </div>
 
 
-                    <button type="button" @click="closeDrawer()" class="ml-3 rounded-md p-1 text-xl
-                        leading-none text-slate-400
-                        hover:bg-slate-100 hover:text-slate-700">
-
+                    <button type="button" @click="closeDrawer()" class="ml-3 flex h-6 w-6 shrink-0
+                               items-center justify-center rounded
+                               text-lg leading-none text-slate-400
+                               hover:bg-slate-100 hover:text-slate-700">
                         ×
-
                     </button>
 
                 </div>
 
 
-                {{-- Priority / SLA --}}
-                <div class="mt-4 flex flex-wrap gap-2">
+                <div class="mt-3 flex flex-wrap gap-2">
+
+                    {{-- Priority --}}
+                    <span x-text="issue.priority_name || '-'" :class="priorityClass()" class="rounded border px-2.5 py-1
+                               text-[8px] font-bold"></span>
 
 
-                    <span x-text="issue.priority_name || '-'" :class="priorityClass()" class="rounded-md border px-2.5 py-1
-                        text-[9px] font-bold">
-
-                    </span>
-
-
-                    <span class="rounded-md border border-orange-200
-                        bg-orange-50 px-2.5 py-1 text-[9px]
-                        font-semibold text-orange-600">
-
-                        <span x-text="slaText">
-                            SLA calculating...
-                        </span>
-
-                    </span>
+                    {{-- SLA --}}
+                    <span class="rounded border border-orange-200
+                               bg-orange-50 px-2.5 py-1
+                               text-[8px] font-bold text-orange-600" x-text="slaText"></span>
 
                 </div>
 
@@ -674,46 +878,30 @@
 
 
             {{-- ========================================================
-                OWNER
+                STATUS / OWNER
             ========================================================= --}}
 
-            <div class="shrink-0 border-b border-slate-200 px-5 py-4">
+            <div class="shrink-0 border-b border-slate-200 px-5 py-3">
 
-
-                <div class="grid grid-cols-2 gap-y-3">
-
+                <div class="grid grid-cols-[110px_1fr] gap-y-2.5">
 
                     <div class="text-[9px] text-slate-400">
-
                         Status
-
                     </div>
-
 
                     <div>
 
-                        <span x-text="issue.status_name || '-'" :class="statusClass()" class="inline-flex rounded-md px-2 py-1
-                            text-[9px] font-semibold">
-
-                        </span>
+                        <span x-text="issue.status_name || '-'" :class="statusClass()" class="inline-flex rounded px-2 py-1
+                                   text-[8px] font-bold"></span>
 
                     </div>
 
 
                     <div class="text-[9px] text-slate-400">
-
                         Current Owner
-
                     </div>
 
-
-                    <div class="text-[10px] font-semibold text-slate-700">
-
-                        <span x-text="ownerName()">
-
-                        </span>
-
-                    </div>
+                    <div x-text="ownerName()" class="text-[9px] font-semibold text-slate-700"></div>
 
                 </div>
 
@@ -726,67 +914,55 @@
 
             <div class="shrink-0 border-b border-slate-200">
 
+                <div class="flex px-2">
 
-                <div class="flex">
-
-
-                    <button type="button" @click="activeTab='details'" :class="
+                    <button type="button" @click="activeTab = 'details'" :class="
                             activeTab === 'details'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500'
-                        " class="border-b-2 px-4 py-3 text-[10px]
-                        font-semibold">
-
+                                ? 'border-[#0754B8] text-[#0754B8]'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        " class="border-b-2 px-3 py-3
+                               text-[9px] font-bold">
                         Details
-
                     </button>
 
 
-                    <button type="button" @click="activeTab='updates'" :class="
+                    <button type="button" @click="activeTab = 'updates'" :class="
                             activeTab === 'updates'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500'
-                        " class="border-b-2 px-4 py-3 text-[10px]
-                        font-semibold">
-
+                                ? 'border-[#0754B8] text-[#0754B8]'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        " class="border-b-2 px-3 py-3
+                               text-[9px] font-bold">
                         Updates
 
-                        <span class="ml-1 rounded-full bg-blue-600
-                            px-1.5 py-0.5 text-[8px] text-white">
-
+                        <span class="ml-1 rounded-full bg-[#0754B8]
+                                   px-1.5 py-0.5 text-[7px] text-white">
                             3
-
                         </span>
 
                     </button>
 
 
-                    <button type="button" @click="activeTab='history'" :class="
+                    <button type="button" @click="activeTab = 'history'" :class="
                             activeTab === 'history'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500'
-                        " class="border-b-2 px-4 py-3 text-[10px]
-                        font-semibold">
-
+                                ? 'border-[#0754B8] text-[#0754B8]'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        " class="border-b-2 px-3 py-3
+                               text-[9px] font-bold">
                         History
-
                     </button>
 
 
-                    <button type="button" @click="activeTab='attachments'" :class="
+                    <button type="button" @click="activeTab = 'attachments'" :class="
                             activeTab === 'attachments'
-                            ? 'border-blue-600 text-blue-600'
-                            : 'border-transparent text-slate-500'
-                        " class="border-b-2 px-4 py-3 text-[10px]
-                        font-semibold">
-
+                                ? 'border-[#0754B8] text-[#0754B8]'
+                                : 'border-transparent text-slate-500 hover:text-slate-700'
+                        " class="border-b-2 px-3 py-3
+                               text-[9px] font-bold">
                         Attachments
 
-                        <span class="ml-1 rounded-full bg-blue-600
-                            px-1.5 py-0.5 text-[8px] text-white">
-
+                        <span class="ml-1 rounded-full bg-[#0754B8]
+                                   px-1.5 py-0.5 text-[7px] text-white">
                             2
-
                         </span>
 
                     </button>
@@ -802,17 +978,16 @@
 
             <div class="drawer-scroll min-h-0 flex-1 overflow-y-auto">
 
-
                 {{-- Loading --}}
                 <template x-if="loading">
 
-                    <div class="flex h-full items-center justify-center">
+                    <div class="flex min-h-[300px]
+                                items-center justify-center">
 
                         <div class="text-center">
 
                             <svg class="mx-auto h-7 w-7 animate-spin
-                                text-blue-600" fill="none" viewBox="0 0 24 24">
-
+                                       text-[#0754B8]" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
                                     stroke-width="4" />
 
@@ -820,10 +995,9 @@
 
                             </svg>
 
-                            <div class="mt-2 text-[10px] text-slate-400">
-
+                            <div class="mt-2 text-[9px]
+                                       text-slate-400">
                                 Loading issue...
-
                             </div>
 
                         </div>
@@ -833,36 +1007,31 @@
                 </template>
 
 
-                {{-- Details --}}
+                {{-- ====================================================
+                    DETAILS
+                ===================================================== --}}
+
                 <template x-if="!loading && activeTab === 'details'">
 
                     <div class="px-5 py-5">
 
-
-                        <h3 class="mb-5 text-[10px] font-bold uppercase
-                            tracking-wide text-slate-700">
-
+                        <h3 class="mb-5 text-[9px] font-bold uppercase
+                                   tracking-[0.15em] text-slate-700">
                             Issue Details
-
                         </h3>
 
 
-                        <div class="space-y-5">
-
+                        <div class="space-y-4">
 
                             {{-- State --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     State
-
                                 </div>
 
-                                <div x-text="issue.state || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.state || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -870,16 +1039,12 @@
                             {{-- Service --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Service
-
                                 </div>
 
-                                <div x-text="issue.service_name || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.service_name || issue.service_id || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -887,16 +1052,12 @@
                             {{-- Project --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Project
-
                                 </div>
 
-                                <div x-text="issue.project_name || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.project_name || issue.project_id || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -904,16 +1065,12 @@
                             {{-- Application --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Application
-
                                 </div>
 
-                                <div x-text="issue.application_name || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.application_name || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -921,16 +1078,12 @@
                             {{-- Module --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Module
-
                                 </div>
 
-                                <div x-text="issue.module_name || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.module_name || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -938,16 +1091,12 @@
                             {{-- Raised --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Raised At
-
                                 </div>
 
-                                <div x-text="issue.raised_at || '-'" class="mt-1 text-[10px]
-                                    font-semibold text-slate-700">
-
-                                </div>
+                                <div x-text="issue.raised_at || '-'" class="mt-1 text-[9px]
+                                           font-semibold text-slate-700"></div>
 
                             </div>
 
@@ -955,16 +1104,13 @@
                             {{-- Description --}}
                             <div>
 
-                                <div class="text-[9px] text-slate-400">
-
+                                <div class="text-[8px] text-slate-400">
                                     Description
-
                                 </div>
 
                                 <div x-text="issue.issue_description || '-'" class="mt-2 whitespace-pre-line
-                                    text-[10px] leading-5 text-slate-600">
-
-                                </div>
+                                           text-[9px] leading-5
+                                           text-slate-600"></div>
 
                             </div>
 
@@ -974,18 +1120,16 @@
 
                                 <div>
 
-                                    <div class="text-[9px] text-slate-400">
-
+                                    <div class="text-[8px] text-slate-400">
                                         Resolution
-
                                     </div>
 
                                     <div x-text="issue.resolution_summary" class="mt-2 whitespace-pre-line
-                                        rounded-md bg-green-50 p-3
-                                        text-[10px] leading-5
-                                        text-green-700">
-
-                                    </div>
+                                               rounded border
+                                               border-green-200
+                                               bg-green-50 p-3
+                                               text-[9px] leading-5
+                                               text-green-700"></div>
 
                                 </div>
 
@@ -998,45 +1142,38 @@
                 </template>
 
 
-                {{-- Updates --}}
+                {{-- ====================================================
+                    UPDATES
+                ===================================================== --}}
+
                 <template x-if="!loading && activeTab === 'updates'">
 
                     <div class="px-5 py-5">
 
-                        <h3 class="mb-5 text-[10px] font-bold uppercase
-                            tracking-wide text-slate-700">
-
+                        <h3 class="mb-5 text-[9px] font-bold uppercase
+                                   tracking-[0.15em] text-slate-700">
                             Updates
-
                         </h3>
 
 
                         <div class="space-y-5">
 
-
+                            {{-- Update 1 --}}
                             <div class="flex gap-3">
 
-
-                                <div class="mt-1 h-2 w-2 shrink-0
-                                    rounded-full bg-blue-600">
-
-                                </div>
-
+                                <div class="mt-1.5 h-2 w-2 shrink-0
+                                           rounded-full bg-[#0754B8]"></div>
 
                                 <div>
 
-                                    <div class="text-[10px] font-semibold
-                                        text-slate-700">
-
+                                    <div class="text-[9px] font-semibold
+                                               text-slate-700">
                                         Issue assigned
-
                                     </div>
 
-                                    <div class="mt-1 text-[9px]
-                                        text-slate-400">
-
+                                    <div class="mt-1 text-[8px]
+                                               text-slate-400">
                                         HO IT User
-
                                     </div>
 
                                 </div>
@@ -1044,29 +1181,22 @@
                             </div>
 
 
+                            {{-- Update 2 --}}
                             <div class="flex gap-3">
 
-
-                                <div class="mt-1 h-2 w-2 shrink-0
-                                    rounded-full bg-indigo-600">
-
-                                </div>
-
+                                <div class="mt-1.5 h-2 w-2 shrink-0
+                                           rounded-full bg-indigo-600"></div>
 
                                 <div>
 
-                                    <div class="text-[10px] font-semibold
-                                        text-slate-700">
-
+                                    <div class="text-[9px] font-semibold
+                                               text-slate-700">
                                         Work started
-
                                     </div>
 
-                                    <div class="mt-1 text-[9px]
-                                        text-slate-400">
-
+                                    <div class="mt-1 text-[8px]
+                                               text-slate-400">
                                         System update
-
                                     </div>
 
                                 </div>
@@ -1074,29 +1204,22 @@
                             </div>
 
 
+                            {{-- Update 3 --}}
                             <div class="flex gap-3">
 
-
-                                <div class="mt-1 h-2 w-2 shrink-0
-                                    rounded-full bg-yellow-500">
-
-                                </div>
-
+                                <div class="mt-1.5 h-2 w-2 shrink-0
+                                           rounded-full bg-yellow-500"></div>
 
                                 <div>
 
-                                    <div class="text-[10px] font-semibold
-                                        text-slate-700">
-
+                                    <div class="text-[9px] font-semibold
+                                               text-slate-700">
                                         SLA monitoring started
-
                                     </div>
 
-                                    <div class="mt-1 text-[9px]
-                                        text-slate-400">
-
+                                    <div class="mt-1 text-[8px]
+                                               text-slate-400">
                                         SLA Engine
-
                                     </div>
 
                                 </div>
@@ -1110,42 +1233,39 @@
                 </template>
 
 
-                {{-- History --}}
+                {{-- ====================================================
+                    HISTORY
+                ===================================================== --}}
+
                 <template x-if="!loading && activeTab === 'history'">
 
                     <div class="px-5 py-5">
 
-                        <h3 class="mb-5 text-[10px] font-bold uppercase
-                            tracking-wide text-slate-700">
-
+                        <h3 class="mb-5 text-[9px] font-bold uppercase
+                                   tracking-[0.15em] text-slate-700">
                             History
-
                         </h3>
 
 
-                        <div class="overflow-hidden rounded-md
-                            border border-slate-200">
+                        <div class="overflow-hidden rounded border
+                                   border-slate-200">
 
                             <table class="w-full">
 
-                                <thead class="bg-slate-50">
+                                <thead>
 
-                                    <tr>
+                                    <tr class="bg-slate-50">
 
                                         <th class="px-3 py-2 text-left
-                                            text-[8px] uppercase
-                                            text-slate-500">
-
+                                                   text-[8px] font-bold
+                                                   uppercase text-slate-500">
                                             Date
-
                                         </th>
 
                                         <th class="px-3 py-2 text-left
-                                            text-[8px] uppercase
-                                            text-slate-500">
-
+                                                   text-[8px] font-bold
+                                                   uppercase text-slate-500">
                                             Action
-
                                         </th>
 
                                     </tr>
@@ -1157,20 +1277,16 @@
 
                                     <tr class="border-t border-slate-100">
 
-                                        <td class="px-3 py-3 text-[9px]
-                                            text-slate-500">
-
-                                            <span x-text="issue.raised_at || '-'">
-
-                                            </span>
-
+                                        <td class="px-3 py-3 text-[8px]
+                                                   text-slate-500">
+                                            <span x-text="
+                                                    issue.raised_at || '-'
+                                                "></span>
                                         </td>
 
-                                        <td class="px-3 py-3 text-[9px]
-                                            text-slate-600">
-
+                                        <td class="px-3 py-3 text-[8px]
+                                                   text-slate-600">
                                             Issue Raised
-
                                         </td>
 
                                     </tr>
@@ -1186,36 +1302,32 @@
                 </template>
 
 
-                {{-- Attachments --}}
+                {{-- ====================================================
+                    ATTACHMENTS
+                ===================================================== --}}
+
                 <template x-if="!loading && activeTab === 'attachments'">
 
                     <div class="px-5 py-5">
 
-                        <h3 class="mb-5 text-[10px] font-bold uppercase
-                            tracking-wide text-slate-700">
-
+                        <h3 class="mb-5 text-[9px] font-bold uppercase
+                                   tracking-[0.15em] text-slate-700">
                             Attachments
-
                         </h3>
 
 
-                        <div class="rounded-md border border-dashed
-                            border-slate-300 p-8 text-center">
+                        <div class="rounded border border-dashed
+                                   border-slate-300 p-8 text-center">
 
                             <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                    d="M12 16V4m0 0L8 8m4-4l4 4M5 20h14" />
-
+                                stroke-width="1.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 16V4m0 0L8 8m4-4 4 4M5 20h14" />
                             </svg>
 
-
-                            <div class="mt-2 text-[10px]
-                                text-slate-400">
-
+                            <div class="mt-2 text-[9px]
+                                       text-slate-400">
                                 No attachments loaded.
-
                             </div>
 
                         </div>
@@ -1228,25 +1340,27 @@
 
 
             {{-- ========================================================
-                ACTION BUTTONS
+                ACTION BAR
             ========================================================= --}}
 
-            <div class="shrink-0 border-t border-slate-200 bg-white p-4">
-
+            <div class="shrink-0 border-t border-slate-200
+                       bg-white p-4">
 
                 <div class="grid grid-cols-2 gap-2">
 
-
                     {{-- Start Work --}}
-                    <button type="button" @click="startWork()" :disabled="actionLoading" class="flex items-center justify-center
-                        gap-1.5 rounded-md border border-blue-300
-                        px-3 py-2.5 text-[9px] font-semibold
-                        text-blue-600 transition
-                        hover:bg-blue-50
-                        disabled:cursor-not-allowed
-                        disabled:opacity-50">
+                    <button type="button" @click="startWork()" :disabled="actionLoading" class="flex h-9 items-center justify-center
+                               gap-1.5 rounded border
+                               border-blue-300 bg-white
+                               px-3 text-[8px] font-bold
+                               text-[#0754B8] transition
+                               hover:bg-blue-50
+                               disabled:cursor-not-allowed
+                               disabled:opacity-50">
 
-                        <span>▶</span>
+                        <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
 
                         Start Work
 
@@ -1254,29 +1368,37 @@
 
 
                     {{-- Request Information --}}
-                    <button type="button" @click="requestInformation()" :disabled="actionLoading" class="flex items-center justify-center
-                        gap-1.5 rounded-md border border-blue-300
-                        px-3 py-2.5 text-[9px] font-semibold
-                        text-blue-600 transition
-                        hover:bg-blue-50
-                        disabled:opacity-50">
+                    <button type="button" @click="requestInformation()" :disabled="actionLoading" class="flex h-9 items-center justify-center
+                               gap-1.5 rounded border
+                               border-blue-300 bg-white
+                               px-3 text-[8px] font-bold
+                               text-[#0754B8] transition
+                               hover:bg-blue-50
+                               disabled:opacity-50">
 
-                        <span>?</span>
+                        <span class="flex h-3.5 w-3.5 items-center
+                                   justify-center rounded-full
+                                   border border-[#0754B8] text-[8px]">
+                            ?
+                        </span>
 
                         Request Information
 
                     </button>
 
 
-                    {{-- Escalate --}}
-                    <button type="button" @click="escalateVendor()" :disabled="actionLoading" class="flex items-center justify-center
-                        gap-1.5 rounded-md border border-blue-300
-                        px-3 py-2.5 text-[9px] font-semibold
-                        text-blue-600 transition
-                        hover:bg-blue-50
-                        disabled:opacity-50">
+                    {{-- Escalate Vendor --}}
+                    <button type="button" @click="escalateVendor()" :disabled="actionLoading" class="flex h-9 items-center justify-center
+                               gap-1.5 rounded border
+                               border-blue-300 bg-white
+                               px-3 text-[8px] font-bold
+                               text-[#0754B8] transition
+                               hover:bg-blue-50
+                               disabled:opacity-50">
 
-                        <span>↑</span>
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0-5 5m5-5 5 5" />
+                        </svg>
 
                         Escalate to Vendor
 
@@ -1284,13 +1406,16 @@
 
 
                     {{-- Resolution --}}
-                    <button type="button" @click="submitResolution()" :disabled="actionLoading" class="flex items-center justify-center
-                        gap-1.5 rounded-md bg-[#0754B8]
-                        px-3 py-2.5 text-[9px] font-semibold
-                        text-white transition hover:bg-blue-700
-                        disabled:opacity-50">
+                    <button type="button" @click="submitResolution()" :disabled="actionLoading" class="flex h-9 items-center justify-center
+                               gap-1.5 rounded
+                               bg-[#0754B8] px-3
+                               text-[8px] font-bold text-white
+                               transition hover:bg-[#06479c]
+                               disabled:opacity-50">
 
-                        <span>✓</span>
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
+                        </svg>
 
                         Submit Resolution
 
@@ -1309,18 +1434,13 @@
 
         <div x-show="toast.show" x-transition class="fixed right-5 top-5 z-[100] max-w-sm" style="display:none">
 
-
             <div :class="
                     toast.type === 'success'
-                    ? 'border-green-200 bg-green-50 text-green-700'
-                    : 'border-red-200 bg-red-50 text-red-700'
-                " class="rounded-lg border px-4 py-3
-                shadow-lg">
+                        ? 'border-green-200 bg-green-50 text-green-700'
+                        : 'border-red-200 bg-red-50 text-red-700'
+                " class="rounded border px-4 py-3 shadow-lg">
 
-
-                <div x-text="toast.message" class="text-[11px] font-semibold">
-
-                </div>
+                <div x-text="toast.message" class="text-[10px] font-semibold"></div>
 
             </div>
 
@@ -1331,19 +1451,20 @@
             REQUEST INFORMATION MODAL
         ============================================================= --}}
 
-        <div x-show="requestModal" class="fixed inset-0 z-[90] flex items-center
-            justify-center bg-slate-900/40" style="display:none">
+        <div x-show="requestModal" x-transition class="fixed inset-0 z-[90] flex items-center
+                   justify-center bg-slate-900/40 p-4" style="display:none">
 
-
-            <div @click.outside="requestModal=false" class="w-[430px] rounded-xl bg-white shadow-2xl">
-
+            <div @click.outside="requestModal = false" class="w-full max-w-[430px] overflow-hidden
+                       rounded-lg bg-white shadow-2xl">
 
                 <div class="border-b border-slate-200 px-5 py-4">
 
-                    <div class="text-sm font-bold text-slate-800">
-
+                    <div class="text-[13px] font-bold text-slate-800">
                         Request Information
+                    </div>
 
+                    <div class="mt-1 text-[9px] text-slate-400">
+                        Request additional information from the requester.
                     </div>
 
                 </div>
@@ -1351,45 +1472,37 @@
 
                 <div class="p-5">
 
-
-                    <label class="mb-2 block text-[10px]
-                        font-semibold text-slate-600">
-
+                    <label class="mb-2 block text-[9px]
+                               font-bold text-slate-600">
                         Message
-
                     </label>
 
-
                     <textarea x-model="requestMessage" rows="5"
-                        placeholder="Enter information required from requester..." class="w-full rounded-md border border-slate-300
-                        p-3 text-[11px] outline-none
-                        focus:border-blue-500
-                        focus:ring-1 focus:ring-blue-500">
-
-                    </textarea>
+                        placeholder="Enter information required from requester..." class="w-full resize-none rounded border
+                               border-slate-300 p-3 text-[10px]
+                               text-slate-700 outline-none
+                               placeholder:text-slate-400
+                               focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]"></textarea>
 
                 </div>
 
 
-                <div class="flex justify-end gap-2
-                    border-t border-slate-200 p-4">
+                <div class="flex justify-end gap-2 border-t
+                           border-slate-200 p-4">
 
-
-                    <button type="button" @click="requestModal=false" class="rounded-md border border-slate-300
-                        px-4 py-2 text-[10px] font-semibold
-                        text-slate-600">
-
+                    <button type="button" @click="requestModal = false" class="h-8 rounded border border-slate-300
+                               px-4 text-[9px] font-semibold
+                               text-slate-600 hover:bg-slate-50">
                         Cancel
-
                     </button>
 
 
-                    <button type="button" @click="sendInformationRequest()" class="rounded-md bg-[#0754B8]
-                        px-4 py-2 text-[10px] font-semibold
-                        text-white">
-
+                    <button type="button" @click="sendInformationRequest()" :disabled="actionLoading" class="h-8 rounded bg-[#0754B8]
+                               px-4 text-[9px] font-semibold
+                               text-white hover:bg-[#06479c]
+                               disabled:opacity-50">
                         Submit
-
                     </button>
 
                 </div>
@@ -1403,19 +1516,20 @@
             RESOLUTION MODAL
         ============================================================= --}}
 
-        <div x-show="resolutionModal" class="fixed inset-0 z-[90] flex items-center
-            justify-center bg-slate-900/40" style="display:none">
+        <div x-show="resolutionModal" x-transition class="fixed inset-0 z-[90] flex items-center
+                   justify-center bg-slate-900/40 p-4" style="display:none">
 
-
-            <div @click.outside="resolutionModal=false" class="w-[500px] rounded-xl bg-white shadow-2xl">
-
+            <div @click.outside="resolutionModal = false" class="w-full max-w-[500px] overflow-hidden
+                       rounded-lg bg-white shadow-2xl">
 
                 <div class="border-b border-slate-200 px-5 py-4">
 
-                    <div class="text-sm font-bold text-slate-800">
-
+                    <div class="text-[13px] font-bold text-slate-800">
                         Submit Resolution
+                    </div>
 
+                    <div class="mt-1 text-[9px] text-slate-400">
+                        Provide a summary of how this issue was resolved.
                     </div>
 
                 </div>
@@ -1423,45 +1537,37 @@
 
                 <div class="p-5">
 
-
-                    <label class="mb-2 block text-[10px]
-                        font-semibold text-slate-600">
-
+                    <label class="mb-2 block text-[9px]
+                               font-bold text-slate-600">
                         Resolution Summary
-
                     </label>
 
-
                     <textarea x-model="resolutionSummary" rows="6" placeholder="Describe how the issue was resolved..."
-                        class="w-full rounded-md border border-slate-300
-                        p-3 text-[11px] outline-none
-                        focus:border-blue-500
-                        focus:ring-1 focus:ring-blue-500">
-
-                    </textarea>
+                        class="w-full resize-none rounded border
+                               border-slate-300 p-3 text-[10px]
+                               text-slate-700 outline-none
+                               placeholder:text-slate-400
+                               focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]"></textarea>
 
                 </div>
 
 
-                <div class="flex justify-end gap-2
-                    border-t border-slate-200 p-4">
+                <div class="flex justify-end gap-2 border-t
+                           border-slate-200 p-4">
 
-
-                    <button type="button" @click="resolutionModal=false" class="rounded-md border border-slate-300
-                        px-4 py-2 text-[10px] font-semibold
-                        text-slate-600">
-
+                    <button type="button" @click="resolutionModal = false" class="h-8 rounded border border-slate-300
+                               px-4 text-[9px] font-semibold
+                               text-slate-600 hover:bg-slate-50">
                         Cancel
-
                     </button>
 
 
-                    <button type="button" @click="sendResolution()" class="rounded-md bg-[#0754B8]
-                        px-4 py-2 text-[10px] font-semibold
-                        text-white">
-
+                    <button type="button" @click="sendResolution()" :disabled="actionLoading" class="h-8 rounded bg-[#0754B8]
+                               px-4 text-[9px] font-semibold
+                               text-white hover:bg-[#06479c]
+                               disabled:opacity-50">
                         Submit Resolution
-
                     </button>
 
                 </div>
@@ -1469,7 +1575,6 @@
             </div>
 
         </div>
-
 
     </div>
 
@@ -1480,7 +1585,12 @@
 
     <script>
     function issueTracker() {
+
         return {
+
+            /* -------------------------------------------------------
+             | State
+             ------------------------------------------------------- */
 
             drawerOpen: false,
 
@@ -1489,6 +1599,8 @@
             actionLoading: false,
 
             activeTab: 'details',
+
+            moreFilters: false,
 
             issue: {},
 
@@ -1505,23 +1617,22 @@
             resolutionSummary: '',
 
             toast: {
-
                 show: false,
-
                 type: 'success',
-
                 message: '',
-
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Open Drawer
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Open Issue
+             ------------------------------------------------------- */
 
             openIssue(id) {
+
+                if (!id) {
+                    return;
+                }
+
                 this.issueId = id;
 
                 this.drawerOpen = true;
@@ -1532,23 +1643,17 @@
 
                 this.issue = {};
 
-                this.slaText =
-                    'SLA calculating...';
+                this.slaText = 'SLA calculating...';
 
 
                 fetch(
                         `{{ url('/issues') }}/${id}`, {
-
                             method: 'GET',
 
                             headers: {
-
                                 'Accept': 'application/json',
-
                                 'X-Requested-With': 'XMLHttpRequest',
-
                             }
-
                         }
                     )
 
@@ -1577,8 +1682,7 @@
 
                         }
 
-                        this.issue =
-                            data.issue;
+                        this.issue = data.issue || {};
 
                         this.calculateSla();
 
@@ -1587,7 +1691,8 @@
                     .catch(error => {
 
                         this.showToast(
-                            error.message,
+                            error.message ||
+                            'Unable to load issue.',
                             'error'
                         );
 
@@ -1600,68 +1705,60 @@
                         this.loading = false;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Close
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Close Drawer
+             ------------------------------------------------------- */
 
             closeDrawer() {
+
                 this.drawerOpen = false;
 
                 this.issue = {};
 
                 this.issueId = null;
+
+                this.loading = false;
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Priority CSS
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Priority CSS
+             ------------------------------------------------------- */
 
             priorityClass() {
-                const priority =
-                    (
-                        this.issue.priority_name ||
-                        ''
-                    ).toLowerCase();
+
+                const priority = (
+                    this.issue.priority_name || ''
+                ).toLowerCase();
 
 
-                if (
-                    priority.includes('critical')
-                ) {
+                if (priority.includes('critical')) {
 
                     return 'bg-red-50 text-red-600 border-red-200';
 
                 }
 
 
-                if (
-                    priority.includes('high')
-                ) {
+                if (priority.includes('high')) {
 
                     return 'bg-orange-50 text-orange-600 border-orange-200';
 
                 }
 
 
-                if (
-                    priority.includes('medium')
-                ) {
+                if (priority.includes('medium')) {
 
                     return 'bg-yellow-50 text-yellow-700 border-yellow-200';
 
                 }
 
 
-                if (
-                    priority.includes('low')
-                ) {
+                if (priority.includes('low')) {
 
                     return 'bg-green-50 text-green-600 border-green-200';
 
@@ -1669,99 +1766,89 @@
 
 
                 return 'bg-slate-50 text-slate-600 border-slate-200';
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Status CSS
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Status CSS
+             ------------------------------------------------------- */
 
             statusClass() {
-                const status =
-                    (
-                        this.issue.status_name ||
-                        ''
-                    ).toLowerCase();
+
+                const status = (
+                    this.issue.status_name || ''
+                ).toLowerCase();
 
 
-                if (
-                    status.includes('progress')
-                ) {
+                if (status.includes('new')) {
 
-                    return 'bg-indigo-50 text-indigo-600';
+                    return 'bg-blue-50 text-blue-600';
 
                 }
 
 
-                if (
-                    status.includes('pending')
-                ) {
-
-                    return 'bg-yellow-50 text-yellow-700';
-
-                }
-
-
-                if (
-                    status.includes('resolved')
-                ) {
-
-                    return 'bg-green-50 text-green-600';
-
-                }
-
-
-                if (
-                    status.includes('closed')
-                ) {
-
-                    return 'bg-slate-100 text-slate-600';
-
-                }
-
-
-                if (
-                    status.includes('assigned')
-                ) {
+                if (status.includes('assigned')) {
 
                     return 'bg-purple-50 text-purple-600';
 
                 }
 
 
+                if (status.includes('progress')) {
+
+                    return 'bg-indigo-50 text-indigo-600';
+
+                }
+
+
+                if (status.includes('pending')) {
+
+                    return 'bg-yellow-50 text-yellow-700';
+
+                }
+
+
+                if (status.includes('resolved')) {
+
+                    return 'bg-green-50 text-green-600';
+
+                }
+
+
+                if (status.includes('closed')) {
+
+                    return 'bg-slate-100 text-slate-600';
+
+                }
+
+
                 return 'bg-blue-50 text-blue-600';
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Owner
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Owner
+             ------------------------------------------------------- */
 
             ownerName() {
+
                 return (
                     this.issue.owner_name ||
+                    this.issue.current_owner_name ||
                     this.issue.current_owner_organisation_name ||
                     'Unassigned'
                 );
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | SLA
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | SLA
+             ------------------------------------------------------- */
 
             calculateSla() {
-                /*
-                |--------------------------------------------------------------------------
-                | If your API returns remaining SLA
-                |--------------------------------------------------------------------------
-                */
 
                 if (
                     this.issue.sla_remaining_label
@@ -1771,28 +1858,38 @@
                         `SLA: ${this.issue.sla_remaining_label}`;
 
                     return;
+
                 }
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | Fallback
-                |--------------------------------------------------------------------------
-                */
+                if (
+                    this.issue.sla_text
+                ) {
+
+                    this.slaText =
+                        this.issue.sla_text;
+
+                    return;
+
+                }
+
 
                 this.slaText =
                     'SLA monitoring active';
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Start Work
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Start Work
+             ------------------------------------------------------- */
 
             startWork() {
-                if (!this.issueId) {
+
+                if (
+                    !this.issueId ||
+                    this.actionLoading
+                ) {
                     return;
                 }
 
@@ -1811,28 +1908,48 @@
 
                     })
 
+                    .catch(() => {
+
+                        // Error already handled by postAction.
+
+                    })
+
                     .finally(() => {
 
                         this.actionLoading = false;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Request Information
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Request Information
+             ------------------------------------------------------- */
 
             requestInformation() {
+
+                if (this.actionLoading) {
+                    return;
+                }
+
                 this.requestMessage = '';
 
                 this.requestModal = true;
+
             },
 
 
             sendInformationRequest() {
+
+                if (
+                    !this.issueId ||
+                    this.actionLoading
+                ) {
+                    return;
+                }
+
+
                 if (
                     !this.requestMessage.trim()
                 ) {
@@ -1843,6 +1960,7 @@
                     );
 
                     return;
+
                 }
 
 
@@ -1850,13 +1968,9 @@
 
 
                 this.postAction(
-
-                        `/issues/${this.issueId}/request-information`,
-
-                        {
+                        `/issues/${this.issueId}/request-information`, {
                             message: this.requestMessage
                         }
-
                     )
 
                     .then(() => {
@@ -1866,6 +1980,14 @@
                         this.issue.status_name =
                             'Pending';
 
+                        this.requestMessage = '';
+
+                    })
+
+                    .catch(() => {
+
+                        // Error handled by postAction.
+
                     })
 
                     .finally(() => {
@@ -1873,17 +1995,20 @@
                         this.actionLoading = false;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Vendor
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Escalate Vendor
+             ------------------------------------------------------- */
 
             escalateVendor() {
-                if (!this.issueId) {
+
+                if (
+                    !this.issueId ||
+                    this.actionLoading
+                ) {
                     return;
                 }
 
@@ -1893,7 +2018,6 @@
                         'Are you sure you want to escalate this issue to the vendor?'
                     )
                 ) {
-
                     return;
                 }
 
@@ -1905,28 +2029,61 @@
                         `/issues/${this.issueId}/escalate-vendor`, {}
                     )
 
+                    .then(() => {
+
+                        this.showToast(
+                            'Issue escalated to vendor.',
+                            'success'
+                        );
+
+                    })
+
+                    .catch(() => {
+
+                        // Error handled by postAction.
+
+                    })
+
                     .finally(() => {
 
                         this.actionLoading = false;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Resolution
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Resolution
+             ------------------------------------------------------- */
 
             submitResolution() {
+
+                if (
+                    !this.issueId ||
+                    this.actionLoading
+                ) {
+                    return;
+                }
+
+
                 this.resolutionSummary = '';
 
                 this.resolutionModal = true;
+
             },
 
 
             sendResolution() {
+
+                if (
+                    !this.issueId ||
+                    this.actionLoading
+                ) {
+                    return;
+                }
+
+
                 if (
                     !this.resolutionSummary.trim()
                 ) {
@@ -1937,6 +2094,7 @@
                     );
 
                     return;
+
                 }
 
 
@@ -1944,13 +2102,9 @@
 
 
                 this.postAction(
-
-                        `/issues/${this.issueId}/submit-resolution`,
-
-                        {
+                        `/issues/${this.issueId}/submit-resolution`, {
                             resolution_summary: this.resolutionSummary
                         }
-
                     )
 
                     .then(() => {
@@ -1963,6 +2117,14 @@
                         this.issue.resolution_summary =
                             this.resolutionSummary;
 
+                        this.resolutionSummary = '';
+
+                    })
+
+                    .catch(() => {
+
+                        // Error handled by postAction.
+
                     })
 
                     .finally(() => {
@@ -1970,25 +2132,26 @@
                         this.actionLoading = false;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | POST
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | POST Action
+             ------------------------------------------------------- */
 
-            postAction(
-                url,
-                payload
-            ) {
+            postAction(url, payload) {
+
+                const csrfToken =
+                    document
+                    .querySelector(
+                        'meta[name="csrf-token"]'
+                    )
+                    ?.getAttribute('content');
+
+
                 return fetch(
-
-                        url,
-
-                        {
-
+                        url, {
                             method: 'POST',
 
                             headers: {
@@ -1999,52 +2162,56 @@
 
                                 'X-Requested-With': 'XMLHttpRequest',
 
-                                'X-CSRF-TOKEN': document
-                                    .querySelector(
-                                        'meta[name="csrf-token"]'
-                                    )
-                                    .getAttribute('content'),
+                                'X-CSRF-TOKEN': csrfToken || '',
 
                             },
 
-                            body: JSON.stringify(
-                                payload
-                            )
+                            body: JSON.stringify(payload)
+
+                        }
+                    )
+
+                    .then(async response => {
+
+                        let data = {};
+
+                        try {
+
+                            data =
+                                await response.json();
+
+                        } catch (error) {
+
+                            data = {};
 
                         }
 
-                    )
 
-                    .then(response => {
+                        if (
+                            !response.ok ||
+                            !data.success
+                        ) {
 
-                        return response
-                            .json()
-                            .then(data => {
+                            throw new Error(
+                                data.message ||
+                                'Operation failed.'
+                            );
 
-                                if (
-                                    !response.ok ||
-                                    !data.success
-                                ) {
+                        }
 
-                                    throw new Error(
-                                        data.message ||
-                                        'Operation failed.'
-                                    );
 
-                                }
-
-                                return data;
-
-                            });
+                        return data;
 
                     })
 
                     .then(data => {
 
                         this.showToast(
-                            data.message,
+                            data.message ||
+                            'Operation completed successfully.',
                             'success'
                         );
+
 
                         return data;
 
@@ -2053,33 +2220,36 @@
                     .catch(error => {
 
                         this.showToast(
-                            error.message,
+                            error.message ||
+                            'Operation failed.',
                             'error'
                         );
+
 
                         throw error;
 
                     });
+
             },
 
 
-            /*
-            |--------------------------------------------------------------------------
-            | Toast
-            |--------------------------------------------------------------------------
-            */
+            /* -------------------------------------------------------
+             | Toast
+             ------------------------------------------------------- */
 
             showToast(
                 message,
                 type = 'success'
             ) {
+
                 this.toast = {
 
                     show: true,
 
                     type: type,
 
-                    message: message,
+                    message: message ||
+                        'Operation completed.'
 
                 };
 
@@ -2089,38 +2259,138 @@
                     this.toast.show = false;
 
                 }, 3500);
-            }
+
+            },
+
+
+            /* -------------------------------------------------------
+             | Export
+             ------------------------------------------------------- */
+
+            exportIssues() {
+
+                const params =
+                    new URLSearchParams(
+                        window.location.search
+                    );
+
+
+                const exportUrl =
+                    `{{ route('issues.index') }}?${params.toString()}&export=1`;
+
+
+                window.location.href =
+                    exportUrl;
+
+            },
 
         };
+
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Global Open Function
-    |--------------------------------------------------------------------------
-    */
+    /* ================================================================
+       GLOBAL DRAWER OPENER
+    ================================================================= */
 
     window.issueTrackerOpen = function(id) {
+
         const root =
-            document.querySelector(
-                '[x-data="issueTracker()"]'
+            document.getElementById(
+                'issue-tracker'
             );
 
 
         if (
-            root &&
-            root._x_dataStack
+            !root ||
+            !root._x_dataStack
         ) {
 
-            root._x_dataStack[0]
-                .openIssue(id);
+            console.error(
+                'Issue tracker Alpine component not found.'
+            );
+
+            return;
 
         }
-    };
-    </script>
 
-    <!-- <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"> -->
+
+        const component =
+            root._x_dataStack[0];
+
+
+        if (
+            component &&
+            typeof component.openIssue === 'function'
+        ) {
+
+            component.openIssue(id);
+
+        }
+
+    };
+
+
+    /* ================================================================
+       ESC KEY
+    ================================================================= */
+
+    document.addEventListener(
+        'keydown',
+        function(event) {
+
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+
+            const root =
+                document.getElementById(
+                    'issue-tracker'
+                );
+
+
+            if (
+                root &&
+                root._x_dataStack
+            ) {
+
+                const component =
+                    root._x_dataStack[0];
+
+
+                if (component) {
+
+                    if (component.requestModal) {
+
+                        component.requestModal = false;
+
+                        return;
+
+                    }
+
+
+                    if (component.resolutionModal) {
+
+                        component.resolutionModal = false;
+
+                        return;
+
+                    }
+
+
+                    if (component.drawerOpen) {
+
+                        component.closeDrawer();
+
+                    }
+
+                }
+
+            }
+
+        }
+    );
     </script>
 
 
