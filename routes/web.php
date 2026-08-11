@@ -342,6 +342,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
 
+    // Working calendar CRUD endpoints
+    Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.store');
+
+    Route::put('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'update'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.update');
+
+    Route::delete('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'destroy'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.destroy');
+
     Route::get('/holiday-calendar', [AdminConfigController::class, 'holidayCalendar'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
     Route::get('/sla-configuration', [AdminConfigController::class, 'slaConfiguration'])->middleware('menu.access:sla.configuration')->name('sla.configuration');

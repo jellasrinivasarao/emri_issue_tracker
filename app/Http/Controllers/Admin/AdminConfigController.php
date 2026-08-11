@@ -9,7 +9,10 @@ class AdminConfigController extends Controller
 {
     public function workingHours()
     {
-        return view('admin.operational.working-hours');
+        // Load existing working calendars for the master view
+        $calendars = \App\Models\WorkingCalendar::query()->orderBy('calendar_name')->get();
+
+        return view('admin.operational.working-hours', compact('calendars'));
     }
 
     public function holidayCalendar()
