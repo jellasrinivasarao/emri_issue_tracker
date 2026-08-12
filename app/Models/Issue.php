@@ -219,6 +219,16 @@ class Issue extends Model
         );
     }
 
+    public function routingRule()
+    {
+        return $this->belongsTo(
+            IssueRoutingRule::class,
+            'routing_rule_id',
+            'routing_rule_id'
+        );
+    }
+
+
     public function team(): BelongsTo
     {
         return $this->belongsTo(
@@ -261,6 +271,15 @@ class Issue extends Model
         );
     }
 
+    public function currentAssignment()
+{
+    return $this->hasOne(
+        IssueAssignment::class,
+        'issue_id',
+        'issue_id'
+    )->latestOfMany('assignment_id');
+}
+
     public function statusHistory(): HasMany
     {
         return $this->hasMany(
@@ -268,6 +287,15 @@ class Issue extends Model
             'issue_id',
             'issue_id'
         );
+    }
+
+    public function latestStatusHistory()
+    {
+        return $this->hasOne(
+            IssueStatusHistory::class,
+            'issue_id',
+            'issue_id'
+        )->latestOfMany('status_history_id');
     }
 
     public function updates(): HasMany

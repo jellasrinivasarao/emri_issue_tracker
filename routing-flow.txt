@@ -1,0 +1,37 @@
+IssueService::create()
+       │
+       ▼
+prepareCreateData()
+       │
+       ▼
+Create txn_issue
+       │
+       ▼
+afterCreate()
+       │
+       ▼
+IssueRoutingService::routeIssue()
+       │
+       ▼
+Find Project Support Configuration
+       │
+       ▼
+Find Routing Rule
+       │
+       ▼
+HO Intervention Required?
+       │
+       ├── NO → Vendor Level 2
+       │
+       └── YES
+            │
+            ▼
+       WorkingCalendarEngine
+            │
+            ├── Holiday → Vendor
+            │
+            ├── Non-working → Vendor
+            │
+            ├── Outside hours → Vendor
+            │
+            └── Working hours → HO IT Level 1

@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class ProjectSupportConfiguration extends Model
 {
     protected $table = 'mst_project_support_configuration';
@@ -48,11 +51,63 @@ class ProjectSupportConfiguration extends Model
     }
 
     public function slaConfiguration()
+    {
+        return $this->belongsTo(
+            SlaConfiguration::class,
+            'sla_configuration_id',
+            'sla_configuration_id'
+        );
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(
+            Project::class,
+            'project_id',
+            'project_id'
+        );
+    }
+
+
+
+    public function activeRoutingRules(): HasMany
+    {
+        return $this->hasMany(
+            IssueRoutingRule::class,
+            'support_config_id',
+            'support_config_id'
+        )->where(
+            'is_active',
+            true
+        );
+    }
+
+
+    public function scopeActive($query)
+    {
+        return $query->where(
+            'is_active',
+            true
+        );
+    }
+    public function scopeAutoRoutingEnabled($query)
+    {
+        return $query
+            ->where('is_active', true)
+            ->where(
+                'auto_routing_enabled',
+                true
+            );
+    }
+
+public function workingCalendar()
 {
     return $this->belongsTo(
-        SlaConfiguration::class,
-        'sla_configuration_id',
-        'sla_configuration_id'
+        WorkingCalendar::class,
+        'working_calendar_id',
+        'calendar_id'
     );
 }
+
+
 }

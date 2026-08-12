@@ -431,9 +431,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('working-schedules', WorkingHoursController::class);
 
-    Route::patch('working-schedules/{working_schedule}/toggle-status',
-        [WorkingHoursController::class, 'toggleStatus']
-    )->name('working-schedules.toggle-status');
+    Route::patch('working-schedules/{working_schedule}/toggle-status',[WorkingHoursController::class, 'toggleStatus'])->name('working-schedules.toggle-status');
 
 
     #Route::resource('sla-configurations',SlaConfigurationController::class);
@@ -443,7 +441,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('sla-configurations/{sla_configuration}/toggle',[SlaConfigurationController::class, 'toggle'])->middleware(['auth', 'menu.access:sla.configuration'])->name('sla-configurations.toggle');
 
 
-            // Holiday calendar CRUD
+    // Holiday calendar CRUD
 
     // Route::get('/holiday-calendar', [CalendarHolidayController::class, 'index'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
@@ -467,10 +465,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
-        Route::prefix('holiday-calendar')
-    ->name('holiday.')
-    ->controller(CalendarHolidayController::class)
-    ->group(function () {
+        Route::prefix('holiday-calendar')->name('holiday.')->controller(CalendarHolidayController::class)->group(function () {
 
         Route::get('/', 'index')->name('calendar');
 
@@ -486,24 +481,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     
     
 
-    Route::get('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'index'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+    // Route::get('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'index'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
 
-    // SLA CRUD
-    Route::post('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'store'])
-        ->middleware(['auth','menu.access:sla.configuration'])
-        ->name('sla.configuration.store');
+    // // SLA CRUD
+    // Route::post('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'store'])
+    //     ->middleware(['auth','menu.access:sla.configuration'])
+    //     ->name('sla.configuration.store');
 
-    Route::put('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'update'])
-        ->middleware(['auth','menu.access:sla.configuration'])
-        ->name('sla.configuration.update');
+    // Route::put('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'update'])
+    //     ->middleware(['auth','menu.access:sla.configuration'])
+    //     ->name('sla.configuration.update');
 
-    Route::post('/sla-configuration/{sla_id}/toggle', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'toggle'])
-        ->middleware(['auth','menu.access:sla.configuration'])
-        ->name('sla.configuration.toggle');
+    // Route::post('/sla-configuration/{sla_id}/toggle', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'toggle'])
+    //     ->middleware(['auth','menu.access:sla.configuration'])
+    //     ->name('sla.configuration.toggle');
 
-    Route::delete('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'destroy'])
-        ->middleware(['auth','menu.access:sla.configuration'])
-        ->name('sla.configuration.destroy');
+    // Route::delete('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'destroy'])
+    //     ->middleware(['auth','menu.access:sla.configuration'])
+    //     ->name('sla.configuration.destroy');
 
 
 
@@ -574,9 +569,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::resource('issue-routing-rules',IssueRoutingRuleController::class)->middleware('menu.access:issue.routing.rules');
 
-Route::patch('issue-routing-rules/{issueRoutingRule}/toggle',
-[IssueRoutingRuleController::class, 'toggle']
-)->name('issue-routing-rules.toggle')->middleware('menu.access:issue.routing.rules');
+    Route::patch('issue-routing-rules/{issueRoutingRule}/toggle',[IssueRoutingRuleController::class, 'toggle'])->name('issue-routing-rules.toggle')->middleware('menu.access:issue.routing.rules');
 
 
         Route::get(
@@ -641,6 +634,3 @@ require __DIR__.'/auth.php';
 Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
 Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
 Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
-
-
-

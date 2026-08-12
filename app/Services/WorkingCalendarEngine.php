@@ -10,10 +10,23 @@ use Carbon\CarbonInterface;
 
 class WorkingCalendarEngine
 {
-    public function check(WorkingCalendar $calendar,?CarbonInterface $dateTime = null): array {
+    /**
+     * Determine whether the calendar is currently working.
+     *
+     * Result:
+     *
+     * is_working = true
+     *      => HO IT can receive the issue
+     *
+     * is_working = false
+     *      => Vendor fallback
+     */
+    public function check(
+        WorkingCalendar $calendar,
+        ?CarbonInterface $dateTime = null
+    ): array {
 
-        $timezone = $calendar->timezone
-            ?: config('app.timezone');
+        $timezone = $calendar->timezone ?: config('app.timezone');
 
         $now = $dateTime
             ? Carbon::parse($dateTime)->setTimezone($timezone)
@@ -21,7 +34,7 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 1. Calendar active check
+        | 1. Calendar Active
         |--------------------------------------------------------------------------
         */
 
@@ -35,14 +48,14 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Effective date
+        | 2. Calendar Effective From
         |--------------------------------------------------------------------------
         */
 
         if (
             $calendar->effective_from &&
             $now->toDateString() <
-            $calendar->effective_from->toDateString()
+            Carbon::parse($calendar->effective_from)->toDateString()
         ) {
             return $this->result(
                 false,
@@ -51,10 +64,16 @@ class WorkingCalendarEngine
             );
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Calendar Effective To
+        |--------------------------------------------------------------------------
+        */
+
         if (
             $calendar->effective_to &&
             $now->toDateString() >
-            $calendar->effective_to->toDateString()
+            Carbon::parse($calendar->effective_to)->toDateString()
         ) {
             return $this->result(
                 false,
@@ -65,17 +84,26 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 3. Holiday check
+        | 4. Holiday
         |--------------------------------------------------------------------------
         */
 
         $holiday = CalendarHoliday::query()
             ->where('calendar_id', $calendar->calendar_id)
-            ->whereDate('holiday_date', $now->toDateString())
+            ->whereDate(
+                'holiday_date',
+                $now->toDateString()
+            )
             ->where('is_active', true)
             ->first();
 
-        if ($holiday && !$holiday->is_working_day_override) {
+        /*
+         * Holiday without working-day override.
+         */
+        if (
+            $holiday &&
+            !$holiday->is_working_day_override
+        ) {
 
             return $this->result(
                 false,
@@ -87,18 +115,33 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 4. Day of week
+        | 5. Day Of Week
         |--------------------------------------------------------------------------
         */
 
         $dayOfWeek = $now->dayOfWeekIso;
 
-        // Treat 2nd and 4th Saturdays of the month as non-working days when configured
-        // (business rule: 2nd and 4th Saturday off). Saturday in ISO is 6.
+        /*
+        |--------------------------------------------------------------------------
+        | 6. 2nd / 4th Saturday
+        |--------------------------------------------------------------------------
+        |
+        | Saturday = 6 in ISO.
+        |
+        */
+
         if ($dayOfWeek === 6) {
-            $dayOfMonth = (int) $now->day;
-            $weekOfMonth = (int) (ceil($dayOfMonth / 7));
-            if (in_array($weekOfMonth, [2, 4], true)) {
+
+            $weekOfMonth = (int) ceil($now->day / 7);
+
+            if (
+                in_array(
+                    $weekOfMonth,
+                    [2, 4],
+                    true
+                )
+            ) {
+
                 return $this->result(
                     false,
                     'WEEKLY_SPECIAL_OFF',
@@ -109,14 +152,24 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 5. Load today's schedules
+        | 7. Get Today's Schedule
         |--------------------------------------------------------------------------
         */
 
         $schedules = WorkingSchedule::query()
-            ->where('calendar_id', $calendar->calendar_id)
-            ->where('day_of_week', $dayOfWeek)
-            ->where('is_active', true)
+            ->where(
+                'calendar_id',
+                $calendar->calendar_id
+            )
+            ->where(
+                'day_of_week',
+                $dayOfWeek
+            )
+            ->where(
+                'is_active',
+                true
+            )
+
             ->where(function ($query) use ($now) {
 
                 $query
@@ -128,6 +181,7 @@ class WorkingCalendarEngine
                     );
 
             })
+
             ->where(function ($query) use ($now) {
 
                 $query
@@ -139,12 +193,13 @@ class WorkingCalendarEngine
                     );
 
             })
+
             ->orderBy('sequence_no')
             ->get();
 
         /*
         |--------------------------------------------------------------------------
-        | 6. No schedule
+        | 8. No Schedule
         |--------------------------------------------------------------------------
         */
 
@@ -159,16 +214,22 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 7. Check schedules
+        | 9. Check Schedule
         |--------------------------------------------------------------------------
         */
 
         foreach ($schedules as $schedule) {
 
+            /*
+             * Non-working schedule.
+             */
             if (!$schedule->is_working_day) {
                 continue;
             }
 
+            /*
+             * 24 Hours.
+             */
             if ($schedule->is_24_hours) {
 
                 return $this->result(
@@ -180,12 +241,21 @@ class WorkingCalendarEngine
                 );
             }
 
+            /*
+             * Invalid schedule.
+             */
             if (
                 !$schedule->start_time ||
                 !$schedule->end_time
             ) {
                 continue;
             }
+
+            /*
+             |--------------------------------------------------------------------------
+             | Create Start / End
+             |--------------------------------------------------------------------------
+             */
 
             $start = Carbon::createFromFormat(
                 'Y-m-d H:i:s',
@@ -204,14 +274,20 @@ class WorkingCalendarEngine
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | Overnight shift
-            |--------------------------------------------------------------------------
-            */
+             |--------------------------------------------------------------------------
+             | Overnight Schedule
+             |--------------------------------------------------------------------------
+             */
 
             if ($end->lessThanOrEqualTo($start)) {
                 $end->addDay();
             }
+
+            /*
+             |--------------------------------------------------------------------------
+             | Current Time Within Business Hours
+             |--------------------------------------------------------------------------
+             */
 
             if (
                 $now->greaterThanOrEqualTo($start) &&
@@ -230,7 +306,7 @@ class WorkingCalendarEngine
 
         /*
         |--------------------------------------------------------------------------
-        | 8. Outside working hours
+        | 10. Outside Business Hours
         |--------------------------------------------------------------------------
         */
 
@@ -241,6 +317,9 @@ class WorkingCalendarEngine
         );
     }
 
+    /**
+     * Standard result.
+     */
     private function result(
         bool $working,
         string $status,
@@ -250,26 +329,40 @@ class WorkingCalendarEngine
     ): array {
 
         return [
+
             'is_working' => $working,
 
             'status' => $status,
 
-            'current_datetime' => $now
-                ->format('Y-m-d H:i:s'),
+            'current_datetime' =>
+                $now->format('Y-m-d H:i:s'),
 
-            'timezone' => $now->timezoneName,
+            'timezone' =>
+                $now->timezoneName,
 
-            'holiday_id' => $holiday?->holiday_id,
+            'date' =>
+                $now->toDateString(),
 
-            'holiday_name' => $holiday?->holiday_name,
+            'day_of_week' =>
+                $now->dayOfWeekIso,
 
-            'schedule_id' => $schedule?->schedule_id,
+            'holiday_id' =>
+                $holiday?->holiday_id,
 
-            'schedule_name' => $schedule?->schedule_name,
+            'holiday_name' =>
+                $holiday?->holiday_name,
 
-            'start_time' => $schedule?->start_time,
+            'schedule_id' =>
+                $schedule?->schedule_id,
 
-            'end_time' => $schedule?->end_time,
+            'schedule_name' =>
+                $schedule?->schedule_name,
+
+            'start_time' =>
+                $schedule?->start_time,
+
+            'end_time' =>
+                $schedule?->end_time,
         ];
     }
 }
