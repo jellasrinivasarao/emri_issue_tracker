@@ -24,6 +24,7 @@ use App\Http\Controllers\Admin\WorkingCalendarController;
 use App\Http\Controllers\Admin\WorkingScheduleController;
 use App\Http\Controllers\Admin\WorkingHoursController;
 use App\Http\Controllers\Admin\CalendarHolidayController;
+use App\Http\Controllers\Admin\SlaConfigurationController;
 
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
@@ -409,6 +410,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('working-schedules/{working_schedule}/toggle-status',
         [WorkingHoursController::class, 'toggleStatus']
     )->name('working-schedules.toggle-status');
+
+
+    #Route::resource('sla-configurations',SlaConfigurationController::class);
+
+    Route::resource('sla-configurations', SlaConfigurationController::class)->middleware(['auth', 'menu.access:sla.configuration']);
+
+    Route::patch('sla-configurations/{sla_configuration}/toggle',[SlaConfigurationController::class, 'toggle'])->middleware(['auth', 'menu.access:sla.configuration'])->name('sla-configurations.toggle');
+
 
             // Holiday calendar CRUD
 

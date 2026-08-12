@@ -69,6 +69,15 @@ class WorkingCalendar extends Model
             'calendar_id'
         );
     }
+
+    public function slaConfigurations()
+{
+    return $this->hasMany(
+        SlaConfiguration::class,
+        'calendar_id',
+        'calendar_id'
+    );
+}
     
 
 

@@ -15,7 +15,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
            # MenuSeeder::class,
            # RoleMenuSeeder::class,
-           WorkingScheduleSeeder::class,
+           #WorkingScheduleSeeder::class,
+           SlaConfigurationSeeder::class,
         ]);
     }
 }
