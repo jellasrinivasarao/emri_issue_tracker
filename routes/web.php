@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\UserProjectMappingController;
 use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\Admin\AdminConfigController;
+use App\Http\Controllers\IssueController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\ForcePasswordController;
@@ -51,13 +52,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth', 'menu.access:role.issue.dashboard'])
         ->name('role.issue.update');
 
-    Route::get('/issues', [PageController::class, 'issues'])
+    Route::get('/issues', [IssueController::class, 'index'])
         ->middleware('menu.access:issues')
-        ->name('issues');
+        ->name('issues.index');
 
-    Route::get('/raise-issue', [PageController::class, 'raiseIssue'])
+    Route::redirect('/raise-issue', '/issues/create')
+        ->middleware('menu.access:raise.issue');
+
+    Route::get('/issues/create', [IssueController::class, 'create'])
         ->middleware('menu.access:raise.issue')
         ->name('raise.issue');
+
+    Route::post('/issues', [IssueController::class, 'store'])
+        ->middleware('menu.access:raise.issue')
+        ->name('issues.store');
+
+    // AJAX endpoints for dependent selects on issue create
+    Route::get('/ajax/projects', [IssueController::class, 'projectsByState'])
+        ->middleware('auth')
+        ->name('issues.ajax.projects');
+
+    Route::get('/ajax/applications', [IssueController::class, 'applicationsByProject'])
+        ->middleware('auth')
+        ->name('issues.ajax.applications');
+
+    Route::get('/ajax/modules', [IssueController::class, 'modulesByApplication'])
+        ->middleware('auth')
+        ->name('issues.ajax.modules');
 
     Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
@@ -385,8 +406,3 @@ if (app()->environment('local')) {
 }
 
 require __DIR__.'/auth.php';
-
-use App\Http\Controllers\IssueController;
-Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
-Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
-Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');

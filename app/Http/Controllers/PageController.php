@@ -127,12 +127,14 @@ class PageController extends Controller
         if (Schema::hasColumn('mst_project', 'is_active')) {
             $projectQuery->where('pr.is_active', 1);
         }
+
         if ($isVendorRole) {
             if (! empty($vendorId)) {
                 $projectQuery->join('map_vendor_state as m', 'pr.project_id', '=', 'm.project_id')
                     ->where('m.vendor_id', $vendorId)
                     ->where('m.is_active', 1)
                     ->distinct();
+
                 if ($request->filled('state_id')) {
                     $projectQuery->where('m.state_id', $request->input('state_id'));
                 }
@@ -140,14 +142,24 @@ class PageController extends Controller
                 $projectQuery->whereRaw('0 = 1');
             }
         } elseif ($request->filled('state_id')) {
-            $projectQuery->where('pr.state_id', $request->input('state_id'));
+            $projectQuery->join('map_project_state as m', 'pr.project_id', '=', 'm.project_id')
+                ->where('m.state_id', $request->input('state_id'))
+                ->where('m.is_active', 1)
+                ->distinct();
+        } elseif ($isStateRole && ! empty($stateIds)) {
+            $projectQuery->join('map_project_state as m', 'pr.project_id', '=', 'm.project_id')
+                ->whereIn('m.state_id', $stateIds)
+                ->where('m.is_active', 1)
+                ->distinct();
         }
+
         $projectOptions = $projectQuery->orderBy('pr.project_name')->get();
 
         $applicationQuery = DB::table('mst_application as a')->select('a.application_id', 'a.application_name');
         if (Schema::hasColumn('mst_application', 'is_active')) {
             $applicationQuery->where('a.is_active', 1);
         }
+
         if ($request->filled('project_id')) {
             if ($isVendorRole) {
                 if (! empty($vendorId)) {
@@ -166,13 +178,11 @@ class PageController extends Controller
                     $applicationIds = [];
                 }
             } else {
-                $applicationIds = DB::table('txn_issue as i')
-                    ->where('i.project_id', $request->input('project_id'))
-                    ->when($request->filled('state_id'), function ($query) use ($request) {
-                        return $query->where('i.state_id', $request->input('state_id')); 
-                    })
+                $applicationIds = DB::table('map_project_application_module as m')
+                    ->where('m.project_id', $request->input('project_id'))
+                    ->where('m.is_active', 1)
                     ->distinct()
-                    ->pluck('i.application_id')
+                    ->pluck('m.application_id')
                     ->filter()
                     ->all();
             }
@@ -186,6 +196,7 @@ class PageController extends Controller
             // Do not populate application options until a project is selected.
             $applicationQuery->whereRaw('0 = 1');
         }
+
         $applicationOptions = $applicationQuery->orderBy('a.application_name')->get();
 
         $priorityQuery = DB::table('mst_priority as p')->select('p.priority_id', 'p.priority_name');
@@ -202,6 +213,12 @@ class PageController extends Controller
             $vendorQuery->where('v.is_active', 1);
         }
         $vendorOptions = $vendorQuery->orderBy('v.vendor_name')->get();
+
+        $vendorStateMappings = DB::table('map_vendor_state as m')
+            ->select('m.state_id', 'm.project_id', 'm.vendor_id')
+            ->where('m.is_active', 1)
+            ->distinct()
+            ->get();
 
         $issuesQuery = DB::table('txn_issue as i')
             ->leftJoin('mst_issue_status as s', 'i.status_id', '=', 's.status_id')
@@ -481,7 +498,9 @@ class PageController extends Controller
                 'issue_id' => (int) $issue->issue_id,
                 'title' => $issue->issue_title ?: $fallbackTitle,
                 'state' => $issue->state_name ?: '—',
+                'state_id' => (int) ($issue->state_id ?? 0),
                 'project' => $issue->project_name ?: '—',
+                'project_id' => (int) ($issue->project_id ?? 0),
                 'application' => $issue->application_name ?: '—',
                 'module' => $issue->module_name ?: '—',
                 'status' => $issue->status_name ?: 'Open',
@@ -508,6 +527,7 @@ class PageController extends Controller
             'applicationOptions' => $applicationOptions,
             'priorityOptions' => $priorityOptions,
             'vendorOptions' => $vendorOptions,
+            'vendorStateMappings' => $vendorStateMappings,
             'filterValues' => [
                 'state_id' => $request->input('state_id'),
                 'project_id' => $request->input('project_id'),

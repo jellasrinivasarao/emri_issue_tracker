@@ -32,9 +32,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     @endpush
 
-    <div class="custom-box">
+    <!-- <div class="custom-box">
         TODO
-    </div>
+    </div> -->
 
     <x-slot name="header">
         <div class="flex items-center justify-between">
@@ -589,7 +589,7 @@
 
                         <div class="flex justify-between">
 
-                            <a href="{{ route('issues.index') }}"
+                            <a href="{{ route('raise.issue') }}"
                                 class="px-6 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-100 font-medium">
 
                                 Cancel
@@ -779,6 +779,160 @@
 
 
 
+                @endpush
+                
+                @push('scripts')
+                <script>
+                // Dependent selects: state -> projects -> applications -> modules
+                document.addEventListener('DOMContentLoaded', function() {
+                    const stateSelect = document.getElementById('state_id');
+                    const projectSelect = document.getElementById('project_id');
+                    const applicationSelect = document.getElementById('application_id');
+                    const moduleSelect = document.getElementById('module_id');
+
+                    function clearSelect(select, placeholder) {
+                        select.innerHTML = '';
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = placeholder || 'Select';
+                        select.appendChild(opt);
+                    }
+
+                    // Debounce + in-flight guard for projects loading to avoid duplicate calls
+                    let _projectsTimer = null;
+                    let _projectsToken = null;
+
+                    // guard to ignore repeated identical requests within short window
+                    let _lastProjectsState = null;
+                    let _lastProjectsAt = 0;
+
+                    async function doLoadProjects(stateId, token) {
+                        const now = Date.now();
+                        if (_lastProjectsState === String(stateId) && now - _lastProjectsAt < 1000) {
+                            return;
+                        }
+                        _lastProjectsState = String(stateId);
+                        _lastProjectsAt = now;
+
+                        clearSelect(projectSelect, 'Select Project');
+                        clearSelect(applicationSelect, 'Select Application');
+                        clearSelect(moduleSelect, 'Select Module');
+
+                        if (!stateId) return;
+
+                        // disable to prevent user re-clicks
+                        stateSelect.disabled = true;
+
+                        try {
+                            const res = await fetch('/ajax/projects?state_id=' + encodeURIComponent(stateId), {
+                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            if (!res.ok) return;
+                            const data = await res.json();
+
+                            // if a newer request started, ignore this response
+                            if (_projectsToken !== token) return;
+
+                            // dedupe by project_id in case backend returns duplicates
+                            const seen = new Set();
+                            data.forEach(function(p) {
+                                if (!p || !p.project_id) return;
+                                if (seen.has(String(p.project_id))) return;
+                                seen.add(String(p.project_id));
+                                const o = document.createElement('option');
+                                o.value = p.project_id;
+                                o.textContent = p.project_name;
+                                projectSelect.appendChild(o);
+                            });
+                        } finally {
+                            stateSelect.disabled = false;
+                        }
+                    }
+
+                    function loadProjects(stateId) {
+                        // cancel pending timer
+                        if (_projectsTimer) {
+                            clearTimeout(_projectsTimer);
+                            _projectsTimer = null;
+                        }
+                        // create a token for this request
+                        const token = String(Date.now()) + Math.random();
+                        _projectsToken = token;
+
+                        // debounce rapid changes (200ms)
+                        _projectsTimer = setTimeout(() => doLoadProjects(stateId, token), 200);
+                    }
+
+                    async function loadApplications(projectId) {
+                        clearSelect(applicationSelect, 'Select Application');
+                        clearSelect(moduleSelect, 'Select Module');
+                        if (!projectId) return;
+
+                        const res = await fetch('/ajax/applications?project_id=' + encodeURIComponent(projectId), {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        if (!res.ok) return;
+                        const data = await res.json();
+
+                        const seen = new Set();
+                        data.forEach(function(a) {
+                            if (!a || !a.application_id) return;
+                            if (seen.has(String(a.application_id))) return;
+                            seen.add(String(a.application_id));
+                            const o = document.createElement('option');
+                            o.value = a.application_id;
+                            o.textContent = a.application_name;
+                            applicationSelect.appendChild(o);
+                        });
+                    }
+
+                    async function loadModules(applicationId, projectId) {
+                        clearSelect(moduleSelect, 'Select Module');
+                        if (!applicationId) return;
+
+                        const params = new URLSearchParams({ application_id: applicationId });
+                        if (projectId) params.set('project_id', projectId);
+
+                        const res = await fetch('/ajax/modules?' + params.toString(), {
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        if (!res.ok) return;
+                        const data = await res.json();
+
+                        const seen = new Set();
+                        data.forEach(function(m) {
+                            if (!m || !m.module_id) return;
+                            if (seen.has(String(m.module_id))) return;
+                            seen.add(String(m.module_id));
+                            const o = document.createElement('option');
+                            o.value = m.module_id;
+                            o.textContent = m.module_name;
+                            moduleSelect.appendChild(o);
+                        });
+                    }
+
+                    if (stateSelect && !stateSelect.dataset.handlerAttached) {
+                        stateSelect.addEventListener('change', function() {
+                            loadProjects(this.value);
+                        });
+                        stateSelect.dataset.handlerAttached = '1';
+                    }
+
+                    if (projectSelect && !projectSelect.dataset.handlerAttached) {
+                        projectSelect.addEventListener('change', function() {
+                            loadApplications(this.value);
+                        });
+                        projectSelect.dataset.handlerAttached = '1';
+                    }
+
+                    if (applicationSelect && !applicationSelect.dataset.handlerAttached) {
+                        applicationSelect.addEventListener('change', function() {
+                            loadModules(this.value, projectSelect.value);
+                        });
+                        applicationSelect.dataset.handlerAttached = '1';
+                    }
+                });
+                </script>
                 @endpush
 
             </form>

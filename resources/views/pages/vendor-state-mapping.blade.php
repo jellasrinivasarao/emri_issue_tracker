@@ -193,7 +193,7 @@
         }
 
         function getOptionById(list, id) {
-            return list.find((item) => String(item.state_id) === String(id) || String(item.project_id) === String(id));
+            return list.find((item) => String(item.state_id) === String(id) || String(item.project_id) === String(id) || String(item.application_id) === String(id));
         }
 
         function initMultiSelect(name) {
@@ -206,11 +206,21 @@
             const selected = formState[name];
             let options = [];
 
+            function getOptionId(option) {
+                if (name === 'states') {
+                    return String(option.state_id ?? '');
+                }
+                if (name === 'projects') {
+                    return String(option.project_id ?? '');
+                }
+                return String(option.application_id ?? '');
+            }
+
             function buildOptionButton(option) {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
-                button.dataset.value = option.state_id || option.project_id;
+                button.dataset.value = getOptionId(option);
                 button.textContent = formatOptionLabel(option);
                 return button;
             }
@@ -221,7 +231,7 @@
 
                 const filtered = options.filter((option) => {
                     const label = formatOptionLabel(option).toLowerCase();
-                    const alreadySelected = selected.includes(String(option.state_id || option.project_id));
+                    const alreadySelected = selected.includes(getOptionId(option));
                     const matchesSearch = query === '' || label.includes(query);
                     return !alreadySelected && matchesSearch;
                 });

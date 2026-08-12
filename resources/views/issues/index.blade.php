@@ -292,7 +292,7 @@
 
 
                     {{-- Project --}}
-                    <select name="project_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
+                    <select id="filter-project" name="project_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[100px] rounded
                                border border-slate-300 bg-white
                                px-2.5 text-[9px] text-slate-600
                                outline-none focus:border-[#0754B8]
@@ -306,6 +306,25 @@
                             project_id)
                             >
                             {{ $project->project_name }}
+                        </option>
+
+                        @endforeach
+
+                    </select>
+
+                    {{-- Application --}}
+                    <select id="filter-application" name="application_id" onchange="this.form.submit()" class="filter-select h-8 min-w-[110px] rounded
+                               border border-slate-300 bg-white
+                               px-2.5 text-[9px] text-slate-600
+                               outline-none focus:border-[#0754B8]
+                               focus:ring-1 focus:ring-[#0754B8]">
+
+                        <option value="">Application</option>
+
+                        @foreach($applications as $application)
+
+                        <option value="{{ $application->application_id }}" @selected(request('application_id')==$application->application_id)>
+                            {{ $application->application_name }}
                         </option>
 
                         @endforeach
@@ -359,16 +378,15 @@
                 <div x-show="moreFilters" x-transition class="mt-3 flex flex-wrap gap-2
                            border-t border-slate-100 pt-3">
 
-                    <select name="state" class="h-8 min-w-[110px] rounded border
+                    <select id="filter-state" name="state_id" onchange="this.form.submit()" class="h-8 min-w-[110px] rounded border
                                border-slate-300 bg-white px-2.5
                                text-[9px] text-slate-600">
                         <option value="">State</option>
-                        <option value="Open" @selected(request('state')==='Open' )>
-                            Open
+                        @foreach($states as $st)
+                        <option value="{{ $st->state_id }}" @selected((string)request('state_id')===(string)$st->state_id)>
+                            {{ $st->state_name }}
                         </option>
-                        <option value="Closed" @selected(request('state')==='Closed' )>
-                            Closed
-                        </option>
+                        @endforeach
                     </select>
 
 
@@ -2391,6 +2409,87 @@
 
         }
     );
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const stateSel = document.getElementById('filter-state');
+        const projSel = document.getElementById('filter-project');
+        const appSel = document.getElementById('filter-application');
+
+        async function loadProjectsForState(stateId) {
+            if (!projSel) return;
+            projSel.innerHTML = '<option value="">Loading...</option>';
+            if (appSel) appSel.innerHTML = '<option value="">Application</option>';
+            if (!stateId) {
+                projSel.innerHTML = '<option value="">Project</option>';
+                return;
+            }
+            try {
+                const url = new URL('{{ route('issues.ajax.projects') }}', window.location.origin);
+                url.searchParams.set('state_id', stateId);
+                const res = await fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!res.ok) throw new Error('Failed to load projects');
+                const data = await res.json();
+                projSel.innerHTML = '<option value="">Project</option>';
+                data.forEach(function (p) {
+                    const opt = document.createElement('option');
+                    opt.value = p.project_id;
+                    opt.textContent = p.project_name;
+                    projSel.appendChild(opt);
+                });
+            } catch (err) {
+                console.error(err);
+                projSel.innerHTML = '<option value="">Project</option>';
+            }
+        }
+
+        async function loadApplicationsForProject(projectId) {
+            if (!appSel) return;
+            appSel.innerHTML = '<option value="">Loading...</option>';
+            if (!projectId) {
+                appSel.innerHTML = '<option value="">Application</option>';
+                return;
+            }
+            try {
+                const url = new URL('{{ route('issues.ajax.applications') }}', window.location.origin);
+                url.searchParams.set('project_id', projectId);
+                // include state if present to let vendor mapping narrow results
+                if (stateSel && stateSel.value) url.searchParams.set('state_id', stateSel.value);
+                const res = await fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (!res.ok) throw new Error('Failed to load applications');
+                const data = await res.json();
+                appSel.innerHTML = '<option value="">Application</option>';
+                data.forEach(function (a) {
+                    const opt = document.createElement('option');
+                    opt.value = a.application_id;
+                    opt.textContent = a.application_name;
+                    appSel.appendChild(opt);
+                });
+            } catch (err) {
+                console.error(err);
+                appSel.innerHTML = '<option value="">Application</option>';
+            }
+        }
+
+        if (stateSel) {
+            stateSel.addEventListener('change', function (e) {
+                const sid = e.target.value;
+                loadProjectsForState(sid);
+            });
+            // load projects on initial page load if a state is already selected
+            if (stateSel.value) loadProjectsForState(stateSel.value);
+        }
+
+        if (projSel) {
+            projSel.addEventListener('change', function (e) {
+                const pid = e.target.value;
+                loadApplicationsForProject(pid);
+            });
+            // load applications on initial page load if a project is already selected
+            if (projSel.value) loadApplicationsForProject(projSel.value);
+        }
+    });
     </script>
 
 

@@ -22,7 +22,7 @@ return new class extends Migration
 
             $table->foreign('project_id')->references('project_id')->on('mst_project')->onDelete('cascade');
             $table->foreign('application_id')->references('application_id')->on('mst_application')->onDelete('cascade');
-            $table->foreign('module_id')->references('module_id')->on('mst_application_module')->onDelete('cascade');
+            $table->foreign('module_id')->references('module_id')->on('mst_module')->onDelete('cascade');
             $table->unique(['project_id', 'application_id', 'module_id'], 'project_application_module_unique');
         });
     }

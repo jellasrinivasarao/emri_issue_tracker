@@ -30,6 +30,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use App\Http\Requests\StoreIssueRequest;
+use Illuminate\Support\Facades\Schema;
 
 
 class IssueController extends Controller
@@ -252,6 +253,8 @@ class IssueController extends Controller
         $priorities = collect();
         $services = collect();
         $projects = collect();
+        $states = collect();
+        $applications = collect();
 
         /*
         |--------------------------------------------------------------------------
@@ -322,13 +325,174 @@ class IssueController extends Controller
             Log::warning('Unable to load projects: ' . $e->getMessage());
         }
 
+        // Load states / projects / applications based on role and mappings
+        try {
+            $user = auth()->user();
+
+            $roleIds = collect($user?->roles ?? collect())
+                ->pluck('role_id')
+                ->map(fn ($roleId) => (int) $roleId)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            if (empty($roleIds) && ! empty($user?->user_id)) {
+                $roleIds = DB::table('map_user_role')
+                    ->where('user_id', $user->user_id)
+                    ->where('is_active', 1)
+                    ->pluck('role_id')
+                    ->map(fn ($roleId) => (int) $roleId)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+
+            $roleNames = [];
+            if (! empty($roleIds)) {
+                $roleNames = DB::table('mst_role')
+                    ->whereIn('role_id', $roleIds)
+                    ->pluck('role_name')
+                    ->map(fn ($roleName) => strtolower((string) $roleName))
+                    ->all();
+            } elseif (! empty($user?->role_id)) {
+                $roleNames = [strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'))];
+            }
+
+            $roleText = implode(' ', array_filter($roleNames));
+            $isVendorRole = str_contains($roleText, 'vendor admin')
+                || str_contains($roleText, 'vendor it')
+                || str_contains($roleText, 'vendor');
+            $isStateAdmin = str_contains($roleText, 'state admin');
+            $isStateIt = str_contains($roleText, 'state it');
+            $isStateRole = $isStateAdmin || $isStateIt || str_contains($roleText, 'state');
+
+            $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
+
+            // States
+            $stateQuery = DB::table('mst_state as st')->select('st.state_id', 'st.state_name');
+            if (Schema::hasColumn('mst_state', 'is_active')) {
+                $stateQuery->where('st.is_active', 1);
+            }
+
+            if (($isStateAdmin || $isStateIt) && ! empty($user->state_id)) {
+                $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
+                if (! empty($stateIds)) {
+                    $states = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();
+                } else {
+                    $states = collect();
+                }
+            } elseif ($isVendorRole) {
+                if (! empty($vendorId)) {
+                    $states = DB::table('map_vendor_state as m')
+                        ->join('mst_state as st', 'm.state_id', '=', 'st.state_id')
+                        ->select('st.state_id', 'st.state_name')
+                        ->where('m.vendor_id', $vendorId)
+                        ->where('m.is_active', 1)
+                        ->when(Schema::hasColumn('mst_state', 'is_active'), fn ($query) => $query->where('st.is_active', 1))
+                        ->distinct()
+                        ->orderBy('st.state_name')
+                        ->get();
+                } else {
+                    $states = collect();
+                }
+            } else {
+                $states = $stateQuery->orderBy('st.state_name')->get();
+            }
+
+            // Projects: if a state filter is provided, prefer map_project_state mappings
+            $projectQuery = DB::table('mst_project as pr')->select('pr.project_id', 'pr.project_name');
+            if (Schema::hasColumn('mst_project', 'is_active')) {
+                $projectQuery->where('pr.is_active', 1);
+            }
+
+            if ($isVendorRole) {
+                if (! empty($vendorId)) {
+                    $projectQuery->join('map_vendor_state as m', 'pr.project_id', '=', 'm.project_id')
+                        ->where('m.vendor_id', $vendorId)
+                        ->where('m.is_active', 1)
+                        ->distinct();
+                    if ($request->filled('state_id')) {
+                        $projectQuery->where('m.state_id', $request->input('state_id'));
+                    }
+                } else {
+                    $projectQuery->whereRaw('0 = 1');
+                }
+            } elseif ($request->filled('state_id')) {
+                $stateId = (int) $request->input('state_id');
+                $mappedProjectIds = DB::table('map_project_state')
+                    ->where('state_id', $stateId)
+                    ->where('is_active', 1)
+                    ->distinct()
+                    ->pluck('project_id')
+                    ->filter()
+                    ->all();
+
+                if (! empty($mappedProjectIds)) {
+                    $projectQuery->whereIn('pr.project_id', $mappedProjectIds);
+                } else {
+                    $projectQuery->where('pr.state_id', $stateId);
+                }
+            }
+
+            $projects = $projectQuery->orderBy('pr.project_name')->get();
+
+            // Applications: prefer map_project_application_module mapping when project selected
+            $applicationQuery = DB::table('mst_application as a')->select('a.application_id', 'a.application_name');
+            if (Schema::hasColumn('mst_application', 'is_active')) {
+                $applicationQuery->where('a.is_active', 1);
+            }
+
+            if ($request->filled('project_id')) {
+                $projectId = (int) $request->input('project_id');
+
+                if ($isVendorRole && ! empty($vendorId)) {
+                    $applicationIds = DB::table('map_vendor_state as m')
+                        ->where('m.vendor_id', $vendorId)
+                        ->where('m.project_id', $projectId)
+                        ->where('m.is_active', 1)
+                        ->when($request->filled('state_id'), function ($query) use ($request) {
+                            return $query->where('m.state_id', $request->input('state_id'));
+                        })
+                        ->distinct()
+                        ->pluck('m.application_id')
+                        ->filter()
+                        ->all();
+                } else {
+                    $applicationIds = DB::table('map_project_application_module')
+                        ->where('project_id', $projectId)
+                        ->where('is_active', 1)
+                        ->distinct()
+                        ->pluck('application_id')
+                        ->filter()
+                        ->all();
+                }
+
+                if (! empty($applicationIds)) {
+                    $applicationQuery->whereIn('a.application_id', $applicationIds);
+                } else {
+                    $applicationQuery->whereRaw('0 = 1');
+                }
+            } else {
+                $applicationQuery->whereRaw('0 = 1');
+            }
+
+            $applications = $applicationQuery->orderBy('a.application_name')->get();
+
+        } catch (Throwable $e) {
+            Log::warning('Unable to load states/projects/applications: ' . $e->getMessage());
+        }
+
 
         return view('issues.index', compact(
             'issues',
             'statuses',
             'priorities',
             'services',
-            'projects'
+            'projects',
+            'states',
+            'applications'
         ));
     }
 
@@ -340,9 +504,35 @@ class IssueController extends Controller
     public function create()
     {
 
-        $states = State::where('is_active',1)
-            ->orderBy('state_name')
-            ->get();
+        // Determine available states based on user roles (Central Admin sees all)
+        $user = auth()->user();
+
+        $roleText = '';
+        if (! empty($user?->roles)) {
+            $roleText = implode(' ', collect($user->roles)->pluck('role_name')->map(fn($r)=>strtolower((string)$r))->all());
+        } elseif (! empty($user?->role_id)) {
+            $roleText = strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'));
+        }
+
+        $isStateAdmin = str_contains($roleText, 'state admin');
+        $isStateIt = str_contains($roleText, 'state it');
+        $isStateRole = $isStateAdmin || $isStateIt || str_contains($roleText, 'state');
+
+        $stateQuery = DB::table('mst_state as st')->select('st.state_id', 'st.state_name');
+        if (Schema::hasColumn('mst_state', 'is_active')) {
+            $stateQuery->where('st.is_active', 1);
+        }
+
+        if (($isStateAdmin || $isStateIt) && ! empty($user->state_id)) {
+            $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
+            if (! empty($stateIds)) {
+                $states = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();
+            } else {
+                $states = collect();
+            }
+        } else {
+            $states = $stateQuery->orderBy('st.state_name')->get();
+        }
 
 
         $services = Service::where('is_active',1)
@@ -350,19 +540,13 @@ class IssueController extends Controller
             ->get();
 
 
-        $projects = Project::where('is_active',1)
-            ->orderBy('project_name')
-            ->get();
+        // Do not pre-populate projects/applications/modules — they'll be loaded via AJAX
+        $projects = collect();
+        $applications = collect();
+        $modules = collect();
 
 
-        $applications = Application::where('is_active',1)
-            ->orderBy('application_name')
-            ->get();
-
-
-        $modules = Module::where('is_active',1)
-            ->orderBy('module_name')
-            ->get();
+        
 
         $issueCategories = IssueCategory::where('is_active',1)
             ->orderBy('category_name')
@@ -400,6 +584,110 @@ class IssueController extends Controller
                 'priorities'
             )
         );
+    }
+/* by srinivas*/
+
+    /**
+     * Return projects for a given state (AJAX)
+     */
+    public function projectsByState(Request $request): JsonResponse
+    {
+        $request->validate([
+            'state_id' => ['required','integer','exists:mst_state,state_id'],
+        ]);
+
+        // Prefer using map_project_state mapping if present
+        $mappedProjectIds = DB::table('map_project_state')
+            ->where('state_id', $request->input('state_id'))
+            ->where('is_active', 1)
+            ->distinct()
+            ->pluck('project_id')
+            ->filter()
+            ->all();
+
+        $projectQuery = DB::table('mst_project as pr')->select('pr.project_id', 'pr.project_name');
+        if (Schema::hasColumn('mst_project', 'is_active')) {
+            $projectQuery->where('pr.is_active', 1);
+        }
+
+        if (! empty($mappedProjectIds)) {
+            $projectQuery->whereIn('pr.project_id', $mappedProjectIds);
+        } else {
+            // fallback to projects whose state_id matches
+            $projectQuery->where('pr.state_id', $request->input('state_id'));
+        }
+
+        $projects = $projectQuery->orderBy('pr.project_name')->get();
+
+        return response()->json($projects);
+    }
+
+
+    /**
+     * Return applications for a given project (AJAX)
+     */
+    public function applicationsByProject(Request $request): JsonResponse
+    {
+        $request->validate([
+            'project_id' => ['required','integer','exists:mst_project,project_id'],
+        ]);
+
+        $applicationIds = DB::table('map_project_application_module')
+            ->where('project_id', $request->input('project_id'))
+            ->where('is_active', 1)
+            ->distinct()
+            ->pluck('application_id')
+            ->filter()
+            ->all();
+
+        if (empty($applicationIds)) {
+            return response()->json([]);
+        }
+
+        $applicationQuery = DB::table('mst_application as a')->select('a.application_id', 'a.application_name')
+            ->whereIn('a.application_id', $applicationIds);
+        if (Schema::hasColumn('mst_application', 'is_active')) {
+            $applicationQuery->where('a.is_active', 1);
+        }
+
+        $applications = $applicationQuery->orderBy('a.application_name')->get();
+
+        return response()->json($applications);
+    }
+
+
+    /**
+     * Return modules for a given project+application (AJAX)
+     */
+    public function modulesByApplication(Request $request): JsonResponse
+    {
+        $request->validate([
+            'application_id' => ['required','integer','exists:mst_application,application_id'],
+            'project_id' => ['nullable','integer','exists:mst_project,project_id'],
+        ]);
+
+        $mappingQuery = DB::table('map_project_application_module')->where('application_id', $request->input('application_id'))
+            ->where('is_active', 1);
+
+        if ($request->filled('project_id')) {
+            $mappingQuery->where('project_id', $request->input('project_id'));
+        }
+
+        $moduleIds = $mappingQuery->distinct()->pluck('module_id')->filter()->all();
+
+        if (empty($moduleIds)) {
+            return response()->json([]);
+        }
+
+        $moduleQuery = DB::table('mst_module as m')->select('m.module_id', 'm.module_name')
+            ->whereIn('m.module_id', $moduleIds);
+        if (Schema::hasColumn('mst_module', 'is_active')) {
+            $moduleQuery->where('m.is_active', 1);
+        }
+
+        $modules = $moduleQuery->orderBy('m.module_name')->get();
+
+        return response()->json($modules);
     }
 
 

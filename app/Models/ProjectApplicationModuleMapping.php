@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Module;
 
 class ProjectApplicationModuleMapping extends Model
 {
@@ -40,6 +41,6 @@ class ProjectApplicationModuleMapping extends Model
 
     public function module(): BelongsTo
     {
-        return $this->belongsTo(ApplicationModule::class, 'module_id', 'module_id');
+        return $this->belongsTo(Module::class, 'module_id', 'module_id');
     }
 }

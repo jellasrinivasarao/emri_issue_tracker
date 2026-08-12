@@ -123,9 +123,9 @@
                         </thead>
                         <tbody class="divide-y divide-slate-200">
                             @foreach($issues as $ticket)
-                                <tr class="cursor-pointer hover:bg-slate-50" @click="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details';">
+                                <tr class="cursor-pointer hover:bg-slate-50" @click="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details'; window.refreshVendorOptions?.(@js($ticket));">
                                     <td class="px-3 py-2.5 font-semibold text-slate-900">
-                                        <a href="#" @click.prevent="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details'" class="inline-block text-blue-600 hover:text-blue-800 underline decoration-blue-300 decoration-1 underline-offset-2">{{ $ticket['id'] }}</a>
+                                        <a href="#" @click.prevent="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details'; window.refreshVendorOptions?.(@js($ticket));" class="inline-block text-blue-600 hover:text-blue-800 underline decoration-blue-300 decoration-1 underline-offset-2">{{ $ticket['id'] }}</a>
                                     </td>
                                     <td class="px-3 py-2.5">{{ $ticket['title'] }}</td>
                                     <td class="px-3 py-2.5">{{ $ticket['state'] }}</td>
@@ -332,14 +332,17 @@
                                                     </select>
                                                 </div>
 
-                                                <div x-show="selectedStatus && (selectedStatus.toLowerCase().includes('vendor'))" x-cloak>
+                                                <div x-show="selectedStatus && ['escalate to vendor', 'vendor assignment'].includes(selectedStatus.toLowerCase())" x-cloak>
                                                     <label class="block text-sm font-semibold text-slate-700">Vendor Assignment</label>
-                                                    <select name="vendor_ids[]" multiple size="6" class="mt-2 w-full rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                                        @foreach($vendorOptions as $vendor)
-                                                            <option value="{{ $vendor->vendor_id }}">{{ $vendor->vendor_name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <p class="mt-1 text-[11px] text-slate-500">Hold Ctrl / Cmd to select multiple vendors.</p>
+                                                    <div id="vendor-multi-select" class="relative mt-2">
+                                                        <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100" data-multi-select>
+                                                            <div class="flex flex-wrap gap-2" data-multi-select-chips></div>
+                                                            <input type="text" class="min-w-[140px] flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" placeholder="Search vendors" data-multi-select-input autocomplete="off" />
+                                                        </div>
+                                                        <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
+                                                        <div data-multi-select-hidden class="hidden"></div>
+                                                    </div>
+                                                    <p class="mt-1 text-[11px] text-slate-500">Search and select one or more vendors.</p>
                                                 </div>
 
                                                 <div>
@@ -418,4 +421,167 @@
         </div>
     </div>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const vendorOptions = @json($vendorOptions->map(function ($vendor) {
+                return ['vendor_id' => $vendor->vendor_id, 'vendor_name' => $vendor->vendor_name];
+            })->all());
+            const vendorStateMappings = @json($vendorStateMappings->map(function ($mapping) {
+                return ['state_id' => $mapping->state_id, 'project_id' => $mapping->project_id, 'vendor_id' => $mapping->vendor_id];
+            })->all());
+
+            const multiselectContainer = document.getElementById('vendor-multi-select');
+            if (!multiselectContainer) {
+                return;
+            }
+
+            const input = multiselectContainer.querySelector('[data-multi-select-input]');
+            const list = multiselectContainer.querySelector('[data-multi-select-list]');
+            const chipsContainer = multiselectContainer.querySelector('[data-multi-select-chips]');
+            const hiddenContainer = multiselectContainer.querySelector('[data-multi-select-hidden]');
+
+            let selectedVendorIds = [];
+
+            function formatVendorLabel(vendor) {
+                return vendor.vendor_name || '';
+            }
+
+            function findVendorById(id) {
+                return vendorOptions.find((option) => String(option.vendor_id) === String(id));
+            }
+
+            let currentStateId = null;
+            let currentProjectId = null;
+
+            function getAvailableVendorIds() {
+                if (!currentStateId || !currentProjectId) {
+                    return [];
+                }
+                return vendorStateMappings
+                    .filter((mapping) => String(mapping.state_id) === String(currentStateId) && String(mapping.project_id) === String(currentProjectId))
+                    .map((mapping) => String(mapping.vendor_id));
+            }
+
+            function getAvailableVendors() {
+                const availableIds = getAvailableVendorIds();
+                return vendorOptions.filter((vendor) => availableIds.includes(String(vendor.vendor_id)));
+            }
+
+            function renderList(filter = '') {
+                list.innerHTML = '';
+                const query = String(filter).trim().toLowerCase();
+
+                const filtered = getAvailableVendors().filter((option) => {
+                    const label = formatVendorLabel(option).toLowerCase();
+                    const isSelected = selectedVendorIds.includes(String(option.vendor_id));
+                    const matchesSearch = query === '' || label.includes(query);
+                    return !isSelected && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'px-3 py-2 text-sm text-slate-500';
+                    empty.textContent = currentStateId && currentProjectId ? 'No vendors mapped for this state/project.' : 'Select a ticket first to load vendors.';
+                    list.appendChild(empty);
+                    return;
+                }
+
+                filtered.forEach((vendor) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
+                    button.dataset.value = vendor.vendor_id;
+                    button.textContent = formatVendorLabel(vendor);
+                    list.appendChild(button);
+                });
+            }
+
+            function renderChips() {
+                chipsContainer.innerHTML = '';
+                hiddenContainer.innerHTML = '';
+
+                selectedVendorIds.forEach((vendorId) => {
+                    const vendor = findVendorById(vendorId);
+                    if (!vendor) {
+                        return;
+                    }
+
+                    const chip = document.createElement('span');
+                    chip.className = 'inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700';
+                    chip.textContent = formatVendorLabel(vendor);
+
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'rounded-full bg-slate-200 px-1 text-slate-500 hover:bg-slate-300';
+                    removeButton.textContent = '×';
+                    removeButton.addEventListener('click', function (event) {
+                        event.stopPropagation();
+                        removeSelectedVendor(vendorId);
+                    });
+
+                    chip.appendChild(removeButton);
+                    chipsContainer.appendChild(chip);
+
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'vendor_ids[]';
+                    hiddenInput.value = vendorId;
+                    hiddenContainer.appendChild(hiddenInput);
+                });
+            }
+
+            function addSelectedVendor(vendorId) {
+                vendorId = String(vendorId);
+                if (!selectedVendorIds.includes(vendorId)) {
+                    selectedVendorIds.push(vendorId);
+                    renderChips();
+                    renderList(input.value);
+                }
+            }
+
+            function removeSelectedVendor(vendorId) {
+                vendorId = String(vendorId);
+                selectedVendorIds = selectedVendorIds.filter((value) => value !== vendorId);
+                renderChips();
+                renderList(input.value);
+            }
+
+            input.addEventListener('input', function () {
+                renderList(this.value);
+                list.classList.remove('hidden');
+            });
+
+            input.addEventListener('focus', function () {
+                renderList(this.value);
+                list.classList.remove('hidden');
+            });
+
+            list.addEventListener('click', function (event) {
+                const button = event.target.closest('button[data-value]');
+                if (!button) {
+                    return;
+                }
+                addSelectedVendor(button.dataset.value);
+                input.value = '';
+                list.classList.add('hidden');
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!multiselectContainer.contains(event.target)) {
+                    list.classList.add('hidden');
+                }
+            });
+
+            window.refreshVendorOptions = function (ticket) {
+                currentStateId = ticket?.state_id || ticket?.state || null;
+                currentProjectId = ticket?.project_id || ticket?.project || null;
+                selectedVendorIds = [];
+                renderChips();
+                renderList(input.value);
+            };
+
+            renderList();
+            renderChips();
+        });
+    </script>
 </x-app-layout>
