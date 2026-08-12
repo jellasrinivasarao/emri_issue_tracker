@@ -1,36 +1,53 @@
-@csrf
+{{-- Validation Errors --}}
+@if ($errors->any())
 
-<div class="row">
+<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+
+    <div class="font-semibold">
+        Please fix the following errors:
+    </div>
+
+    <ul class="mt-2 list-disc space-y-1 pl-5">
+        @foreach ($errors->all() as $error)
+        <li>{{ $error }}</li>
+        @endforeach
+    </ul>
+
+</div>
+
+@endif
+
+
+<div class="grid gap-6 md:grid-cols-2">
 
     {{-- Calendar --}}
-    <div class="col-md-4 mb-3">
-        <label class="form-label">
-            Calendar <span class="text-danger">*</span>
+    <div>
+        <label for="calendar_id" class="mb-1 block text-sm font-medium text-slate-700">
+            Calendar
         </label>
 
-        <input type="number" name="calendar_id" class="form-control @error('calendar_id') is-invalid @enderror" value="{{ old(
-                'calendar_id',
-                $workingSchedule->calendar_id ?? 1
-            ) }}" required>
+        <input type="number" id="calendar_id" name="calendar_id"
+            value="{{ old('calendar_id', $workingSchedule->calendar_id ?? '') }}" required
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
         @error('calendar_id')
-        <div class="invalid-feedback">
+        <p class="mt-1 text-xs text-rose-600">
             {{ $message }}
-        </div>
+        </p>
         @enderror
     </div>
 
 
     {{-- Day --}}
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
-            Day <span class="text-danger">*</span>
+    <div>
+        <label for="day_of_week" class="mb-1 block text-sm font-medium text-slate-700">
+            Day of Week
         </label>
 
-        <select name="day_of_week" class="form-select @error('day_of_week') is-invalid @enderror" required>
+        <select id="day_of_week" name="day_of_week" required
+            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
-            @foreach([
+            @foreach ([
             'MONDAY',
             'TUESDAY',
             'WEDNESDAY',
@@ -40,9 +57,7 @@
             'SUNDAY'
             ] as $day)
 
-            <option value="{{ $day }}" @selected( old( 'day_of_week' , $workingSchedule->day_of_week ?? ''
-                ) === $day
-                )
+            <option value="{{ $day }}" @selected(old('day_of_week', $workingSchedule->day_of_week ?? '') === $day)
                 >
                 {{ $day }}
             </option>
@@ -52,258 +67,315 @@
         </select>
 
         @error('day_of_week')
-        <div class="invalid-feedback">
+        <p class="mt-1 text-xs text-rose-600">
             {{ $message }}
-        </div>
+        </p>
         @enderror
-
     </div>
 
 
     {{-- Schedule Name --}}
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
+    <div>
+        <label for="schedule_name" class="mb-1 block text-sm font-medium text-slate-700">
             Schedule Name
         </label>
 
-        <input type="text" name="schedule_name" class="form-control" maxlength="100" value="{{ old(
-                'schedule_name',
-                $workingSchedule->schedule_name ?? 'General Shift'
-            ) }}">
+        <input type="text" id="schedule_name" name="schedule_name"
+            value="{{ old('schedule_name', $workingSchedule->schedule_name ?? '') }}" required
+            placeholder="e.g. General Shift"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
+        @error('schedule_name')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
     </div>
 
 
     {{-- Shift Name --}}
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
+    <div>
+        <label for="shift_name" class="mb-1 block text-sm font-medium text-slate-700">
             Shift Name
         </label>
 
-        <input type="text" name="shift_name" class="form-control" maxlength="50" value="{{ old(
-                'shift_name',
-                $workingSchedule->shift_name ?? 'General'
-            ) }}">
+        <input type="text" id="shift_name" name="shift_name"
+            value="{{ old('shift_name', $workingSchedule->shift_name ?? '') }}" placeholder="e.g. Morning Shift"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
+        @error('shift_name')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
     </div>
 
 
-    {{-- Shift No --}}
-    <div class="col-md-2 mb-3">
-
-        <label class="form-label">
-            Shift No
+    {{-- Shift Number --}}
+    <div>
+        <label for="shift_no" class="mb-1 block text-sm font-medium text-slate-700">
+            Shift Number
         </label>
 
-        <input type="number" name="shift_no" min="1" max="255" class="form-control" value="{{ old(
-                'shift_no',
-                $workingSchedule->shift_no ?? 1
-            ) }}">
+        <input type="number" id="shift_no" name="shift_no"
+            value="{{ old('shift_no', $workingSchedule->shift_no ?? '') }}" min="1"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
+        @error('shift_no')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
     </div>
 
 
-    {{-- Sequence --}}
-    <div class="col-md-2 mb-3">
-
-        <label class="form-label">
-            Sequence No
+    {{-- Sequence Number --}}
+    <div>
+        <label for="sequence_no" class="mb-1 block text-sm font-medium text-slate-700">
+            Sequence Number
         </label>
 
-        <input type="number" name="sequence_no" min="1" class="form-control" value="{{ old(
-                'sequence_no',
-                $workingSchedule->sequence_no ?? 1
-            ) }}">
+        <input type="number" id="sequence_no" name="sequence_no"
+            value="{{ old('sequence_no', $workingSchedule->sequence_no ?? '') }}" min="1"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
+        @error('sequence_no')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
     </div>
 
-
-    {{-- Start --}}
-    <div class="col-md-3 mb-3">
-
-        <label class="form-label">
-            Start Time
-        </label>
-
-        <input type="time" name="start_time" class="form-control" value="{{ old(
-                'start_time',
-                isset($workingSchedule)
-                    ? substr($workingSchedule->start_time ?? '', 0, 5)
-                    : '09:00'
-            ) }}">
-
-    </div>
+</div>
 
 
-    {{-- End --}}
-    <div class="col-md-3 mb-3">
+{{-- Working Hours --}}
+<div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
 
-        <label class="form-label">
-            End Time
-        </label>
+    <h4 class="mb-4 text-sm font-semibold text-slate-900">
+        Working Hours
+    </h4>
 
-        <input type="time" name="end_time" class="form-control" value="{{ old(
-                'end_time',
-                isset($workingSchedule)
-                    ? substr($workingSchedule->end_time ?? '', 0, 5)
-                    : '18:00'
-            ) }}">
+    <div class="grid gap-6 md:grid-cols-3">
 
-    </div>
-
-
-    {{-- Break Start --}}
-    <div class="col-md-3 mb-3">
-
-        <label class="form-label">
-            Break Start
-        </label>
-
-        <input type="time" name="break_start" class="form-control" value="{{ old(
-                'break_start',
-                isset($workingSchedule)
-                    ? substr($workingSchedule->break_start ?? '', 0, 5)
-                    : '13:00'
-            ) }}">
-
-    </div>
-
-
-    {{-- Break End --}}
-    <div class="col-md-3 mb-3">
-
-        <label class="form-label">
-            Break End
-        </label>
-
-        <input type="time" name="break_end" class="form-control" value="{{ old(
-                'break_end',
-                isset($workingSchedule)
-                    ? substr($workingSchedule->break_end ?? '', 0, 5)
-                    : '14:00'
-            ) }}">
-
-    </div>
-
-
-    {{-- Effective From --}}
-    <div class="col-md-3 mb-3">
-
-        <label class="form-label">
-            Effective From
-        </label>
-
-        <input type="date" name="effective_from" class="form-control" value="{{ old(
-                'effective_from',
-                isset($workingSchedule)
-                    ? optional($workingSchedule->effective_from)
-                        ->format('Y-m-d')
-                    : '2026-01-01'
-            ) }}">
-
-    </div>
-
-
-    {{-- Effective To --}}
-    <div class="col-md-3 mb-3">
-
-        <label class="form-label">
-            Effective To
-        </label>
-
-        <input type="date" name="effective_to" class="form-control" value="{{ old(
-                'effective_to',
-                isset($workingSchedule)
-                    ? optional($workingSchedule->effective_to)
-                        ->format('Y-m-d')
-                    : ''
-            ) }}">
-
-    </div>
-
-
-    {{-- Working Day --}}
-    <div class="col-md-2 mb-3">
-
-        <label class="form-label d-block">
-            Working Day
-        </label>
-
-        <div class="form-check form-switch">
-
-            <input type="hidden" name="is_working_day" value="0">
-
-            <input class="form-check-input" type="checkbox" name="is_working_day" value="1"
-                @checked(old( 'is_working_day' , $workingSchedule->is_working_day ?? 1
-            ))
-            >
-
-            <label class="form-check-label">
-                Working
+        {{-- Start --}}
+        <div>
+            <label for="start_time" class="mb-1 block text-sm font-medium text-slate-700">
+                Start Time
             </label>
 
+            <input type="time" id="start_time" name="start_time"
+                value="{{ old('start_time', $workingSchedule->start_time ?? '') }}"
+                class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+            @error('start_time')
+            <p class="mt-1 text-xs text-rose-600">
+                {{ $message }}
+            </p>
+            @enderror
         </div>
 
-    </div>
 
-
-    {{-- 24 Hours --}}
-    <div class="col-md-2 mb-3">
-
-        <label class="form-label d-block">
-            24 Hours
-        </label>
-
-        <div class="form-check form-switch">
-
-            <input type="hidden" name="is_24_hours" value="0">
-
-            <input class="form-check-input" type="checkbox" name="is_24_hours" value="1" @checked(old( 'is_24_hours' ,
-                $workingSchedule->is_24_hours ?? 0
-            ))
-            >
-
-            <label class="form-check-label">
-                Yes
+        {{-- Break Start --}}
+        <div>
+            <label for="break_start" class="mb-1 block text-sm font-medium text-slate-700">
+                Break Start
             </label>
 
+            <input type="time" id="break_start" name="break_start"
+                value="{{ old('break_start', $workingSchedule->break_start ?? '') }}"
+                class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+            @error('break_start')
+            <p class="mt-1 text-xs text-rose-600">
+                {{ $message }}
+            </p>
+            @enderror
         </div>
 
-    </div>
 
-
-    {{-- Active --}}
-    <div class="col-md-2 mb-3">
-
-        <label class="form-label d-block">
-            Status
-        </label>
-
-        <div class="form-check form-switch">
-
-            <input type="hidden" name="is_active" value="0">
-
-            <input class="form-check-input" type="checkbox" name="is_active" value="1" @checked(old( 'is_active' ,
-                $workingSchedule->is_active ?? 1
-            ))
-            >
-
-            <label class="form-check-label">
-                Active
+        {{-- Break End --}}
+        <div>
+            <label for="break_end" class="mb-1 block text-sm font-medium text-slate-700">
+                Break End
             </label>
 
+            <input type="time" id="break_end" name="break_end"
+                value="{{ old('break_end', $workingSchedule->break_end ?? '') }}"
+                class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+            @error('break_end')
+            <p class="mt-1 text-xs text-rose-600">
+                {{ $message }}
+            </p>
+            @enderror
+        </div>
+
+
+        {{-- End --}}
+        <div>
+            <label for="end_time" class="mb-1 block text-sm font-medium text-slate-700">
+                End Time
+            </label>
+
+            <input type="time" id="end_time" name="end_time"
+                value="{{ old('end_time', $workingSchedule->end_time ?? '') }}"
+                class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+            @error('end_time')
+            <p class="mt-1 text-xs text-rose-600">
+                {{ $message }}
+            </p>
+            @enderror
         </div>
 
     </div>
 
 </div>
 
-<button type="submit" class="btn btn-primary">
-    {{ isset($workingSchedule) ? 'Update' : 'Save' }}
-</button>
 
-<a href="{{ route('working-schedules.index') }}" class="btn btn-secondary">
-    Cancel
-</a>
+{{-- Dates --}}
+<div class="grid gap-6 md:grid-cols-2">
+
+    {{-- Effective From --}}
+    <div>
+        <label for="effective_from" class="mb-1 block text-sm font-medium text-slate-700">
+            Effective From
+        </label>
+
+        <input type="date" id="effective_from" name="effective_from"
+            value="{{ old('effective_from', optional($workingSchedule->effective_from)->format('Y-m-d')) }}"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+        @error('effective_from')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
+    </div>
+
+
+    {{-- Effective To --}}
+    <div>
+        <label for="effective_to" class="mb-1 block text-sm font-medium text-slate-700">
+            Effective To
+        </label>
+
+        <input type="date" id="effective_to" name="effective_to"
+            value="{{ old('effective_to', optional($workingSchedule->effective_to)->format('Y-m-d')) }}"
+            class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+        @error('effective_to')
+        <p class="mt-1 text-xs text-rose-600">
+            {{ $message }}
+        </p>
+        @enderror
+    </div>
+
+</div>
+
+
+{{-- Options --}}
+<div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+    <h4 class="mb-4 text-sm font-semibold text-slate-900">
+        Schedule Options
+    </h4>
+
+    {{-- Working Hours --}}
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+        <h4 class="mb-4 text-sm font-semibold text-slate-900">
+            Working Hours
+        </h4>
+
+        <div class="grid gap-6 md:grid-cols-4">
+
+            {{-- Start --}}
+            <div>
+                <label for="start_time" class="mb-1 block text-sm font-medium text-slate-700">
+                    Start Time
+                </label>
+
+                <input type="time" id="start_time" name="start_time"
+                    value="{{ old('start_time', $workingSchedule->start_time ? \Carbon\Carbon::parse($workingSchedule->start_time)->format('H:i') : '') }}"
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+                @error('start_time')
+                <p class="mt-1 text-xs text-rose-600">
+                    {{ $message }}
+                </p>
+                @enderror
+            </div>
+
+            {{-- Break Start --}}
+            <div>
+                <label for="break_start" class="mb-1 block text-sm font-medium text-slate-700">
+                    Break Start
+                </label>
+
+                <input type="time" id="break_start" name="break_start"
+                    value="{{ old('break_start', $workingSchedule->break_start ? \Carbon\Carbon::parse($workingSchedule->break_start)->format('H:i') : '') }}"
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+                @error('break_start')
+                <p class="mt-1 text-xs text-rose-600">
+                    {{ $message }}
+                </p>
+                @enderror
+            </div>
+
+            {{-- Break End --}}
+            <div>
+                <label for="break_end" class="mb-1 block text-sm font-medium text-slate-700">
+                    Break End
+                </label>
+
+                <input type="time" id="break_end" name="break_end"
+                    value="{{ old('break_end', $workingSchedule->break_end ? \Carbon\Carbon::parse($workingSchedule->break_end)->format('H:i') : '') }}"
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+                @error('break_end')
+                <p class="mt-1 text-xs text-rose-600">
+                    {{ $message }}
+                </p>
+                @enderror
+            </div>
+
+            {{-- End --}}
+            <div>
+                <label for="end_time" class="mb-1 block text-sm font-medium text-slate-700">
+                    End Time
+                </label>
+
+                <input type="time" id="end_time" name="end_time"
+                    value="{{ old('end_time', $workingSchedule->end_time ? \Carbon\Carbon::parse($workingSchedule->end_time)->format('H:i') : '') }}"
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
+
+                @error('end_time')
+                <p class="mt-1 text-xs text-rose-600">
+                    {{ $message }}
+                </p>
+                @enderror
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+
+{{-- Buttons --}}
+<div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-5">
+
+    <a href="{{ route('working-schedules.index') }}"
+        class="rounded-xl border border-slate-300 bg-slate-100 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+        Cancel
+    </a>
+
+    <button type="submit"
+        class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+        Update Working Schedule
+    </button>
+
+</div>
