@@ -61,27 +61,31 @@ class IssueRoutingService
 
     public function resolve(Issue $issue): ?IssueRoutingRule
     {
-        return IssueRoutingRule::query()
-            ->where('project_id', $issue->project_id)
+        $query = IssueRoutingRule::query()
             ->where('is_active', 1)
-
             ->where(function ($query) use ($issue) {
                 $query->whereNull('issue_category')
                     ->orWhere('issue_category', $issue->issue_category_id);
-            })
+            });
 
-            ->where(function ($query) use ($issue) {
-                $query->whereNull('issue_type')
-                    ->orWhere('issue_type', $issue->issue_type_id);
-            })
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('issue_type')
+                ->orWhere('issue_type', $issue->issue_type_id);
+        });
 
-            ->where(function ($query) use ($issue) {
-                $query->whereNull('priority')
-                    ->orWhere('priority', $issue->priority_id);
-            })
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('issue_type')
+                ->orWhere('issue_type', $issue->issue_type_id);
+        });
 
-            ->orderByDesc('routing_level')
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('priority')
+                ->orWhere('priority', $issue->priority_id);
+        });
 
+        return $query
+            ->orderBy('routing_level')
+            ->orderByDesc('is_default')
             ->first();
     }
     public function route(Issue $issue): ?IssueRoutingRule
@@ -241,7 +245,6 @@ class IssueRoutingService
     protected function findMatchingRule(Issue $issue): ?IssueRoutingRule
     {
         $query = IssueRoutingRule::query()
-            ->where('support_config_id', $issue->support_config_id)
             ->where('is_active', 1);
 
         if ($issue->issue_category) {

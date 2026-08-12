@@ -42,7 +42,7 @@
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
                 'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
                 'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping','mail.configuration'],
-                'Operational Configuration' => ['working.hours', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
+                'Operational Configuration' => ['working-schedules', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
                 'Audit & Governance' => ['active.inactive.status', 'change.history', 'user.activity.log', 'system.audit.logs'],
             ];
 
@@ -66,6 +66,26 @@
                 ->merge($menuGroups['Audit & Governance']);
 
             $sectionOpen['Administration'] = $adminAccordionRoutes->contains(fn($routeName) => request()->routeIs($routeName));
+
+            $resolveMenuRoute = function($routeName) {
+                if (!$routeName) {
+                    return null;
+                }
+                if (Route::has($routeName)) {
+                    return $routeName;
+                }
+                return Route::has($routeName . '.index') ? $routeName . '.index' : null;
+            };
+
+            $isMenuActive = function($menuRouteName, $resolvedRouteName) {
+                if (!$menuRouteName || !$resolvedRouteName) {
+                    return false;
+                }
+                if (Route::has($menuRouteName)) {
+                    return request()->routeIs($menuRouteName);
+                }
+                return request()->routeIs($menuRouteName . '*');
+            };
         @endphp
 
         @php $withoutSidebar = $withoutSidebar ?? false; @endphp
@@ -125,8 +145,9 @@
                         <div class="space-y-1">
                             @foreach($groupedMenus->get('Main Menu', collect()) as $menu)
                                 @php
-                                    $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                    $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
+                                    $resolvedRouteName = $resolveMenuRoute($menu->route_name);
+                                    $isActive = $isMenuActive($menu->route_name, $resolvedRouteName);
+                                    $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                                 @endphp
                                 <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[16px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#103d7f] text-white shadow-sm' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
                                     <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900/70 text-slate-300">
@@ -168,8 +189,9 @@
                                                     <div x-show="openSections['{{ $section }}']" x-cloak class="space-y-1 border-t border-[#102858] px-3 pb-3 pt-2">
                                                         @foreach($groupedMenus->get($section) as $menu)
                                                             @php
-                                                                $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                                                $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
+                                                                $resolvedRouteName = $resolveMenuRoute($menu->route_name);
+                                                                $isActive = $isMenuActive($menu->route_name, $resolvedRouteName);
+                                                                $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                                                             @endphp
                                                             <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
                                                                 <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
@@ -219,8 +241,9 @@
                     <div class="space-y-1">
                         @foreach($groupedMenus->get('Main Menu', collect()) as $menu)
                             @php
-                                $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
+                                $resolvedRouteName = $resolveMenuRoute($menu->route_name);
+                                $isActive = $isMenuActive($menu->route_name, $resolvedRouteName);
+                                $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                             @endphp
                             <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#14417a] text-white' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
                                 <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
@@ -260,8 +283,9 @@
                                                 <div x-show="openSections['{{ $section }}']" x-cloak class="space-y-1 border-t border-slate-800 px-3 pb-3 pt-2">
                                                     @foreach($groupedMenus->get($section) as $menu)
                                                         @php
-                                                            $isActive = $menu->route_name ? request()->routeIs($menu->route_name) : false;
-                                                            $href = $menu->route_name && Route::has($menu->route_name) ? route($menu->route_name) : '#';
+                                                            $resolvedRouteName = $resolveMenuRoute($menu->route_name);
+                                                            $isActive = $isMenuActive($menu->route_name, $resolvedRouteName);
+                                                            $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                                                         @endphp
                                                         <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
                                                             <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>

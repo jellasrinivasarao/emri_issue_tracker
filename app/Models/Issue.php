@@ -57,6 +57,15 @@ class Issue extends Model
         'current_assignee_id',
 
         'resolution_summary',
+        'ho_intervention_required',
+        'ho_working_hours',
+        'first_level_vendor_ids',
+        'second_level_vendor_ids',
+        'current_stage',
+        'current_owner_type',
+        'current_owner_id',
+        'workflow_status',
+        'created_by',
         'resolved_by',
         'resolved_at',
         'closed_at',
@@ -106,8 +115,13 @@ class Issue extends Model
 
         'resolved_by' => 'integer',
         'reported_by' => 'integer',
-        //'created_by' => 'integer',
+        'created_by' => 'integer',
         'updated_by' => 'integer',
+        'ho_intervention_required' => 'boolean',
+        'ho_working_hours' => 'boolean',
+        'current_owner_type' => 'integer',
+        'current_owner_id' => 'integer',
+        'workflow_status' => 'integer',
 
         'reopened_count' => 'integer',
 

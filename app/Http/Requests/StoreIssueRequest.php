@@ -38,7 +38,7 @@ class StoreIssueRequest extends FormRequest
             ],
 
             'service_id' => [
-                'required',
+                'nullable',
                 'integer',
                 'exists:mst_service,service_id',
             ],
@@ -134,7 +134,6 @@ class StoreIssueRequest extends FormRequest
             'state_id.required' => 'Please select a State.',
             'state_id.exists' => 'Selected State is invalid.',
 
-            'service_id.required' => 'Please select a Service.',
             'service_id.exists' => 'Selected Service is invalid.',
 
             'project_id.required' => 'Please select a Project.',

@@ -66,7 +66,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('issues.index');
 
     Route::redirect('/raise-issue', '/issues/create')
-        ->middleware('menu.access:raise.issue');
+        ->middleware('menu.access:raise.issue')
+        ->name('raise.issue');
 
     Route::get('/issues/create', [IssueController::class, 'create'])
         ->middleware('menu.access:raise.issue')
@@ -370,7 +371,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
+    //Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
 
     // Working calendar CRUD endpoints
     // Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
@@ -636,11 +637,6 @@ if (app()->environment('local')) {
 
 
 require __DIR__.'/auth.php';
-
-
-Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
-Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
-Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
 
 
 

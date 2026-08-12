@@ -140,14 +140,48 @@ class IssueRepository implements IssueRepositoryInterface
      */
     public function create(array $data): Issue
     {
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[INSERT] Starting txn_issue INSERT operation');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        
+        Log::channel('insert_log')->info('[REPOSITORY] Entering create method');
+        Log::channel('insert_log')->info('[TABLE: txn_issue] Preparing INSERT statement', [
+            'issue_number' => $data['issue_number'] ?? null,
+            'project_id' => $data['project_id'] ?? null,
+            'state_id' => $data['state_id'] ?? null,
+            'status_id' => $data['status_id'] ?? null,
+            'ho_intervention_required' => $data['ho_intervention_required'] ?? null,
+            'ho_working_hours' => $data['ho_working_hours'] ?? null,
+            'first_level_vendor_ids' => $data['first_level_vendor_ids'] ?? null,
+            'second_level_vendor_ids' => $data['second_level_vendor_ids'] ?? null
+        ]);
+        
+        Log::channel('insert_log')->info('[TABLE: txn_issue] Timestamp:', ['created_at' => $data['created_at'] ?? now()]);
+        
         DB::beginTransaction();
 
         try {
+            Log::channel('insert_log')->info('[TABLE: txn_issue] Executing INSERT query into database');
             $issue = $this->model->create($data);
+            
+            Log::channel('insert_log')->info('✓ [TABLE: txn_issue] INSERT Successful', [
+                'id' => $issue->id,
+                'issue_id' => $issue->issue_id,
+                'issue_number' => $issue->issue_number,
+                'project_id' => $issue->project_id,
+                'state_id' => $issue->state_id,
+                'status_id' => $issue->status_id
+            ]);
+            
             DB::commit();
+            Log::channel('insert_log')->info('[DB] Transaction committed successfully');
 
             return $issue;
         } catch (\Exception $e) {
+            Log::channel('insert_log')->error('✗ [TABLE: txn_issue] INSERT Failed - Rolling back', [
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode()
+            ]);
             DB::rollBack();
             Log::error('Issue Create Error : ' . $e->getMessage());
             throw $e;
@@ -417,7 +451,21 @@ class IssueRepository implements IssueRepositoryInterface
 
 public function assign(Issue $issue, int $userId): bool
 {
-    return $issue->update([
+    Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+    Log::channel('insert_log')->info('[UPDATE] Starting issue assignment UPDATE operation');
+    Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+    
+    Log::channel('insert_log')->info('[REPOSITORY] Assigning issue to user', [
+        'issue_id' => $issue->issue_id,
+        'user_id' => $userId
+    ]);
+    Log::channel('insert_log')->info('[TABLE: txn_issue] Executing UPDATE query for assignment', [
+        'assigned_to' => $userId,
+        'assigned_at' => now(),
+        'status' => 'Assigned'
+    ]);
+    
+    $result = $issue->update([
 
         'assigned_to' => $userId,
 
@@ -426,6 +474,14 @@ public function assign(Issue $issue, int $userId): bool
         'status' => 'Assigned'
 
     ]);
+    
+    Log::channel('insert_log')->info('✓ [TABLE: txn_issue] Assignment UPDATE completed', [
+        'issue_id' => $issue->issue_id,
+        'user_id' => $userId,
+        'result' => $result ? 'success' : 'failed'
+    ]);
+    
+    return $result;
 }
 
 public function updateStatus(
