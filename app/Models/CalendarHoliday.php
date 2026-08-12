@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,12 +11,11 @@ class CalendarHoliday extends Model
 
     protected $primaryKey = 'holiday_id';
 
-    public $timestamps = false;
-
     protected $fillable = [
         'calendar_id',
         'holiday_date',
         'holiday_name',
+        'scope',
         'is_active',
     ];
 
@@ -26,8 +24,13 @@ class CalendarHoliday extends Model
         'is_active' => 'boolean',
     ];
 
+
     public function calendar(): BelongsTo
     {
-        return $this->belongsTo(WorkingCalendar::class,'calendar_id','calendar_id');
+        return $this->belongsTo(
+            WorkingCalendar::class,
+            'calendar_id',
+            'calendar_id'
+        );
     }
 }

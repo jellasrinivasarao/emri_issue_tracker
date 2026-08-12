@@ -46,4 +46,13 @@ class ProjectSupportConfiguration extends Model
             'support_config_id'
         );
     }
+
+    public function slaConfiguration()
+{
+    return $this->belongsTo(
+        SlaConfiguration::class,
+        'sla_configuration_id',
+        'sla_configuration_id'
+    );
+}
 }

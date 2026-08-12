@@ -29,12 +29,19 @@ class IssueRoutingRule extends Model
         'is_active',
         'created_by',
         'updated_by',
+        'project_id',
+        'state_id',
+        'application_id',
+        'vendor_id',
+        'hoit_id',
     ];
 
     protected $casts = [
         'routing_level' => 'integer',
-        'is_default' => 'boolean',
-        'is_active' => 'boolean',
+        'is_default'    => 'boolean',
+        'is_active'     => 'boolean',
+        'created_at'    => 'datetime',
+        'updated_at'    => 'datetime',
     ];
 
     public function configuration(): BelongsTo
@@ -46,12 +53,40 @@ class IssueRoutingRule extends Model
         );
     }
 
-    public function team(): BelongsTo
+    public function supportTeam(): BelongsTo
     {
         return $this->belongsTo(
             SupportTeam::class,
             'support_team_id',
             'support_team_id'
         );
+    }
+
+
+    // Add these when corresponding models exist.
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class, 'project_id');
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Application::class, 'application_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id');
+    }
+
+    public function hoIt(): BelongsTo
+    {
+        return $this->belongsTo(HoIt::class, 'hoit_id');
     }
 }
