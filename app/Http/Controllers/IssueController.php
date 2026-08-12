@@ -697,6 +697,9 @@ class IssueController extends Controller
      */
     public function store(StoreIssueRequest $request, IssueRoutingService $routingService): RedirectResponse|JsonResponse
     {
+        Log::info('╔════════════════════════════════════════════════╗');
+        Log::info('║ ISSUE CREATE ROUTE CALLED - /issues/create    ║');
+        Log::info('╚════════════════════════════════════════════════╝');
         Log::info("Raise Issue Request >>>>", ['response' => json_encode($request->all())]);
 
         try {
@@ -721,13 +724,17 @@ class IssueController extends Controller
             ]);
 
             if ($request->expectsJson()) {
-                return response()->json([
+                $payload = [
                     'success' => true,
                     'message' => 'Issue raised successfully.',
                     'issue' => $issue,
-                ], 200);
+                ];
+
+                return response()->json($payload, 200);
             }
 
+            Log::info('✓ ISSUE CREATION SUCCESSFUL IN CONTROLLER');
+            Log::info('Redirecting to issues.show page with issue details');
             return redirect()
                 ->route('issues.show', $issue)
                 ->with('success', 'Issue raised successfully. Issue Number: ' . $issue->issue_number);
@@ -735,6 +742,9 @@ class IssueController extends Controller
         } catch (Throwable $e) {
             #report($e);
 
+            Log::error('╔════════════════════════════════════════════════╗');
+            Log::error('║ ✗ ISSUE CREATE FAILED IN CONTROLLER            ║');
+            Log::error('╚════════════════════════════════════════════════╝');
             Log::error('Issue create failed', [
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),

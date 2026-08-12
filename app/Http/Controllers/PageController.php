@@ -254,7 +254,7 @@ class PageController extends Controller
             ->where('i.status_id', '!=', 4)
             ->orderByDesc('i.raised_at');
 
-        if (! empty($allowedStatusIds) && ! $isHoRole && ! $isStateRole) {
+        if (! empty($allowedStatusIds) && ! $isHoRole && ! $isStateRole && ! $isVendorRole) {
             $issuesQuery->whereIn('i.status_id', $allowedStatusIds);
         }
 
@@ -295,18 +295,21 @@ class PageController extends Controller
         if ($isHoRole) {
             // Show all issues for HO roles.
         } elseif ($isVendorRole) {
-            $hasHoInterventionColumn = Schema::hasColumn('txn_issue', 'ho_intervention_required');
-            $hasHoWorkingHoursColumn = Schema::hasColumn('txn_issue', 'ho_working_hours');
+            $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? ($user->vendor_id ?? null) : null;
 
-            if ($hasHoInterventionColumn || $hasHoWorkingHoursColumn) {
-                $issuesQuery->where(function ($query) use ($hasHoInterventionColumn, $hasHoWorkingHoursColumn) {
-                    if ($hasHoInterventionColumn) {
-                        $query->orWhere('i.ho_intervention_required', 0);
-                    }
-                    if ($hasHoWorkingHoursColumn) {
-                        $query->orWhere('i.ho_working_hours', 0);
-                    }
+            if (! empty($vendorId)) {
+                $issuesQuery->where(function ($query) use ($vendorId) {
+                    $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
+                        ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
+                        ->orWhereExists(function ($q) use ($vendorId) {
+                            $q->from('map_issue_vendor_assignment as mva')
+                              ->whereColumn('mva.issue_id', 'i.issue_id')
+                              ->where('mva.vendor_id', $vendorId)
+                              ->where('mva.is_active', 1);
+                        });
                 });
+            } else {
+                $issuesQuery->whereRaw('0 = 1');
             }
         } elseif ($isStateAdmin && ! empty($user->state_id)) {
             $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
