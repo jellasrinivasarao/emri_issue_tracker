@@ -252,15 +252,16 @@
                                 @forelse($calendars as $loopIndex => $cal)
 
                                 <tr class="calendar-row transition hover:bg-slate-50" data-search="{{ strtolower(
-                                            ($cal->calendar_code ?? '') . ' ' .
-                                            ($cal->calendar_name ?? '') . ' ' .
-                                            ($cal->timezone ?? '') . ' ' .
-                                            (optional($cal->organisation)->organisation_name ?? '') . ' ' .
-                                            (optional($cal->state)->state_name ?? '')
-                                                   text-sm font-semibold text-slate-700">
+        ($cal->calendar_code ?? '') . ' ' .
+        ($cal->calendar_name ?? '') . ' ' .
+        ($cal->timezone ?? '') . ' ' .
+        (optional($cal->organisation)->organisation_name ?? '') . ' ' .
+        (optional($cal->state)->state_name ?? '')
+    ) }}">
+
+                                    <td class="whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-700">
                                         {{ $counterStart + $loopIndex }}
                                     </td>
-
 
                                     {{-- CODE --}}
                                     <td class="whitespace-nowrap px-6 py-4">
@@ -342,11 +343,12 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-slate-700">
                                         @if(optional($cal->state)->state_name)
-                                            <span class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
-                                                {{ $cal->state->state_name }}
-                                            </span>
+                                        <span
+                                            class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+                                            {{ $cal->state->state_name }}
+                                        </span>
                                         @else
-                                            <span class="text-sm text-slate-400">Global</span>
+                                        <span class="text-sm text-slate-400">Global</span>
                                         @endif
                                     </td>
 
@@ -425,9 +427,12 @@
                                                 Edit
                                             </button>
 
-                                            <a href="{{ route('working.calendars.schedules', ['calendar_id' => $cal->calendar_id]) }}" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
-                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                                            <a href="{{ route('working.calendars.schedules', ['calendar_id' => $cal->calendar_id]) }}"
+                                                class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor"
+                                                    stroke-width="2" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M4 6h16M4 12h16M4 18h16" />
                                                 </svg>
 
                                                 Schedules

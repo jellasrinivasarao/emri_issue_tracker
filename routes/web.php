@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\AdminConfigController;
 use App\Http\Controllers\Admin\WorkingCalendarController;
 use App\Http\Controllers\Admin\WorkingScheduleController;
 use App\Http\Controllers\Admin\WorkingHoursController;
+use App\Http\Controllers\Admin\CalendarHolidayController;
 
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
@@ -411,24 +412,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // Holiday calendar CRUD
 
-        Route::get('/holiday-calendar', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'index'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
-        
-        Route::post('/holiday-calendar', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'store'])
-            ->middleware(['auth','menu.access:holiday.calendar'])
-            ->name('holiday.calendar.store');
+    // Route::get('/holiday-calendar', [CalendarHolidayController::class, 'index'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
 
-        Route::put('/holiday-calendar/{holiday_id}', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'update'])
-            ->middleware(['auth','menu.access:holiday.calendar'])
-            ->name('holiday.calendar.update');
+    // Route::post('/holiday-calendar', [CalendarHolidayController::class, 'store'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.store');
 
-        Route::post('/holiday-calendar/{holiday_id}/toggle', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'toggle'])
-            ->middleware(['auth','menu.access:holiday.calendar'])
-            ->name('holiday.calendar.toggle');
+    // Route::put('/holiday-calendar/{holiday_id}', [CalendarHolidayController::class, 'update'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.update');
 
-        Route::delete('/holiday-calendar/{holiday_id}', [\App\Http\Controllers\Admin\CalendarHolidayController::class, 'destroy'])
-            ->middleware(['auth','menu.access:holiday.calendar'])
-            ->name('holiday.calendar.destroy');
+    // Route::post('/holiday-calendar/{holiday_id}/toggle', [CalendarHolidayController::class, 'toggle'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.toggle');
 
+    // Route::delete('/holiday-calendar/{holiday_id}', [CalendarHolidayController::class, 'destroy'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.destroy');
+
+
+
+
+
+        Route::prefix('holiday-calendar')
+    ->name('holiday.')
+    ->controller(CalendarHolidayController::class)
+    ->group(function () {
+
+        Route::get('/', 'index')->name('calendar');
+
+        Route::post('/', 'store')->name('store');
+
+        Route::put('/{holiday_id}', 'update')->name('update');
+
+        Route::post('/{holiday_id}/toggle', 'toggle')->name('toggle');
+
+        Route::delete('/{holiday_id}', 'destroy')->name('destroy');
+    });
         
     
     

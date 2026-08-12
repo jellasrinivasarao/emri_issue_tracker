@@ -58,6 +58,19 @@
 
                 </div>
 
+                @if(session('success') || session('error'))
+                <div class="px-5 py-4" id="state-message-container">
+                    <div id="state-message"
+                        class="relative rounded-2xl px-4 py-3 text-sm font-semibold shadow-sm {{ session('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
+                        <span>{{ session('success') ?? session('error') }}</span>
+                        <button type="button" onclick="closeStateMessage()"
+                            class="absolute right-3 top-3 rounded-full bg-white/80 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-white focus:outline-none">
+                            Close
+                        </button>
+                    </div>
+                </div>
+                @endif
+
 
                 {{-- Table --}}
                 <div class="overflow-x-auto">
