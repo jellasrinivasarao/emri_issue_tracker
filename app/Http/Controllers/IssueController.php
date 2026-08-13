@@ -1422,12 +1422,13 @@ class IssueController extends Controller
         );
 
         $issue->attachments()->create([
-            'file_name' => $file->getClientOriginalName(),
+            'original_file_name' => $file->getClientOriginalName(),
+            'stored_file_name' => basename($path),
             'file_path' => $path,
             'file_size' => $file->getSize(),
-            'mime_type' => $file->getMimeType(),
-            'uploaded_by' => Auth::id(),
-            'created_at' => now(),
+            'file_type' => $file->getMimeType(),
+            'user_id' => Auth::id(),
+            'uploaded_at' => now(),
         ]);
 
         return back()->with(

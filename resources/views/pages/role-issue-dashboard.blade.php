@@ -378,9 +378,9 @@
                                                         </div>
                                                     </div>
                                                     <div class="flex items-center gap-2">
-                                                        <a :href="attachment.path || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.path" x-text="'View'">View</a>
+                                                        <a :href="attachment.download_url || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'View'">View</a>
                                                         <span class="text-slate-300">|</span>
-                                                        <a :href="attachment.download_url || attachment.path || '#'" download class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.path" x-text="'Download'">Download</a>
+                                                        <a :href="attachment.download_url || '#'" download class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'Download'">Download</a>
                                                     </div>
                                                 </div>
                                             </template>

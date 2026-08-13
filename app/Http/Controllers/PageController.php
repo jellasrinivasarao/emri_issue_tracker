@@ -491,6 +491,7 @@ class PageController extends Controller
                         'attachment_id' => $row->attachment_id,
                         'file_name' => $row->original_file_name ?: ($row->stored_file_name ?: 'Attachment'),
                         'path' => $row->file_path ?: '',
+                        'download_url' => route('attachment.download', ['id' => $row->attachment_id]),
                         'created_at' => $row->uploaded_at ? Carbon::parse($row->uploaded_at)->format('d M y h:i A') : '—',
                     ];
                 })->values()->all();
