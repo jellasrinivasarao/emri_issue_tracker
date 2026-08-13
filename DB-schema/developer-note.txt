@@ -1,0 +1,16 @@
+ls -la /var/www/html/emri_issue_tracker/public/build/assets
+
+
+php artisan cache:clear
+php artisan config:clear
+php artisan optimize:clear
+
+php artisan optimize:clear
+php artisan cache:clear
+php artisan config:clear
+php artisan route:list --path=admin
+
+
+git log
+git rebase -i
+git log --oneline --decorate -10

@@ -585,6 +585,93 @@ class IssueController extends Controller
             )
         );
     }
+
+
+
+    public function createModalPopup()
+    {
+
+        // Determine available states based on user roles (Central Admin sees all)
+        $user = auth()->user();
+
+        $roleText = '';
+        if (! empty($user?->roles)) {
+            $roleText = implode(' ', collect($user->roles)->pluck('role_name')->map(fn($r)=>strtolower((string)$r))->all());
+        } elseif (! empty($user?->role_id)) {
+            $roleText = strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'));
+        }
+
+        $isStateAdmin = str_contains($roleText, 'state admin');
+        $isStateIt = str_contains($roleText, 'state it');
+        $isStateRole = $isStateAdmin || $isStateIt || str_contains($roleText, 'state');
+
+        $stateQuery = DB::table('mst_state as st')->select('st.state_id', 'st.state_name');
+        if (Schema::hasColumn('mst_state', 'is_active')) {
+            $stateQuery->where('st.is_active', 1);
+        }
+
+        if (($isStateAdmin || $isStateIt) && ! empty($user->state_id)) {
+            $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
+            if (! empty($stateIds)) {
+                $states = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();
+            } else {
+                $states = collect();
+            }
+        } else {
+            $states = $stateQuery->orderBy('st.state_name')->get();
+        }
+
+
+        $services = Service::where('is_active',1)
+            ->orderBy('service_name')
+            ->get();
+
+
+        // Do not pre-populate projects/applications/modules — they'll be loaded via AJAX
+        $projects = collect();
+        $applications = collect();
+        $modules = collect();
+
+
+        
+
+        $issueCategories = IssueCategory::where('is_active',1)
+            ->orderBy('category_name')
+            ->get();
+
+        $priorities = Priority::where('is_active',1)
+            ->orderBy('priority_name')
+            ->get();
+
+
+        // $issueCategories = [
+        //     'Application Issue',
+        //     'Infrastructure Issue',
+        //     'Network Issue',
+        //     'Access Issue',
+        //     'Data Issue',
+        //     'Hardware Issue',
+        //     'Other',
+        // ];
+
+
+        // $priorities = [
+        //     'LOW',
+        //     'MEDIUM',
+        //     'HIGH',
+        //     'CRITICAL',
+        // ];
+
+        #var_dump($services);
+
+
+        return view('issues.create-popup',compact('states','services','projects','applications',
+                'modules',
+                'issueCategories',
+                'priorities'
+            )
+        );
+    }
 /* by srinivas*/
 
     /**

@@ -17,6 +17,147 @@ window.drawerState = function drawerState() {
     };
 };
 
+window.clearIssuePopupSelect = function clearIssuePopupSelect(select, placeholder = 'Select') {
+    if (!select) return;
+    select.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = placeholder;
+    select.appendChild(option);
+};
+
+window.loadIssuePopupProjects = function loadIssuePopupProjects(stateId) {
+    const projectSelect = document.getElementById('project_id');
+    const applicationSelect = document.getElementById('application_id');
+    const moduleSelect = document.getElementById('module_id');
+    if (!projectSelect) return;
+
+    window.clearIssuePopupSelect(projectSelect, 'Select Project');
+    window.clearIssuePopupSelect(applicationSelect, 'Select Application');
+    window.clearIssuePopupSelect(moduleSelect, 'Select Module');
+
+    if (!stateId) return;
+
+    fetch(`/ajax/projects?state_id=${encodeURIComponent(stateId)}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+        .then((r) => r.json())
+        .then((data) => {
+            const seen = new Set();
+            data.forEach((p) => {
+                if (!p || !p.project_id || seen.has(String(p.project_id))) return;
+                seen.add(String(p.project_id));
+                const option = document.createElement('option');
+                option.value = p.project_id;
+                option.textContent = p.project_name;
+                projectSelect.appendChild(option);
+            });
+
+            if (projectSelect.options.length > 1) {
+                projectSelect.value = String(projectSelect.options[1].value);
+                if (window.loadIssuePopupApplications) {
+                    window.loadIssuePopupApplications(projectSelect.value);
+                }
+            }
+        })
+        .catch((error) => console.error('[issue-popup] projects load failed', error));
+};
+
+window.loadIssuePopupApplications = function loadIssuePopupApplications(projectId) {
+    const projectSelect = document.getElementById('project_id');
+    const applicationSelect = document.getElementById('application_id');
+    const moduleSelect = document.getElementById('module_id');
+    if (!applicationSelect) return;
+
+    window.clearIssuePopupSelect(applicationSelect, 'Select Application');
+    window.clearIssuePopupSelect(moduleSelect, 'Select Module');
+
+    if (!projectId) return;
+
+    fetch(`/ajax/applications?project_id=${encodeURIComponent(projectId)}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+        .then((r) => r.json())
+        .then((data) => {
+            const seen = new Set();
+            data.forEach((a) => {
+                if (!a || !a.application_id || seen.has(String(a.application_id))) return;
+                seen.add(String(a.application_id));
+                const option = document.createElement('option');
+                option.value = a.application_id;
+                option.textContent = a.application_name;
+                applicationSelect.appendChild(option);
+            });
+
+            if (applicationSelect.options.length > 1) {
+                applicationSelect.value = String(applicationSelect.options[1].value);
+                if (window.loadIssuePopupModules) {
+                    window.loadIssuePopupModules(applicationSelect.value, projectSelect?.value || '');
+                }
+            }
+        })
+        .catch((error) => console.error('[issue-popup] applications load failed', error));
+};
+
+window.loadIssuePopupModules = function loadIssuePopupModules(applicationId, projectId) {
+    const moduleSelect = document.getElementById('module_id');
+    if (!moduleSelect) return;
+
+    window.clearIssuePopupSelect(moduleSelect, 'Select Module');
+    if (!applicationId) return;
+
+    const params = new URLSearchParams({ application_id: applicationId });
+    if (projectId) params.set('project_id', projectId);
+
+    fetch(`/ajax/modules?${params.toString()}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+        .then((r) => r.json())
+        .then((data) => {
+            const seen = new Set();
+            data.forEach((m) => {
+                if (!m || !m.module_id || seen.has(String(m.module_id))) return;
+                seen.add(String(m.module_id));
+                const option = document.createElement('option');
+                option.value = m.module_id;
+                option.textContent = m.module_name;
+                moduleSelect.appendChild(option);
+            });
+        })
+        .catch((error) => console.error('[issue-popup] modules load failed', error));
+};
+
+window.initIssueCreatePopup = function initIssueCreatePopup() {
+    const stateSelect = document.getElementById('state_id');
+    const projectSelect = document.getElementById('project_id');
+    const applicationSelect = document.getElementById('application_id');
+
+    if (stateSelect && !stateSelect.dataset.popupBound) {
+        stateSelect.dataset.popupBound = '1';
+        stateSelect.onchange = function () {
+            window.loadIssuePopupProjects(this.value);
+        };
+    }
+
+    if (projectSelect && !projectSelect.dataset.popupBound) {
+        projectSelect.dataset.popupBound = '1';
+        projectSelect.onchange = function () {
+            window.loadIssuePopupApplications(this.value);
+        };
+    }
+
+    if (applicationSelect && !applicationSelect.dataset.popupBound) {
+        applicationSelect.dataset.popupBound = '1';
+        applicationSelect.onchange = function () {
+            window.loadIssuePopupModules(this.value, document.getElementById('project_id')?.value || '');
+        };
+    }
+
+    if (stateSelect && stateSelect.value) {
+        window.loadIssuePopupProjects(stateSelect.value);
+    }
+};
+
 // Ensure visible debug logging in environments where console.debug may be filtered
 window.__EMRI_DEBUG = window.__EMRI_DEBUG ?? true;
 console.log('[app.js] __EMRI_DEBUG set =>', !!window.__EMRI_DEBUG);

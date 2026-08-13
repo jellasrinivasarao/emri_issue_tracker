@@ -640,4 +640,5 @@ require __DIR__.'/auth.php';
 
 Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
 Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
+Route::get('/issues/create/popup',[IssueController::class, 'createModalPopup'])->name('issues.create.popup');
 Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
