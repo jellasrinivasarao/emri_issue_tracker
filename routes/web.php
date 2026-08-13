@@ -65,8 +65,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('menu.access:issues')
         ->name('issues.index');
 
-    Route::redirect('/raise-issue', '/issues/create')
-        ->middleware('menu.access:raise.issue');
+    Route::get('/raise-issue', function () {
+        return redirect('/issues/create');
+    })->middleware('menu.access:raise.issue');
 
     Route::get('/issues/create', [IssueController::class, 'create'])
         ->middleware('menu.access:raise.issue')
@@ -88,6 +89,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ajax/modules', [IssueController::class, 'modulesByApplication'])
         ->middleware('auth')
         ->name('issues.ajax.modules');
+
+    // Attachment download route
+    Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
+        ->middleware('auth')
+        ->name('attachment.download');
 
     Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
@@ -370,7 +376,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
+    //Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
 
     // Working calendar CRUD endpoints
     // Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
@@ -629,6 +635,7 @@ if (app()->environment('local')) {
 
 
 require __DIR__.'/auth.php';
+
 
 
 Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');

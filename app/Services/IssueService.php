@@ -5,62 +5,42 @@ namespace App\Services;
 use App\Interfaces\IssueRepositoryInterface;
 use App\Models\Issue;
 use App\Models\IssueAttachment;
-use App\Models\IssueHistory;
-use App\Models\IssueStatusHistory;
 use App\Models\ProjectSupportConfiguration;
-
-use Carbon\Carbon;
-
+use App\Models\WorkingCalendar;
+use App\Models\WorkingSchedule;
+use App\Services\WorkingCalendarEngine;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
-
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
+
 use Illuminate\Validation\ValidationException;
 
 class IssueService
 {
-    /*
-    |--------------------------------------------------------------------------
-    | Repository
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Repository Instance
+     */
     protected IssueRepositoryInterface $repository;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Routing Service
-    |--------------------------------------------------------------------------
-    */
-
-    protected IssueRoutingService $routingService;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Constructor
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Constructor
+     */
     public function __construct(
-        IssueRepositoryInterface $repository,
-        IssueRoutingService $routingService
+        IssueRepositoryInterface $repository
     ) {
         $this->repository = $repository;
-        $this->routingService = $routingService;
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET PAGINATED ISSUES
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Get Paginated Issues
+     */
     public function paginate(
         array $filters = [],
         int $perPage = 15
@@ -71,496 +51,1060 @@ class IssueService
         );
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | FIND ISSUE
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Find Issue
+     */
     public function find(int $id): Issue
     {
         return $this->repository->findOrFail($id);
     }
 
+    /**
+     * Create New Issue
+     */
+    public function create(array $data, ?UploadedFile $attachment = null): Issue
+    {
+        Log::info('=== ISSUE CREATION STARTED ===', ['route' => 'issue/create', 'user_id' => Auth::id()]);
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[ROUTE] issue/create request started', [
+            'user_id' => Auth::id(),
+            'project_id' => $data['project_id'] ?? null,
+            'state_id' => $data['state_id'] ?? null,
+            'application_id' => $data['application_id'] ?? null,
+            'subject' => $data['subject'] ?? null,
+            'timestamp' => now(),
+        ]);
+        
+        DB::beginTransaction();
+        Log::info('[DB] Transaction started', ['timestamp' => now()]);
+        Log::channel('insert_log')->info('[DB] Transaction started for issue/create', ['timestamp' => now()]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE ISSUE
-    |--------------------------------------------------------------------------
-    |
-    | Main enterprise issue creation flow.
-    |
-    | Issue
-    |   ↓
-    | Project Support Configuration
-    |   ↓
-    | Routing Rule
-    |   ↓
-    | Working Calendar
-    |   ↓
-    | HO IT / Vendor
-    |
-    */
+        try {
+            Log::info('[STEP 1] Preparing issue data...');
+            $payload = $this->prepareCreateData($data);
+            Log::info('Issue Payload', $payload);
 
-    public function create(
-    array $data,
-    ?UploadedFile $attachment = null
-): Issue {
+            Log::info('[STEP 2] Inserting into TABLE: issues', [
+                'ticket_number' => $payload['issue_number'] ?? null,
+                'title' => substr($payload['issue_title'] ?? '', 0, 50),
+                'status_id' => $payload['status_id'] ?? null
+            ]);
+            $issue = $this->repository->create($payload);
+            Log::info('[TABLE: issues] Row created successfully', ['issue_id' => $issue->issue_id, 'issue_number' => $issue->issue_number]);
 
-    DB::beginTransaction();
+            if ($attachment) {
+                Log::info('[STEP 3] Uploading attachment...');
+                Log::info('[TABLE: txn_issue_attachment] About to insert attachment', ['filename' => $attachment->getClientOriginalName()]);
+                $this->uploadAttachment($attachment, $issue);
+            }
 
-    try {
+            Log::info('[STEP 4] Running afterCreate hooks...');
+            $this->afterCreate($issue);
 
-        $payload = $this->prepareCreateData($data);
+            Log::info('[DB] Committing transaction...', ['timestamp' => now()]);
+            DB::commit();
+            Log::info('=== ISSUE CREATION COMPLETED ===', ['issue_id' => $issue->issue_id, 'issue_number' => $issue->issue_number]);
 
-        $issue = $this->repository->create($payload);
+            return $issue;
 
-        if ($attachment) {
-            $this->uploadAttachment($attachment, $issue);
-        }
+        } catch (\Throwable $e) {
 
-        // Enterprise routing happens here ONCE
-        $assignment = $this->routingService->routeIssue(
-            $issue->fresh()
-        );
+            Log::error('[DB] Rolling back transaction due to error...', ['error_message' => $e->getMessage()]);
+            DB::rollBack();
 
-        $this->createHistory(
-            $issue->fresh(),
-            'Issue Created',
-            'Issue created successfully.'
-        );
-
-        if ($assignment) {
-            $this->sendAssignmentNotification(
-                $issue->fresh()
+            Log::error(
+                '❌ Issue Create Error',
+                [
+                    'message' => $e->getMessage(),
+                    'line' => $e->getLine(),
+                    'file' => $e->getFile(),
+                    'timestamp' => now()
+                ]
             );
+            Log::error('=== ISSUE CREATION FAILED ===');
+
+            throw $e;
         }
-
-        DB::commit();
-
-        return $issue->fresh();
-
-    } catch (\Throwable $e) {
-
-        DB::rollBack();
-
-        Log::error(
-            'Issue Create Error',
-            [
-                'message' => $e->getMessage(),
-                'line'    => $e->getLine(),
-                'file'    => $e->getFile(),
-            ]
-        );
-
-        throw $e;
     }
-}
 
+    /**
+     * Update Issue
+     */
+    public function update(
+        Request $request,
+        Issue $issue
+    ): Issue {
 
-    /*
-    |--------------------------------------------------------------------------
-    | PREPARE CREATE DATA
-    |--------------------------------------------------------------------------
-    */
+        DB::beginTransaction();
 
-    protected function prepareCreateData(
-        array $data
-    ): array {
+        try {
 
-        $projectId =
-            $data['project_id'] ?? null;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Support Configuration
-        |--------------------------------------------------------------------------
-        */
-
-        $supportConfigId =
-            $this->resolveSupportConfigurationId(
-                $projectId
+            $data = $this->prepareUpdateData(
+                $request,
+                $issue
             );
 
+            $this->repository->update(
+                $issue,
+                $data
+            );
+
+            $issue = $this->repository->findOrFail(
+                $issue->id
+            );
+
+            DB::commit();
+
+            return $issue;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error(
+                'Issue Update Error',
+                [
+                    'message' => $e->getMessage()
+                ]
+            );
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Delete Issue
+     */
+    public function delete(Issue $issue): bool
+    {
+        DB::beginTransaction();
+
+        try {
+
+            $this->removeAttachment($issue);
+
+            $status = $this->repository
+                ->delete($issue);
+
+            DB::commit();
+
+            return $status;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error(
+                'Issue Delete Error',
+                [
+                    'message' => $e->getMessage()
+                ]
+            );
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Prepare Create Data
+     */
+
+    protected function prepareCreateData(array $data): array
+    {
+        $supportConfigId = $this->resolveSupportConfigurationId($data['project_id'] ?? null);
+        $routingData = $this->resolveRoutingMetadata($data, $supportConfigId);
 
         return [
-
-            /*
-            |--------------------------------------------------------------------------
-            | Ticket
-            |--------------------------------------------------------------------------
-            */
-
-            'issue_number' =>
-                $this->generateTicketNumber(),
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Basic References
-            |--------------------------------------------------------------------------
-            */
-
-            'state_id' =>
-                $data['state_id'] ?? null,
-
-            'service_id' =>
-                $data['service_id'] ?? null,
-
-            'project_id' =>
-                $projectId,
-
-            'support_config_id' =>
-                $supportConfigId,
-
-            'application_id' =>
-                $data['application_id'] ?? null,
-
-            'module_id' =>
-                $data['module_id'] ?? null,
-
-            'issue_category_id' =>
-                $data['issue_category_id'] ?? null,
-
-            'priority_id' =>
-                $data['priority_id'] ?? null,
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Issue
-            |--------------------------------------------------------------------------
-            */
-
-            'issue_title' =>
-                trim(
-                    (string) (
-                        $data['subject'] ?? ''
-                    )
-                ),
-
-            'issue_description' =>
-                trim(
-                    (string) (
-                        $data['description'] ?? ''
-                    )
-                ),
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Status
-            |--------------------------------------------------------------------------
-            */
-
-            'status' =>
-                'Open',
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | User
-            |--------------------------------------------------------------------------
-            */
-
-            'created_by' =>
-                Auth::id(),
-
-
-            /*
-            |--------------------------------------------------------------------------
-            | Dates
-            |--------------------------------------------------------------------------
-            */
-
-            'created_at' =>
-                now(),
-
-            'updated_at' =>
-                now(),
+            'issue_number' => $this->generateTicketNumber(),
+            'state_id' => $data['state_id'] ?? null,
+            'project_id' => $data['project_id'] ?? null,
+            'support_config_id' => $supportConfigId,
+            'application_id' => $data['application_id'] ?? null,
+            'module_id' => $data['module_id'] ?? null,
+            'issue_category_id' => $data['issue_category_id'] ?? null,
+            'priority_id' => $data['priority_id'] ?? null,
+            'issue_title' => trim((string) ($data['subject'] ?? '')),
+            'issue_description' => trim((string) ($data['description'] ?? '')),
+            'status_id' => $data['status_id'] ?? 1,
+            'raised_by_user_id' => Auth::id(),
+            'created_at' => now(),
+            'updated_at' => now(),
+            'ho_intervention_required' => $routingData['ho_intervention_required'],
+            'ho_working_hours' => $routingData['ho_working_hours'],
+            'first_level_vendor_ids' => $routingData['first_level_vendor_ids'],
+            'second_level_vendor_ids' => $routingData['second_level_vendor_ids'],
+            'current_stage' => $routingData['current_stage'],
+            'current_owner_type' => $routingData['current_owner_type'],
+            'current_owner_id' => $routingData['current_owner_id'],
+            'workflow_status' => $routingData['workflow_status'],
         ];
     }
 
+    protected function resolveRoutingMetadata(array $data, ?int $supportConfigId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('RESOLVING ROUTING METADATA - Spec-Based Routing Logic');
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[ROUTING CHECK] Starting metadata resolution before insert', [
+            'project_id' => $data['project_id'] ?? null,
+            'state_id' => $data['state_id'] ?? null,
+            'application_id' => $data['application_id'] ?? null,
+            'support_config_id' => $supportConfigId,
+            'occurred_date' => $data['occurred_date'] ?? null,
+            'occurred_time' => $data['occurred_time'] ?? null,
+        ]);
+        
+        $projectId = isset($data['project_id']) ? (int) $data['project_id'] : null;
+        $stateId = isset($data['state_id']) ? (int) $data['state_id'] : null;
+        $applicationId = isset($data['application_id']) ? (int) $data['application_id'] : null;
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE PROJECT SUPPORT CONFIGURATION
-    |--------------------------------------------------------------------------
-    */
+        Log::info('[STEP 1] INPUT PARAMETERS', [
+            'project_id' => $projectId,
+            'state_id' => $stateId,
+            'application_id' => $applicationId
+        ]);
+        Log::channel('insert_log')->info('[STEP 1] INPUT PARAMETERS', [
+            'project_id' => $projectId,
+            'state_id' => $stateId,
+            'application_id' => $applicationId,
+            'support_config_id' => $supportConfigId,
+        ]);
 
-    protected function resolveSupportConfigurationId(
-        ?int $projectId
-    ): ?int {
+        // Determine the datetime for checks
+        Log::info('[STEP 2] Determining DateTime for Checks...');
+        $dateTime = null;
+        if (!empty($data['occurred_date'])) {
+            $time = $data['occurred_time'] ?? '00:00';
+            try {
+                $dateTime = Carbon::createFromFormat('Y-m-d H:i', $data['occurred_date'] . ' ' . $time);
+                Log::info('[STEP 2 RESULT] Using provided occurred_date/time', ['datetime' => $dateTime->toDateTimeString()]);
+            } catch (\Throwable $e) {
+                $dateTime = Carbon::now();
+                Log::info('[STEP 2 RESULT] Parse error, using current datetime', ['datetime' => $dateTime->toDateTimeString()]);
+            }
+        } else {
+            $dateTime = Carbon::now();
+            Log::info('[STEP 2 RESULT] No occurred_date, using current datetime', ['datetime' => $dateTime->toDateTimeString()]);
+        }
 
-        if (!$projectId) {
+        // STEP 3: Check mst_issue_routing_rule with rule_code priority
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[STEP 3] Checking mst_issue_routing_rule - Rule Priority Logic');
+        Log::info('═══════════════════════════════════════════════════════════════');
 
+        Log::channel('insert_log')->info('[TABLE: mst_issue_routing_rule] Checking rule_code values', [
+            'ROUTE_HO_IT_L1' => 'active status check',
+            'ROUTE_VENDOR_L2' => 'active status check',
+            'is_active' => 1,
+        ]);
+
+        $routeHoL1Active = DB::table('mst_issue_routing_rule')
+            ->where('rule_code', 'ROUTE_HO_IT_L1')
+            ->where('is_active', 1)
+            ->exists();
+            
+        $routeVendorL2Active = DB::table('mst_issue_routing_rule')
+            ->where('rule_code', 'ROUTE_VENDOR_L2')
+            ->where('is_active', 1)
+            ->exists();
+
+        Log::info('[STEP 3 RESULT] Routing Rules Status', [
+            'ROUTE_HO_IT_L1' => $routeHoL1Active ? 'ACTIVE' : 'INACTIVE',
+            'ROUTE_VENDOR_L2' => $routeVendorL2Active ? 'ACTIVE' : 'INACTIVE'
+        ]);
+        Log::channel('insert_log')->info('[TABLE: mst_issue_routing_rule] Rule check result', [
+            'ROUTE_HO_IT_L1' => $routeHoL1Active ? 'ACTIVE' : 'INACTIVE',
+            'ROUTE_VENDOR_L2' => $routeVendorL2Active ? 'ACTIVE' : 'INACTIVE',
+        ]);
+
+        // Priority: ROUTE_HO_IT_L1 takes precedence
+        if ($routeHoL1Active) {
+            Log::info('[ROUTING PRIORITY] ROUTE_HO_IT_L1 is ACTIVE - Using HO Routing Flow');
+            return $this->routeHOITL1Flow($projectId, $stateId, $applicationId, $dateTime);
+        } elseif ($routeVendorL2Active) {
+            Log::info('[ROUTING PRIORITY] ROUTE_VENDOR_L2 is ACTIVE - Using Direct Vendor L2 Flow');
+            return $this->routeDirectVendorL2Flow($projectId, $stateId, $applicationId);
+        } else {
+            Log::info('[ROUTING PRIORITY] No active routing rules - Using fallback (Direct Vendor L2)');
+            return $this->routeDirectVendorL2Flow($projectId, $stateId, $applicationId);
+        }
+    }
+
+    /**
+     * SCENARIO 1: Direct Vendor L2 Routing
+     * Condition: ROUTE_HO_IT_L1 = 0, ROUTE_VENDOR_L2 = 1
+     */
+    private function routeDirectVendorL2Flow(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 1] Direct Vendor L2 Routing');
+        Log::info('═══════════════════════════════════════════════════════════════');
+        
+        Log::info('[S1-STEP 1] Skip holiday and working hours checks');
+        Log::info('[S1-STEP 2] Directly query map_vendor_state for active vendors');
+        Log::channel('insert_log')->info('[TABLE: map_vendor_state] Scenario 1 vendor lookup', [
+            'project_id' => $projectId,
+            'state_id' => $stateId,
+            'application_id' => $applicationId,
+            'is_active' => 1,
+        ]);
+        
+        $vendorIds = [];
+        if ($projectId && $stateId) {
+            Log::info('[TABLE: map_vendor_state] Query with conditions:', [
+                'project_id' => $projectId,
+                'state_id' => $stateId,
+                'application_id' => $applicationId,
+                'is_active' => 1
+            ]);
+            
+            $vendorIds = DB::table('map_vendor_state')
+                ->where('project_id', $projectId)
+                ->where('state_id', $stateId)
+                ->where('is_active', 1)
+                ->when($applicationId, function($q) use ($applicationId) {
+                    $q->where(function($sq) use ($applicationId) {
+                        $sq->whereNull('application_id')->orWhere('application_id', $applicationId);
+                    });
+                }, function($q) {
+                    $q->whereNull('application_id');
+                })
+                ->distinct()
+                ->orderBy('vendor_id')
+                ->pluck('vendor_id')
+                ->map(fn($v) => (int)$v)
+                ->all();
+                
+            Log::info('[S1-STEP 2 RESULT] Vendors found from map_vendor_state', [
+                'vendor_ids' => $vendorIds,
+                'count' => count($vendorIds)
+            ]);
+        }
+
+        Log::info('[S1 FINAL RESULT]', [
+            'ho_intervention_required' => 0,
+            'ho_working_hours' => 0,
+            'first_level_vendor_ids' => implode(',', $vendorIds),
+            'second_level_vendor_ids' => null
+        ]);
+
+        return [
+            'ho_intervention_required' => 0,
+            'ho_working_hours' => 0,
+            'first_level_vendor_ids' => $this->formatVendorIds($vendorIds),
+            'second_level_vendor_ids' => null,
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
+    }
+
+    /**
+     * SCENARIO 2: HO L1 Routing with Holiday/Working Hours Checks
+     * Condition: ROUTE_HO_IT_L1 = 1
+     */
+    private function routeHOITL1Flow(?int $projectId, ?int $stateId, ?int $applicationId, $dateTime): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 2] HO L1 Routing - Holiday & Working Hours Checks');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        // SCENARIO 2.1: Check Holiday First
+        Log::info('[S2-STEP 1] Checking mst_calendar_holiday for current date');
+        Log::channel('insert_log')->info('[TABLE: mst_calendar_holiday] Checking holiday date before insert', [
+            'holiday_date' => $dateTime->format('Y-m-d'),
+            'is_active' => 1,
+        ]);
+        $isHoliday = DB::table('mst_calendar_holiday')
+            ->where('holiday_date', $dateTime->format('Y-m-d'))
+            ->where('is_active', 1)
+            ->exists();
+
+        Log::info('[S2-STEP 1 RESULT] Holiday Check', [
+            'date_checked' => $dateTime->format('Y-m-d'),
+            'is_holiday' => $isHoliday ? 'YES - Holiday Found' : 'NO - Not a Holiday'
+        ]);
+
+        if ($isHoliday) {
+            return $this->routeHOHolidayScenario($projectId, $stateId, $applicationId);
+        }
+
+        // SCENARIO 2.2, 2.3, 2.4: Check Working Schedule
+        Log::info('[S2-STEP 2] Holiday NOT found - Checking mst_working_schedule');
+        Log::channel('insert_log')->info('[TABLE: mst_working_schedule] Holiday not found, checking work schedule before insert', [
+            'day_of_week' => strtoupper($dateTime->format('l')),
+            'date' => $dateTime->format('Y-m-d'),
+        ]);
+        return $this->routeHOWorkingScheduleCheck($projectId, $stateId, $applicationId, $dateTime);
+    }
+
+    /**
+     * SCENARIO 2.1: Holiday Found - Route to Vendor L2
+     */
+    private function routeHOHolidayScenario(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 2.1] Holiday Found - Route to Vendor L2');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        $vendorIds = [];
+        if ($projectId && $stateId) {
+            Log::info('[S2.1] Query map_vendor_state for Vendor L2 assignment');
+            
+            $vendorIds = DB::table('map_vendor_state')
+                ->where('project_id', $projectId)
+                ->where('state_id', $stateId)
+                ->where('is_active', 1)
+                ->when($applicationId, function($q) use ($applicationId) {
+                    $q->where(function($sq) use ($applicationId) {
+                        $sq->whereNull('application_id')->orWhere('application_id', $applicationId);
+                    });
+                }, function($q) {
+                    $q->whereNull('application_id');
+                })
+                ->distinct()
+                ->orderBy('vendor_id')
+                ->pluck('vendor_id')
+                ->map(fn($v) => (int)$v)
+                ->all();
+
+            Log::info('[S2.1 RESULT] Vendors for L2', ['vendor_ids' => $vendorIds]);
+        }
+
+        Log::info('[S2.1 FINAL RESULT]', [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'reason' => 'Holiday - HO Unavailable'
+        ]);
+
+        return [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'first_level_vendor_ids' => null,
+            'second_level_vendor_ids' => $this->formatVendorIds($vendorIds),
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
+    }
+
+    /**
+     * Check Working Schedule - Routes to SCENARIO 2.2, 2.3, or 2.4
+     */
+    private function routeHOWorkingScheduleCheck(?int $projectId, ?int $stateId, ?int $applicationId, $dateTime): array
+    {
+        Log::info('[S2-STEP 2.1] Getting day of week from ticket datetime');
+        $dayOfWeek = strtoupper($dateTime->format('l')); // MONDAY, TUESDAY, etc.
+        $currentTime = $dateTime->format('H:i:s');
+
+        Log::info('[S2-STEP 2.1 RESULT]', [
+            'day_of_week' => $dayOfWeek,
+            'current_time' => $currentTime
+        ]);
+
+        Log::info('[TABLE: mst_working_schedule] Query with conditions:', [
+            'day_of_week' => $dayOfWeek,
+            'is_active' => 1
+        ]);
+        Log::channel('insert_log')->info('[TABLE: mst_working_schedule] Query with conditions', [
+            'day_of_week' => $dayOfWeek,
+            'is_active' => 1,
+            'current_time' => $currentTime,
+        ]);
+
+        $schedule = DB::table('mst_working_schedule')
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', 1)
+            ->first();
+
+        if (!$schedule) {
+            Log::info('[S2-STEP 2.2 RESULT] No schedule found for day - Defaulting to off');
+            return $this->routeHOWeeklyOffScenario($projectId, $stateId, $applicationId);
+        }
+
+        Log::info('[S2-STEP 2.2] Schedule Found', [
+            'schedule_name' => $schedule->schedule_name,
+            'is_working_day' => $schedule->is_working_day,
+            'start_time' => $schedule->start_time ?? 'N/A',
+            'end_time' => $schedule->end_time ?? 'N/A'
+        ]);
+
+        // SCENARIO 2.3: Weekly Off (is_working_day = 0)
+        if (!$schedule->is_working_day) {
+            Log::info('[SCENARIO 2.3 DETECTED] Weekly Off - is_working_day = 0');
+            return $this->routeHOWeeklyOffScenario($projectId, $stateId, $applicationId);
+        }
+
+        // SCENARIO 2.2 or 2.4: Check if within working hours
+        $startTime = $schedule->start_time;
+        $endTime = $schedule->end_time;
+
+        Log::info('[S2-STEP 2.3] Comparing current time with working hours', [
+            'current_time' => $currentTime,
+            'start_time' => $startTime,
+            'end_time' => $endTime
+        ]);
+
+        // Convert to comparable format
+        $currentTimeObj = Carbon::createFromFormat('H:i:s', $currentTime);
+        $startTimeObj = Carbon::createFromFormat('H:i:s', $startTime);
+        $endTimeObj = Carbon::createFromFormat('H:i:s', $endTime);
+
+        if ($currentTimeObj->isBetween($startTimeObj, $endTimeObj)) {
+            // SCENARIO 2.2: Within Working Hours
+            Log::info('[SCENARIO 2.2 DETECTED] Within Working Hours');
+            return $this->routeHOWorkingHoursScenario($projectId, $stateId, $applicationId);
+        } else {
+            // SCENARIO 2.4: Outside Working Hours
+            Log::info('[SCENARIO 2.4 DETECTED] Outside Working Hours');
+            return $this->routeHOOutsideHoursScenario($projectId, $stateId, $applicationId);
+        }
+    }
+
+    /**
+     * SCENARIO 2.2: Within Working Hours - HO Handles
+     */
+    private function routeHOWorkingHoursScenario(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 2.2] Within Working Hours - HO Handles');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        Log::info('[S2.2] Get configured first-level vendor IDs from routing rule');
+        $firstLevelVendors = [];
+        
+        $rule = DB::table('mst_issue_routing_rule')
+            ->where('rule_code', 'ROUTE_HO_IT_L1')
+            ->where('is_active', 1)
+            ->first();
+
+        if ($rule && !empty($rule->first_level_vendor_ids)) {
+            $vendorStr = $rule->first_level_vendor_ids;
+            $firstLevelVendors = array_map('trim', explode(',', $vendorStr));
+            Log::info('[S2.2 RESULT] First-level vendors from rule', ['vendor_ids' => $firstLevelVendors]);
+        }
+
+        Log::info('[S2.2 FINAL RESULT]', [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 1,
+            'first_level_vendor_ids' => implode(',', $firstLevelVendors),
+            'reason' => 'Within working hours - HO will handle'
+        ]);
+
+        return [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 1,
+            'first_level_vendor_ids' => $this->formatVendorIds($firstLevelVendors),
+            'second_level_vendor_ids' => null,
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
+    }
+
+    /**
+     * SCENARIO 2.3: Weekly Off - Route to Vendor L2
+     */
+    private function routeHOWeeklyOffScenario(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 2.3] Weekly Off - Route to Vendor L2');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        $vendorIds = [];
+        if ($projectId && $stateId) {
+            Log::info('[S2.3] Query map_vendor_state for Vendor L2 assignment');
+            
+            $vendorIds = DB::table('map_vendor_state')
+                ->where('project_id', $projectId)
+                ->where('state_id', $stateId)
+                ->where('is_active', 1)
+                ->when($applicationId, function($q) use ($applicationId) {
+                    $q->where(function($sq) use ($applicationId) {
+                        $sq->whereNull('application_id')->orWhere('application_id', $applicationId);
+                    });
+                }, function($q) {
+                    $q->whereNull('application_id');
+                })
+                ->distinct()
+                ->orderBy('vendor_id')
+                ->pluck('vendor_id')
+                ->map(fn($v) => (int)$v)
+                ->all();
+
+            Log::info('[S2.3 RESULT] Vendors for L2', ['vendor_ids' => $vendorIds]);
+        }
+
+        Log::info('[S2.3 FINAL RESULT]', [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'reason' => 'Weekly Off - HO Unavailable'
+        ]);
+
+        return [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'first_level_vendor_ids' => null,
+            'second_level_vendor_ids' => $this->formatVendorIds($vendorIds),
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
+    }
+
+    /**
+     * SCENARIO 2.4: Outside Working Hours - Route to Vendor L2
+     */
+    private function routeHOOutsideHoursScenario(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[SCENARIO 2.4] Outside Working Hours - Route to Vendor L2');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        $vendorIds = [];
+        if ($projectId && $stateId) {
+            Log::info('[S2.4] Query map_vendor_state for Vendor L2 assignment');
+            
+            $vendorIds = DB::table('map_vendor_state')
+                ->where('project_id', $projectId)
+                ->where('state_id', $stateId)
+                ->where('is_active', 1)
+                ->when($applicationId, function($q) use ($applicationId) {
+                    $q->where(function($sq) use ($applicationId) {
+                        $sq->whereNull('application_id')->orWhere('application_id', $applicationId);
+                    });
+                }, function($q) {
+                    $q->whereNull('application_id');
+                })
+                ->distinct()
+                ->orderBy('vendor_id')
+                ->pluck('vendor_id')
+                ->map(fn($v) => (int)$v)
+                ->all();
+
+            Log::info('[S2.4 RESULT] Vendors for L2', ['vendor_ids' => $vendorIds]);
+        }
+
+        Log::info('[S2.4 FINAL RESULT]', [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'reason' => 'Outside working hours'
+        ]);
+
+        return [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 0,
+            'first_level_vendor_ids' => null,
+            'second_level_vendor_ids' => $this->formatVendorIds($vendorIds),
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
+    }
+
+    protected function findVendorIds(?int $projectId, ?int $stateId, ?int $applicationId): array
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[findVendorIds] Looking up vendors from map_vendor_state');
+        Log::info('═══════════════════════════════════════════════════════════════');
+        
+        if (! $projectId || ! $stateId) {
+            Log::info('[findVendorIds] Missing required parameters', [
+                'has_project_id' => !empty($projectId),
+                'has_state_id' => !empty($stateId)
+            ]);
+            Log::info('[findVendorIds] Returning empty vendor list');
+            return [];
+        }
+
+        Log::info('[TABLE: map_vendor_state] Building query with conditions:', [
+            'project_id' => $projectId,
+            'state_id' => $stateId,
+            'is_active' => 1,
+            'application_id' => $applicationId ? 'NULL or ' . $applicationId : 'NULL only'
+        ]);
+
+        $query = DB::table('map_vendor_state')
+            ->where('project_id', $projectId)
+            ->where('state_id', $stateId)
+            ->where('is_active', 1)
+            ->when($applicationId, function ($query, $applicationId) {
+                Log::info('[TABLE: map_vendor_state] Applying application_id filter', ['app_id' => $applicationId]);
+                $query->where(function ($subQuery) use ($applicationId) {
+                    $subQuery->whereNull('application_id')
+                        ->orWhere('application_id', $applicationId);
+                });
+            }, function ($query) {
+                Log::info('[TABLE: map_vendor_state] Filtering for NULL application_id only');
+                $query->whereNull('application_id');
+            });
+
+        $vendorIds = $query
+            ->distinct()
+            ->orderBy('vendor_id')
+            ->pluck('vendor_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->values()
+            ->all();
+            
+        Log::info('[TABLE: map_vendor_state] Query executed successfully', [
+            'found_vendors' => $vendorIds,
+            'total_count' => count($vendorIds)
+        ]);
+        
+        return $vendorIds;
+    }
+
+    protected function resolveHoInterventionRequired(?int $supportConfigId): bool
+    {
+        Log::info('[resolveHoInterventionRequired] Checking if HO Intervention is required...');
+        
+        if (! $supportConfigId) {
+            Log::info('[resolveHoInterventionRequired] No support_config_id provided', [
+                'result' => false,
+                'interpretation' => 'HO Intervention NOT required'
+            ]);
+            return false;
+        }
+
+        Log::info('[TABLE: mst_support_configuration] Querying configuration for HO check...', [
+            'support_config_id' => $supportConfigId,
+            'conditions' => ['is_active' => 1]
+        ]);
+        
+        $configuration = ProjectSupportConfiguration::query()
+            ->with('slaConfiguration.workingCalendar')
+            ->where('support_config_id', $supportConfigId)
+            ->where('is_active', 1)
+            ->first();
+
+        $hasConfig = !!$configuration;
+        $hasSLA = $hasConfig && !!$configuration->slaConfiguration;
+        $hasCalendar = $hasSLA && !!$configuration->slaConfiguration->workingCalendar;
+        $isCalendarActive = $hasCalendar && !!$configuration->slaConfiguration->workingCalendar->is_active;
+        
+        Log::info('[resolveHoInterventionRequired] Configuration check results:', [
+            'config_found' => $hasConfig,
+            'sla_found' => $hasSLA,
+            'calendar_found' => $hasCalendar,
+            'calendar_is_active' => $isCalendarActive,
+            'result' => $isCalendarActive,
+            'interpretation' => $isCalendarActive ? 'HO Intervention REQUIRED' : 'HO Intervention NOT required'
+        ]);
+
+        return (bool) $isCalendarActive;
+    }
+
+    protected function resolveHoWorkingHours(?int $supportConfigId): bool
+    {
+        if (! $supportConfigId) {
+            return false;
+        }
+
+        $configuration = ProjectSupportConfiguration::query()
+            ->with('slaConfiguration.workingCalendar')
+            ->where('support_config_id', $supportConfigId)
+            ->where('is_active', 1)
+            ->first();
+
+        if (! $configuration || ! $configuration->slaConfiguration || ! $configuration->slaConfiguration->workingCalendar) {
+            return false;
+        }
+
+        $calendar = $configuration->slaConfiguration->workingCalendar;
+
+        if (! $calendar->is_active) {
+            return false;
+        }
+
+        $result = app(WorkingCalendarEngine::class)
+            ->check($calendar);
+
+        return $result['is_working'] ?? false;
+    }
+
+    protected function formatVendorIds(array $ids): ?string
+    {
+        $ids = array_filter(array_map('intval', $ids), fn ($id) => $id > 0);
+
+        return empty($ids) ? null : implode(',', array_unique($ids));
+    }
+
+    protected function resolveSupportConfigurationId(?int $projectId): ?int
+    {
+        if (! $projectId) {
             return null;
         }
 
+        $query = ProjectSupportConfiguration::query()
+            ->where('project_id', $projectId)
+            ->where('is_active', 1);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Base Query
-        |--------------------------------------------------------------------------
-        */
-
-        $query =
-            ProjectSupportConfiguration::query()
-                ->where(
-                    'project_id',
-                    $projectId
-                )
-                ->where(
-                    'is_active',
-                    1
-                );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Prefer Auto Routing Configuration
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            Schema::hasColumn(
-                'mst_project_support_configuration',
-                'auto_routing_enabled'
-            )
-        ) {
-
-            $configuration =
-                (clone $query)
-                    ->where(
-                        'auto_routing_enabled',
-                        1
-                    )
-                    ->orderByDesc(
-                        'support_config_id'
-                    )
-                    ->first();
-
+        if (Schema::hasColumn('mst_project_support_configuration', 'auto_routing_enabled')) {
+            $configuration = (clone $query)
+                ->where('auto_routing_enabled', 1)
+                ->orderByDesc('support_config_id')
+                ->first();
 
             if ($configuration) {
-
-                return
-                    $configuration
-                        ->support_config_id;
+                return $configuration->support_config_id;
             }
         }
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fallback Active Configuration
-        |--------------------------------------------------------------------------
-        */
-
-        return
-            $query
-                ->orderByDesc(
-                    'support_config_id'
-                )
-                ->first()
-                ?->support_config_id;
+        return $query->orderByDesc('support_config_id')->first()?->support_config_id;
     }
 
+    /**
+     * Prepare Update Data
+     */
+    protected function prepareUpdateData(
+        Request $request,
+        Issue $issue
+    ): array {
 
-    /*
-    |--------------------------------------------------------------------------
-    | GENERATE ISSUE NUMBER
-    |--------------------------------------------------------------------------
-    */
+        $attachment = $issue->attachment;
 
+        if ($request->hasFile('attachment')) {
+
+            $this->removeAttachment($issue);
+
+            $attachment = $this->uploadAttachment($request);
+        }
+
+        return [
+
+            'state_id'
+                => $request->state_id,
+
+            // service_id intentionally omitted from create/update payloads
+
+            'project_id'
+                => $request->project_id,
+
+            'application_id'
+                => $request->application_id,
+
+            'module_id'
+                => $request->module_id,
+
+            'issue_category_id'
+                => $request->issue_category_id,
+
+            'priority_id'
+                => $request->priority_id,
+
+            'subject'
+                => trim($request->subject),
+
+            'description'
+                => trim($request->description),
+
+            'occurred_date'
+                => $request->occurred_date,
+
+            'occurred_time'
+                => $request->occurred_time,
+
+            'affected_users'
+                => $request->affected_users,
+
+            'attachment'
+                => $attachment,
+
+            'updated_by'
+                => Auth::id(),
+
+            'updated_at'
+                => now()
+
+        ];
+    }
+
+    /**
+     * Generate Ticket Number
+     */
     protected function generateTicketNumber(): string
     {
-        $today =
-            date('Ymd');
+        // $last = $this->repository->latest();
 
-        $last =
-            $this->repository->latest();
+        // $next = $last? ($last->issue_id + 1): 1;
 
-        $next =
-            $last
-                ? $last->issue_id + 1
-                : 1;
+        // return sprintf('ISSUE-%s-%06d',date('Y'),$next);
 
-        return sprintf(
-            'IS-%s%03d',
-            $today,
-            $next
-        );
+        $today = date('Ymd');
+
+        $last = $this->repository->latest();
+
+        $next = $last ? ($last->issue_id + 1) : 1;
+
+        return sprintf('IS-%s%03d', $today, $next);
+
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | UPLOAD ATTACHMENT
-    |--------------------------------------------------------------------------
-    */
-
-    protected function uploadAttachment(
-        ?UploadedFile $file,
-        Issue $issue
-    ): ?string {
+    /**
+     * Upload Attachment
+     */
+    protected function uploadAttachment(?UploadedFile $file, Issue $issue): ?string {
 
         if (!$file) {
-
+            Log::info('[TABLE: txn_issue_attachment] Skipped - No attachment received');
             return null;
         }
 
+        Log::info('[TABLE: txn_issue_attachment] Processing attachment', [
+            'issue_id' => $issue->issue_id,
+            'filename' => $file->getClientOriginalName(),
+            'file_size' => $file->getSize()
+        ]);
+    
+        Log::info('[STEP 3.1] Storing file to disk...');
+        $path = $file->store('issues', 'public');
+        Log::info('[STEP 3.1 COMPLETE] File stored', ['path' => $path]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Store File
-        |--------------------------------------------------------------------------
-        */
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[INSERT] Starting txn_issue_attachment INSERT operation');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        
+        Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Preparing INSERT statement', [
+            'issue_id' => $issue->issue_id,
+            'user_id' => auth()->id() ?? 1,
+            'original_file_name' => $file->getClientOriginalName(),
+            'stored_file_name' => basename($path),
+            'file_path' => '/storage/' . $path,
+            'file_size' => $file->getSize(),
+            'file_type' => $file->getMimeType(),
+            'uploaded_at' => now()
+        ]);
+        
+        Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Executing INSERT query');
+        
+        try {
+            $attachment = IssueAttachment::create([
+                'issue_id' => $issue->issue_id,
+                'user_id' => auth()->id() ?? 1,
+                'original_file_name' => $file->getClientOriginalName(),
+                'stored_file_name' => basename($path),
+                'file_path' => '/storage/' . $path,
+                'file_size' => $file->getSize(),
+                'file_type' => $file->getMimeType(),
+                'uploaded_at' => now(),
+                'is_active' => 1,
+            ]); 
 
-        $path =
-            $file->store(
-                'issues',
-                'public'
-            );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create Attachment Record
-        |--------------------------------------------------------------------------
-        */
-
-        $attachment =
-            IssueAttachment::create([
-
-                'issue_id' =>
-                    $issue->issue_id,
-
-                'user_id' =>
-                    Auth::id() ?? 1,
-
-                'original_file_name' =>
-                    $file->getClientOriginalName(),
-
-                'stored_file_name' =>
-                    basename($path),
-
-                'file_path' =>
-                    '/storage/' . $path,
-
-                'file_size' =>
-                    $file->getSize(),
-
-                'file_type' =>
-                    $file->getMimeType(),
-
-                'uploaded_at' =>
-                    now(),
-
-                'is_active' =>
-                    1,
+            Log::channel('insert_log')->info('✓ [TABLE: txn_issue_attachment] INSERT Successful', [
+                'attachment_id' => $attachment->attachment_id,
+                'file_path' => '/storage/' . $path,
+                'file_size' => $file->getSize()
             ]);
-
-
-        Log::info(
-            'Issue Attachment Created',
-            [
-                'issue_id' =>
-                    $issue->issue_id,
-
-                'attachment_id' =>
-                    $attachment->attachment_id,
-            ]
-        );
-
+        } catch (\Throwable $e) {
+            Log::channel('insert_log')->error('✗ [TABLE: txn_issue_attachment] INSERT Failed', [
+                'issue_id' => $issue->issue_id,
+                'error' => $e->getMessage(),
+                'file' => $file->getClientOriginalName()
+            ]);
+            Log::error('[TABLE: txn_issue_attachment] Attachment creation failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine()
+            ]);
+        }
+        
+        Log::info('[STEP 3 COMPLETE] Attachment upload finished');
 
         return $path;
+
+
+
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | REMOVE ATTACHMENT
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Remove Attachment
+     */
     protected function removeAttachment(
         Issue $issue
     ): void {
 
         if (!$issue->attachment) {
-
             return;
         }
 
-
-        $path =
-            'issues/' .
-            $issue->attachment;
-
-
         if (
             Storage::disk('public')
-                ->exists($path)
+                ->exists('issues/'.$issue->attachment)
         ) {
 
             Storage::disk('public')
-                ->delete($path);
+                ->delete('issues/'.$issue->attachment);
+
         }
     }
 
+    /**
+     * After Create Process
+     */
+    protected function afterCreate(Issue $issue): void
+    {
+        Log::info('[STEP 4.1] Assigning engineer...');
+        $this->assignEngineer($issue);
+        Log::info('[STEP 4.1 COMPLETE] Engineer assigned', ['assigned_to' => $issue->assigned_to]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | AFTER CREATE
-    |--------------------------------------------------------------------------
-    */
-
-    protected function afterCreate(
-        Issue $issue
-    ): void {
-
-        /*
-        |--------------------------------------------------------------------------
-        | IMPORTANT
-        |--------------------------------------------------------------------------
-        |
-        | This method is intentionally NOT assigning
-        | a generic Support Engineer.
-        |
-        | Routing is handled by IssueRoutingService.
-        |
-        */
-
+        Log::info('[STEP 4.2] Creating issue history record...');
+        Log::info('[TABLE: issue_history] About to insert history entry', ['action' => 'Issue Created']);
         $this->createHistory(
             $issue,
             'Issue Created',
             'Issue created successfully.'
         );
+        Log::info('[TABLE: issue_history] History record created');
 
+        Log::info('[STEP 4.3] Creating initial status history...');
+        $this->createStatusHistory($issue, $issue->status_id, 'Initial status');
+        Log::info('[STEP 4.3 COMPLETE] Initial status history created');
 
-        $assignment =
-            $this->routingService->routeIssue(
-                $issue->fresh()
-            );
-
-
-        if ($assignment) {
-
-            $this->sendAssignmentNotification(
-                $issue->fresh()
-            );
-        }
+        Log::info('[STEP 4.4] Sending assignment notification...');
+        $this->sendAssignmentNotification($issue);
+        Log::info('[STEP 4.4 COMPLETE] Notification sent');
     }
 
+    /**
+     * Auto Assign Engineer
+     */
+    protected function assignEngineer(Issue $issue): void
+    {
+        Log::info('[TABLE: users] Querying for Support Engineer...');
+        $engineer = \App\Models\User::query()
+            ->where('is_active', 1)
+            ->whereHas('roles', function ($query) {
+                $query->where('role_name', 'Support Engineer');
+            })
+            ->first();
 
-    /*
-    |--------------------------------------------------------------------------
-    | CHANGE STATUS
-    |--------------------------------------------------------------------------
-    */
+        if (!$engineer) {
+            Log::info('[TABLE: users] No Support Engineer found for auto-assignment');
+            return;
+        }
 
+        Log::info('[TABLE: issues] Updating issue assigned_to field', ['engineer_id' => $engineer->user_id, 'engineer_name' => $engineer->user_name]);
+        $this->repository->assign($issue, $engineer->user_id);
+        Log::info('[TABLE: issues] Assignment complete');
+
+        Log::info('[TABLE: issue_history] Creating assignment history', ['engineer_name' => $engineer->user_name]);
+        $this->createHistory(
+            $issue,
+            'Assigned',
+            'Assigned to '.$engineer->user_name
+        );
+    }
+
+    /**
+     * Change Status
+     */
     public function changeStatus(
         Issue $issue,
         string $status,
@@ -571,87 +1115,42 @@ class IssueService
 
         try {
 
-            $oldStatus = $issue->status;
-
             $this->validateStatusTransition(
-                $oldStatus,
+                $issue->status,
                 $status
             );
-
 
             $this->repository->updateStatus(
                 $issue,
                 $status
             );
 
-
-            $issue =
-                $this->repository->findOrFail(
-                    $issue->issue_id
-                );
-
+            $issue = $this->repository->findOrFail(
+                $issue->id
+            );
 
             $this->createHistory(
                 $issue,
                 'Status Changed',
-                ($remarks ?? '') .
+                ($remarks ?? '').
                 " ({$status})"
             );
 
-
-            $this->createStatusHistory(
-            $issue,
-            null,
-            null,
-            $oldStatus,
-            $status,
-            [
-                'change_type' =>
-                    'MANUAL',
-
-                'remarks' =>
-                    $remarks,
-
-                'change_reason' =>
-                    'User status change',
-            ]
-        );
-
-        
-
-
             DB::commit();
 
-
             return $issue;
-
 
         } catch (\Throwable $e) {
 
             DB::rollBack();
 
-            Log::error(
-                'Issue Status Change Error',
-                [
-                    'issue_id' =>
-                        $issue->issue_id,
-
-                    'message' =>
-                        $e->getMessage(),
-                ]
-            );
-
             throw $e;
         }
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | WORKFLOW
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Validate Workflow
+     */
     protected function validateStatusTransition(
         string $current,
         string $next
@@ -661,110 +1160,80 @@ class IssueService
 
             'Open' => [
                 'Assigned',
-                'Closed',
+                'Closed'
             ],
 
             'Assigned' => [
                 'In Progress',
-                'Closed',
+                'Closed'
             ],
 
             'In Progress' => [
                 'Resolved',
-                'Closed',
+                'Closed'
             ],
 
             'Resolved' => [
                 'Closed',
-                'Reopened',
+                'Reopened'
             ],
 
             'Reopened' => [
                 'Assigned',
-                'In Progress',
+                'In Progress'
             ],
+
         ];
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Unknown Status
-        |--------------------------------------------------------------------------
-        */
 
         if (!isset($workflow[$current])) {
 
             return;
+
         }
 
-
-        if (
-            !in_array(
-                $next,
-                $workflow[$current],
-                true
-            )
-        ) {
+        if (!in_array($next, $workflow[$current])) {
 
             throw new \Exception(
                 "Invalid workflow transition from {$current} to {$next}"
             );
+
         }
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SLA
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * SLA Due Time
+     */
     public function calculateSLA(
         Issue $issue
     ): Carbon {
 
-        $priority =
-            optional(
-                $issue->priority
-            )->priority_name;
-
+        $priority = optional(
+            $issue->priority
+        )->priority_name;
 
         return match ($priority) {
 
             'Critical' =>
-                $issue->created_at
-                    ->copy()
-                    ->addHours(2),
+                $issue->created_at->copy()->addHours(2),
 
             'High' =>
-                $issue->created_at
-                    ->copy()
-                    ->addHours(4),
+                $issue->created_at->copy()->addHours(4),
 
             'Medium' =>
-                $issue->created_at
-                    ->copy()
-                    ->addHours(8),
+                $issue->created_at->copy()->addHours(8),
 
             'Low' =>
-                $issue->created_at
-                    ->copy()
-                    ->addDay(),
+                $issue->created_at->copy()->addDay(),
 
             default =>
-                $issue->created_at
-                    ->copy()
-                    ->addDay(),
+                $issue->created_at->copy()->addDay(),
+
         };
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SLA BREACHED
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * SLA Breach
+     */
     public function isSlaBreached(
         Issue $issue
     ): bool {
@@ -772,100 +1241,142 @@ class IssueService
         return now()->greaterThan(
             $this->calculateSLA($issue)
         );
+
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | ESCALATE
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Escalate
+     */
     public function escalate(
         Issue $issue
     ): void {
 
-        if (
-            !$this->isSlaBreached($issue)
-        ) {
+        if (!$this->isSlaBreached($issue)) {
 
             return;
+
         }
 
-
         $this->createHistory(
+
             $issue,
+
             'Escalated',
+
             'SLA breached.'
+
         );
+
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | CREATE HISTORY
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Create History
+     */
     protected function createHistory(
         Issue $issue,
         string $action,
         ?string $remarks = null
     ): void {
-
-        IssueHistory::create([
-
-            'issue_id' =>
-                $issue->issue_id,
-
-            'action' =>
-                $action,
-
-            'remarks' =>
-                $remarks,
-
-            'performed_by' =>
-                Auth::id(),
-
-            'performed_at' =>
-                now(),
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[INSERT] Starting issue_history INSERT operation');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        
+        Log::channel('insert_log')->info('[TABLE: issue_history] Preparing INSERT statement', [
+            'issue_id' => $issue->issue_id,
+            'action' => $action,
+            'remarks' => substr($remarks ?? '', 0, 100),
+            'performed_by' => Auth::id(),
+            'performed_at' => now()
         ]);
+
+        Log::channel('insert_log')->info('[TABLE: issue_history] Executing INSERT query');
+        
+        \App\Models\IssueHistory::create([
+
+            'issue_id' => $issue->issue_id,
+
+            'action' => $action,
+
+            'remarks' => $remarks,
+
+            'performed_by' => Auth::id(),
+
+            'performed_at' => now()
+
+        ]);
+        Log::channel('insert_log')->info('✓ [TABLE: issue_history] INSERT Successful', [
+            'issue_id' => $issue->issue_id,
+            'action' => $action,
+            'performed_by' => Auth::id()
+        ]);
+
     }
 
+    /**
+     * Create Status History
+     */
+    protected function createStatusHistory(
+        Issue $issue,
+        ?int $statusId,
+        ?string $comment = null
+    ): void {
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[INSERT] Starting txn_issue_status_history INSERT operation');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        
+        Log::channel('insert_log')->info('[TABLE: txn_issue_status_history] Preparing INSERT statement', [
+            'issue_id' => $issue->issue_id,
+            'new_status_id' => $statusId,
+            'changed_by_user_id' => Auth::id(),
+            'comment' => $comment ?? 'Status updated',
+            'changed_at' => now()
+        ]);
+        
+        Log::channel('insert_log')->info('[TABLE: txn_issue_status_history] Executing INSERT query');
+        
+        try {
+            DB::table('txn_issue_status_history')->insert([
+                'issue_id' => $issue->issue_id,
+                'new_status_id' => $statusId,
+                'changed_by_user_id' => Auth::id(),
+                'comment' => $comment ?? 'Status updated',
+                'changed_at' => now(),
+            ]);
+            
+            Log::channel('insert_log')->info('✓ [TABLE: txn_issue_status_history] INSERT Successful', [
+                'issue_id' => $issue->issue_id,
+                'status_id' => $statusId,
+                'changed_by' => Auth::id()
+            ]);
+        } catch (\Throwable $e) {
+            Log::channel('insert_log')->error('✗ [TABLE: txn_issue_status_history] INSERT Failed', [
+                'issue_id' => $issue->issue_id,
+                'error' => $e->getMessage()
+            ]);
+            Log::error('[TABLE: txn_issue_status_history] Status history creation failed', [
+                'message' => $e->getMessage(),
+                'line' => $e->getLine()
+            ]);
+        }
+    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | TIMELINE
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Timeline
+     */
     public function timeline(
         int $issueId
-    ) {
-
-        return IssueHistory::query()
-
-            ->where(
-                'issue_id',
-                $issueId
-            )
-
+    )
+    {
+        return \App\Models\IssueHistory::query()
+            ->where('issue_id', $issueId)
             ->with('user')
-
-            ->latest(
-                'performed_at'
-            )
-
+            ->latest('performed_at')
             ->get();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | ADD COMMENT
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Add Comment
+     */
     public function addComment(
         Issue $issue,
         string $comment
@@ -873,216 +1384,136 @@ class IssueService
 
         \App\Models\IssueComment::create([
 
-            'issue_id' =>
-                $issue->issue_id,
+            'issue_id' => $issue->id,
 
-            'comment' =>
-                $comment,
+            'comment' => $comment,
 
-            'created_by' =>
-                Auth::id(),
+            'created_by' => Auth::id()
+
         ]);
 
-
         $this->createHistory(
+
             $issue,
+
             'Comment Added',
+
             $comment
+
         );
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | ASSIGNMENT NOTIFICATION
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Send Notification
+     */
     protected function sendAssignmentNotification(
         Issue $issue
     ): void {
 
-        /*
-        |--------------------------------------------------------------------------
-        | Current Team Based Routing
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$issue->current_team_id) {
-
-            return;
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | If you later have assigned_to user,
-        | notification can be sent here.
-        |--------------------------------------------------------------------------
-        */
-
         if (!$issue->assigned_to) {
 
             return;
+
         }
 
-
-        $user =
-            \App\Models\User::find(
-                $issue->assigned_to
-            );
-
+        $user = \App\Models\User::find(
+            $issue->assigned_to
+        );
 
         if (!$user) {
 
             return;
+
         }
 
+        // Replace with Notification class
+        // Notification::send($user,new IssueAssignedNotification($issue));
 
-        /*
-        |--------------------------------------------------------------------------
-        | Add Laravel Notification here
-        |--------------------------------------------------------------------------
-        */
-
-        // $user->notify(
-        //     new IssueAssignedNotification($issue)
-        // );
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | DASHBOARD
-    |--------------------------------------------------------------------------
-    */
-
+        /**
+     * Dashboard Statistics
+     */
     public function dashboard(): array
     {
         return $this->repository->dashboard();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SEARCH
-    |--------------------------------------------------------------------------
-    */
-
-    public function search(
-        string $keyword
-    ) {
-
+    /**
+     * Search Issues
+     */
+    public function search(string $keyword)
+    {
         return $this->repository->search(
             trim($keyword)
         );
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | FILTER
-    |--------------------------------------------------------------------------
-    */
-
-    public function filter(
-        array $filters
-    ) {
-
-        return $this->repository->filter(
-            $filters
-        );
+    /**
+     * Advanced Filter
+     */
+    public function filter(array $filters)
+    {
+        return $this->repository->filter($filters);
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | RECENT
-    |--------------------------------------------------------------------------
-    */
-
-    public function recent(
-        int $limit = 10
-    ) {
-
-        return $this->repository->recent(
-            $limit
-        );
+    /**
+     * Recent Issues
+     */
+    public function recent(int $limit = 10)
+    {
+        return $this->repository->recent($limit);
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | MY ISSUES
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * My Created Issues
+     */
     public function myIssues()
     {
         return $this->repository
-            ->createdBy(
-                Auth::id()
-            );
+            ->createdBy(Auth::id());
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | ASSIGNED TO ME
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Assigned To Me
+     */
     public function assignedToMe()
     {
         return $this->repository
-            ->assignedTo(
-                Auth::id()
-            );
+            ->assignedTo(Auth::id());
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | OPEN ISSUES
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Open Issues
+     */
     public function openIssues()
     {
-        return $this->repository->open();
+        return $this->repository
+            ->open();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | CLOSED ISSUES
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Closed Issues
+     */
     public function closedIssues()
     {
-        return $this->repository->closed();
+        return $this->repository
+            ->closed();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SLA BREACHED ISSUES
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * SLA Breached Issues
+     */
     public function slaBreached()
     {
-        return $this->repository->slaBreached();
+        return $this->repository
+            ->slaBreached();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | SUMMARY
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Issue Summary
+     */
     public function summary(): array
     {
         return [
@@ -1111,16 +1542,13 @@ class IssueService
             'closed' =>
                 $this->repository
                     ->countByStatus('Closed'),
+
         ];
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | PRIORITY SUMMARY
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Priority Summary
+     */
     public function prioritySummary(): array
     {
         return [
@@ -1140,96 +1568,70 @@ class IssueService
             'low' =>
                 $this->repository
                     ->countByPriority(4),
+
         ];
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | PROJECT SUMMARY
-    |--------------------------------------------------------------------------
-    */
-
-    public function projectSummary(
-        array $filters = []
-    ) {
-
-        $issues =
-            $this->repository
-                ->filter($filters);
-
+    /**
+     * Project Summary
+     */
+    public function projectSummary(array $filters = [])
+    {
+        $issues = $this->repository
+            ->filter($filters);
 
         return $issues
-
             ->groupBy('project_id')
-
             ->map(function ($items) {
 
                 return [
 
-                    'count' =>
-                        $items->count(),
+                    'count' => $items->count(),
 
-                    'project' =>
-                        optional(
-                            $items->first()->project
-                        )->project_name,
+                    'project' => optional(
+                        $items->first()->project
+                    )->project_name
+
                 ];
-            })
 
+            })
             ->values();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | STATE SUMMARY
-    |--------------------------------------------------------------------------
-    */
-
-    public function stateSummary(
-        array $filters = []
-    ) {
-
-        $issues =
-            $this->repository
-                ->filter($filters);
-
+    /**
+     * State Summary
+     */
+    public function stateSummary(array $filters = [])
+    {
+        $issues = $this->repository
+            ->filter($filters);
 
         return $issues
-
             ->groupBy('state_id')
-
             ->map(function ($items) {
 
                 return [
 
-                    'count' =>
-                        $items->count(),
+                    'count' => $items->count(),
 
-                    'state' =>
-                        optional(
-                            $items->first()->state
-                        )->state_name,
+                    'state' => optional(
+                        $items->first()->state
+                    )->state_name
+
                 ];
-            })
 
+            })
             ->values();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | MONTHLY REPORT
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Monthly Report
+     */
     public function monthlyReport(
-        ?int $year = null
-    ) {
-
+        int $year = null
+    )
+    {
         $year ??= now()->year;
-
 
         return Issue::query()
 
@@ -1254,22 +1656,18 @@ class IssueService
             ->get();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | RECENT ACTIVITY
-    |--------------------------------------------------------------------------
-    */
-
+    /**
+     * Recent Activity
+     */
     public function recentActivity(
         int $limit = 20
-    ) {
-
-        return IssueHistory::query()
+    )
+    {
+        return \App\Models\IssueHistory::query()
 
             ->with([
                 'issue',
-                'user',
+                'user'
             ])
 
             ->latest()
@@ -1279,58 +1677,367 @@ class IssueService
             ->get();
     }
 
-    protected function createStatusHistory(
-    Issue $issue,
-    ?int $fromStatusId,
-    ?int $toStatusId,
-    ?string $fromStatus,
-    string $toStatus,
-    array $options = []
-): IssueStatusHistory {
+        /**
+     * Resolve Issue
+     */
+    public function resolve(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
 
-    return IssueStatusHistory::create([
-
-        'issue_id' =>
-            $issue->issue_id,
-
-        'from_status_id' =>
-            $fromStatusId,
-
-        'to_status_id' =>
-            $toStatusId,
-
-        'from_status' =>
-            $fromStatus,
-
-        'to_status' =>
-            $toStatus,
-
-        'assignment_id' =>
-            $options['assignment_id'] ?? null,
-
-        'routing_rule_id' =>
-            $options['routing_rule_id'] ?? null,
-
-        'support_config_id' =>
-            $options['support_config_id']
-                ?? $issue->support_config_id
-                ?? null,
-
-        'changed_by' =>
-            Auth::id(),
-
-        'change_type' =>
-            $options['change_type'] ?? 'MANUAL',
-
-        'remarks' =>
-            $options['remarks'] ?? null,
-
-        'change_reason' =>
-            $options['change_reason'] ?? null,
-
-        'changed_at' =>
-            now(),
-    ]);
-}
+        return $this->changeStatus(
+            $issue,
+            'Resolved',
+            $remarks
+        );
 
     }
+
+    /**
+     * Close Issue
+     */
+    public function close(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
+
+        return $this->changeStatus(
+            $issue,
+            'Closed',
+            $remarks
+        );
+
+    }
+
+    /**
+     * Reopen Issue
+     */
+    public function reopen(
+        Issue $issue,
+        ?string $remarks = null
+    ): Issue {
+
+        return $this->changeStatus(
+            $issue,
+            'Reopened',
+            $remarks
+        );
+
+    }
+
+    /**
+     * Assign Issue
+     */
+    public function assign(
+        Issue $issue,
+        int $userId
+    ): Issue {
+
+        DB::beginTransaction();
+
+        try {
+
+            $this->repository->assign(
+                $issue,
+                $userId
+            );
+
+            $issue = $this->repository->findOrFail($issue->id);
+
+            $this->createHistory(
+
+                $issue,
+
+                'Assigned',
+
+                'Assigned to User ID : '.$userId
+
+            );
+
+            DB::commit();
+
+            return $issue;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Bulk Status Update
+     */
+    public function bulkStatusUpdate(
+        array $ids,
+        string $status
+    ): bool {
+
+        DB::beginTransaction();
+
+        try {
+
+            $this->repository
+                ->bulkStatusUpdate(
+                    $ids,
+                    $status
+                );
+
+            foreach ($ids as $id) {
+
+                $issue = $this->repository
+                    ->find($id);
+
+                if ($issue) {
+
+                    $this->createHistory(
+
+                        $issue,
+
+                        'Bulk Status',
+
+                        $status
+
+                    );
+
+                }
+
+            }
+
+            DB::commit();
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Bulk Delete
+     */
+    public function bulkDelete(
+        array $ids
+    ): bool {
+
+        DB::beginTransaction();
+
+        try {
+
+            foreach ($ids as $id) {
+
+                $issue = $this->repository
+                    ->find($id);
+
+                if (!$issue) {
+
+                    continue;
+
+                }
+
+                $this->removeAttachment(
+                    $issue
+                );
+
+            }
+
+            $this->repository
+                ->bulkDelete($ids);
+
+            DB::commit();
+
+            return true;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            throw $e;
+
+        }
+
+    }
+
+    /**
+     * Export Collection
+     */
+    public function export(
+        array $filters = []
+    )
+    {
+
+        return $this->repository
+            ->filter($filters);
+
+    }
+
+    /**
+     * Get Dashboard Widget Data
+     */
+    public function dashboardWidgets(): array
+    {
+
+        return [
+
+            'summary' => $this->summary(),
+
+            'priority' => $this->prioritySummary(),
+
+            'projects' => $this->projectSummary(),
+
+            'states' => $this->stateSummary(),
+
+            'monthly' => $this->monthlyReport(),
+
+            'recent' => $this->recent(),
+
+            'activity' => $this->recentActivity(),
+
+        ];
+
+    }
+
+    /**
+     * Check Whether Issue Can Be Closed
+     */
+    public function canClose(
+        Issue $issue
+    ): bool {
+
+        return in_array(
+
+            $issue->status,
+
+            [
+
+                'Resolved',
+
+                'In Progress',
+
+                'Assigned'
+
+            ]
+
+        );
+
+    }
+
+    /**
+     * Check Whether Issue Can Be Reopened
+     */
+    public function canReopen(
+        Issue $issue
+    ): bool {
+
+        return $issue->status === 'Closed';
+
+    }
+
+    /**
+     * Ticket Exists
+     */
+    public function ticketExists(
+        string $ticketNo
+    ): bool {
+
+        return $this->repository
+                ->findByTicket($ticketNo)
+            !== null;
+
+    }
+
+    /**
+     * Get Ticket By Number
+     */
+    public function getByTicket(
+        string $ticketNo
+    ): ?Issue {
+
+        return $this->repository
+            ->findByTicket($ticketNo);
+
+    }
+
+    /**
+     * Refresh Issue
+     */
+    public function refresh(
+        Issue $issue
+    ): Issue {
+
+        return $this->repository
+            ->findOrFail($issue->id);
+
+    }
+
+    /**
+     * Health Check
+     */
+    public function health(): array
+    {
+
+        return [
+
+            'status' => 'OK',
+
+            'time' => now(),
+
+            'service' => class_basename($this),
+
+            'repository' => class_basename($this->repository),
+
+        ];
+
+    }
+
+
+
+
+protected function validateCreateRequest(Request $request): void
+{
+    $errors = [];
+
+    if (blank($request->state_id)) {
+        $errors['state_id'] = 'State is required.';
+    }
+
+    // Service is optional; do not enforce here.
+
+    if (blank($request->project_id)) {
+        $errors['project_id'] = 'Project is required.';
+    }
+
+    if (blank($request->application_id)) {
+        $errors['application_id'] = 'Application is required.';
+    }
+
+    if (blank($request->issue_category_id)) {
+        $errors['issue_category_id'] = 'Issue Category is required.';
+    }
+
+    if (blank($request->priority_id)) {
+        $errors['priority_id'] = 'Priority is required.';
+    }
+
+    if (blank($request->subject)) {
+        $errors['subject'] = 'Subject is required.';
+    }
+
+    if (blank($request->description)) {
+        $errors['description'] = 'Description is required.';
+    }
+
+    if (!empty($errors)) {
+        throw ValidationException::withMessages($errors);
+    }
+}
+
+}

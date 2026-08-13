@@ -697,6 +697,9 @@ class IssueController extends Controller
      */
     public function store(StoreIssueRequest $request, IssueRoutingService $routingService): RedirectResponse|JsonResponse
     {
+        Log::info('╔════════════════════════════════════════════════╗');
+        Log::info('║ ISSUE CREATE ROUTE CALLED - /issues/create    ║');
+        Log::info('╚════════════════════════════════════════════════╝');
         Log::info("Raise Issue Request >>>>", ['response' => json_encode($request->all())]);
 
         try {
@@ -721,13 +724,17 @@ class IssueController extends Controller
             ]);
 
             if ($request->expectsJson()) {
-                return response()->json([
+                $payload = [
                     'success' => true,
                     'message' => 'Issue raised successfully.',
                     'issue' => $issue,
-                ], 200);
+                ];
+
+                return response()->json($payload, 200);
             }
 
+            Log::info('✓ ISSUE CREATION SUCCESSFUL IN CONTROLLER');
+            Log::info('Redirecting to issues.show page with issue details');
             return redirect()
                 ->route('issues.show', $issue)
                 ->with('success', 'Issue raised successfully. Issue Number: ' . $issue->issue_number);
@@ -735,6 +742,9 @@ class IssueController extends Controller
         } catch (Throwable $e) {
             #report($e);
 
+            Log::error('╔════════════════════════════════════════════════╗');
+            Log::error('║ ✗ ISSUE CREATE FAILED IN CONTROLLER            ║');
+            Log::error('╚════════════════════════════════════════════════╝');
             Log::error('Issue create failed', [
                 'message' => $e->getMessage(),
                 'line' => $e->getLine(),
@@ -1412,18 +1422,41 @@ class IssueController extends Controller
         );
 
         $issue->attachments()->create([
-            'file_name' => $file->getClientOriginalName(),
+            'original_file_name' => $file->getClientOriginalName(),
+            'stored_file_name' => basename($path),
             'file_path' => $path,
             'file_size' => $file->getSize(),
-            'mime_type' => $file->getMimeType(),
-            'uploaded_by' => Auth::id(),
-            'created_at' => now(),
+            'file_type' => $file->getMimeType(),
+            'user_id' => Auth::id(),
+            'uploaded_at' => now(),
         ]);
 
         return back()->with(
             'success',
             'Attachment uploaded successfully.'
         );
+    }
+
+    /**
+     * Download attachment file
+     */
+    public function downloadAttachment($id)
+    {
+        $attachment = DB::table('txn_issue_attachment')
+            ->where('attachment_id', $id)
+            ->first();
+
+        if (!$attachment) {
+            return abort(404, 'Attachment not found');
+        }
+
+        $filePath = storage_path('app/public/' . $attachment->file_path);
+
+        if (!file_exists($filePath)) {
+            return abort(404, 'File not found');
+        }
+
+        return response()->download($filePath, $attachment->original_file_name);
     }
 
 }

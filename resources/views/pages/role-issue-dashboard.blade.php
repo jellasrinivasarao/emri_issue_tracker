@@ -371,14 +371,17 @@
                                             <template x-for="(attachment, index) in selectedTicket.attachments" :key="index">
                                                 <div class="flex items-center justify-between rounded-[16px] border border-slate-200 bg-white px-4 py-3">
                                                     <div class="flex items-center gap-3">
-                                                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">FILE</span>
+                                                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 text-xs font-bold">FILE</span>
                                                         <div>
                                                             <p class="text-sm font-semibold text-slate-900" x-text="attachment.file_name">Attachment</p>
                                                             <p class="text-xs text-slate-500" x-text="attachment.created_at">—</p>
                                                         </div>
                                                     </div>
-                                                    <a :href="attachment.path || '#'
-                                                    " class="text-sm font-semibold text-blue-600 hover:text-blue-700" x-show="attachment.path" x-text="'Download'">Download</a>
+                                                    <div class="flex items-center gap-2">
+                                                        <a :href="attachment.download_url || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'View'">View</a>
+                                                        <span class="text-slate-300">|</span>
+                                                        <a :href="attachment.download_url || '#'" download class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'Download'">Download</a>
+                                                    </div>
                                                 </div>
                                             </template>
                                         </template>

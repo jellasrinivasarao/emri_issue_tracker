@@ -2,63 +2,52 @@
 
 namespace App\Services;
 
-use App\Models\Issue;
-use App\Models\IssueAssignment;
-use App\Models\IssueHistory;
-use App\Models\ProjectSupportConfiguration;
-
-use App\Models\IssueRoutingRule;
 use App\Models\WorkingCalendar;
 use Carbon\CarbonInterface;
+
+use App\Models\Issue;
+use App\Models\IssueAssignment;
+use App\Models\IssueRoutingRule;
 use Illuminate\Support\Facades\DB;
+use App\Models\IssueHistory;
+use App\Models\IssueRoutingConfiguration;
 
 class IssueRoutingService
 {
-    public function __construct(
-        protected WorkingCalendarEngine $calendarEngine
-    ) {
-    }
+    public function __construct(protected WorkingCalendarEngine $calendarEngine) {}
 
-    /*
-    |--------------------------------------------------------------------------
-    | CONFIGURATION
-    |--------------------------------------------------------------------------
-    */
+
 
     public function createConfiguration(array $data)
     {
         return DB::transaction(function () use ($data) {
 
-            $data['is_active'] =
-                $data['is_active'] ?? true;
+            $data['is_active'] = $data['is_active'] ?? true;
 
-            return ProjectSupportConfiguration::create($data);
+            return IssueRoutingConfiguration::create($data);
         });
     }
 
     public function updateConfiguration(
-        ProjectSupportConfiguration $configuration,
+        IssueRoutingConfiguration $configuration,
         array $data
     ) {
-
         return DB::transaction(function () use (
             $configuration,
             $data
         ) {
 
-            $data['is_active'] =
-                $data['is_active'] ?? false;
+            $data['is_active'] = $data['is_active'] ?? false;
 
             $configuration->update($data);
 
             return $configuration->fresh();
         });
     }
-
+    
     public function toggleConfiguration(
-        ProjectSupportConfiguration $configuration
+        IssueRoutingConfiguration $configuration
     ) {
-
         return DB::transaction(function () use ($configuration) {
 
             $configuration->is_active =
@@ -70,255 +59,150 @@ class IssueRoutingService
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | FIND ROUTING RULE
-    |--------------------------------------------------------------------------
-    */
-
-    protected function findMatchingRule(
-        Issue $issue
-    ): ?IssueRoutingRule {
-
-        return IssueRoutingRule::query()
-
-            ->where(
-                'support_config_id',
-                $issue->support_config_id
-            )
-
-            ->where(
-                'is_active',
-                1
-            )
-
-            /*
-             * Category
-             */
+    public function resolve(Issue $issue): ?IssueRoutingRule
+    {
+        $query = IssueRoutingRule::query()
+            ->where('is_active', 1)
             ->where(function ($query) use ($issue) {
+                $query->whereNull('issue_category')
+                    ->orWhere('issue_category', $issue->issue_category_id);
+            });
 
-                $query
-                    ->whereNull('issue_category')
-                    ->orWhere(
-                        'issue_category',
-                        $issue->issue_category_id
-                    );
-            })
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('issue_type')
+                ->orWhere('issue_type', $issue->issue_type_id);
+        });
 
-            /*
-             * Issue Type
-             */
-            ->where(function ($query) use ($issue) {
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('issue_type')
+                ->orWhere('issue_type', $issue->issue_type_id);
+        });
 
-                $query
-                    ->whereNull('issue_type')
-                    ->orWhere(
-                        'issue_type',
-                        $issue->issue_type_id
-                    );
-            })
+        $query->where(function ($query) use ($issue) {
+            $query->whereNull('priority')
+                ->orWhere('priority', $issue->priority_id);
+        });
 
-            /*
-             * Priority
-             */
-            ->where(function ($query) use ($issue) {
-
-                $query
-                    ->whereNull('priority')
-                    ->orWhere(
-                        'priority',
-                        $issue->priority_id
-                    );
-            })
-
-            ->orderByDesc('is_default')
-
+        return $query
             ->orderBy('routing_level')
-
+            ->orderByDesc('is_default')
             ->first();
     }
+    public function route(Issue $issue): ?IssueRoutingRule
+    {
+        return DB::transaction(function () use ($issue) {
 
-    /*
-    |--------------------------------------------------------------------------
-    | DETERMINE ROUTE
-    |--------------------------------------------------------------------------
-    */
+            $rule = $this->resolve($issue);
 
-    public function determineRoute(
-        ?WorkingCalendar $calendar,
-        bool $hoInterventionRequired,
-        ?CarbonInterface $dateTime = null
-    ): array {
+            if (! $rule) {
+                $issue->update([
+                    'status' => 'UNASSIGNED',
+                ]);
+
+                return null;
+            }
+
+            $issue->update([
+                'routing_rule_id' => $rule->routing_rule_id,
+                'support_level' => $rule->support_level,
+                'support_team_id' => $rule->support_team_id,
+                'sla_hours' => $rule->sla_hours,
+                'status' => 'ASSIGNED',
+            ]);
+            IssueAssignment::create([
+                'issue_id' => $issue->issue_id,
+                'support_level' => $rule->support_level,
+                'support_team_id' => $rule->support_team_id,
+                'assignment_type' => 'ROUTING',
+                'assigned_at' => now(),
+                'created_by' => auth()->id(),
+            ]);
+
+            return $rule;
+        });
+    }
+
+    public function determineRoute(WorkingCalendar $calendar,bool $hoInterventionRequired,?CarbonInterface $dateTime = null): array {
 
         /*
         |--------------------------------------------------------------------------
-        | HO intervention is not required
+        | HO intervention not required
         |--------------------------------------------------------------------------
         */
 
         if (!$hoInterventionRequired) {
 
             return [
-                'route' =>
-                    'VENDOR_LEVEL_2',
-
-                'reason' =>
-                    'HO_INTERVENTION_NOT_REQUIRED',
-
-                'is_working' =>
-                    false,
-
-                'calendar' =>
-                    null,
+                'route' => 'VENDOR_LEVEL_2',
+                'reason' => 'HO_INTERVENTION_NOT_REQUIRED',
+                'is_working' => false,
             ];
         }
 
         /*
         |--------------------------------------------------------------------------
-        | HO intervention required but calendar missing
+        | Check HO working hours
         |--------------------------------------------------------------------------
         */
 
-        if (!$calendar) {
+        $calendarResult = $this->calendarEngine->check(
+            $calendar,
+            $dateTime
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | HO is working
+        |--------------------------------------------------------------------------
+        */
+
+        if ($calendarResult['is_working']) {
 
             return [
-                'route' =>
-                    'VENDOR_LEVEL_2',
-
-                'reason' =>
-                    'HO_WORKING_CALENDAR_NOT_CONFIGURED',
-
-                'is_working' =>
-                    false,
-
-                'calendar' =>
-                    null,
+                'route' => 'HO_IT_LEVEL_1',
+                'reason' => $calendarResult['status'],
+                'is_working' => true,
+                'calendar' => $calendarResult,
             ];
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Check Working Calendar
-        |--------------------------------------------------------------------------
-        */
-
-        $calendarResult =
-            $this->calendarEngine->check(
-                $calendar,
-                $dateTime
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | HO unavailable
-        |--------------------------------------------------------------------------
-        |
-        | Holiday
-        | Weekend
-        | No schedule
-        | Outside business hours
-        | Calendar inactive
-        |
-        */
-
-        if (!$calendarResult['is_working']) {
-
-            return [
-                'route' =>
-                    'VENDOR_LEVEL_2',
-
-                'reason' =>
-                    $calendarResult['status'],
-
-                'is_working' =>
-                    false,
-
-                'calendar' =>
-                    $calendarResult,
-            ];
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | HO available
+        | HO is not working
         |--------------------------------------------------------------------------
         */
 
         return [
-            'route' =>
-                'HO_IT_LEVEL_1',
-
-            'reason' =>
-                $calendarResult['status'],
-
-            'is_working' =>
-                true,
-
-            'calendar' =>
-                $calendarResult,
+            'route' => 'VENDOR_LEVEL_2',
+            'reason' => $calendarResult['status'],
+            'is_working' => false,
+            'calendar' => $calendarResult,
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ROUTE ISSUE
-    |--------------------------------------------------------------------------
-    */
 
-    public function routeIssue(
-        Issue $issue
-    ): ?IssueAssignment {
 
+
+
+    public function routeIssue(Issue $issue): ?IssueAssignment
+    {
         return DB::transaction(function () use ($issue) {
 
-            /*
-            |--------------------------------------------------------------------------
-            | Load Configuration
-            |--------------------------------------------------------------------------
-            */
+            $configuration = $issue->configuration;
 
-            $configuration =
-                $issue->configuration;
-
-            if (
-                !$configuration ||
-                !$configuration->auto_routing_enabled
-            ) {
-
-                $this->writeHistory(
-                    $issue,
-                    'ROUTING_SKIPPED',
-                    $issue->status,
-                    $issue->status,
-                    $issue->current_team_id,
-                    null,
-                    'Auto routing is disabled.'
-                );
-
+            if (! $configuration || ! $configuration->auto_routing_enabled) {
                 return null;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Find Rule
-            |--------------------------------------------------------------------------
-            */
+            $rule = $this->findMatchingRule($issue);
 
-            $rule =
-                $this->findMatchingRule($issue);
-
-            if (!$rule) {
-
-                $issue->update([
-                    'status' => 'UNASSIGNED',
-                ]);
-
+            if (! $rule) {
                 $this->writeHistory(
                     $issue,
                     'ROUTING_FAILED',
                     $issue->status,
-                    'UNASSIGNED',
-                    $issue->current_team_id,
+                    $issue->status,
+                    null,
                     null,
                     'No matching routing rule found.'
                 );
@@ -326,212 +210,69 @@ class IssueRoutingService
                 return null;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | HO Intervention
-            |--------------------------------------------------------------------------
-            */
+            $oldTeam = $issue->current_team_id;
 
-            $hoInterventionRequired =
-                (bool) $rule->ho_intervention_required;
-
-            /*
-            |--------------------------------------------------------------------------
-            | Working Calendar
-            |--------------------------------------------------------------------------
-            */
-
-            $calendar =
-                $configuration->workingCalendar;
-
-            /*
-            |--------------------------------------------------------------------------
-            | Determine Final Route
-            |--------------------------------------------------------------------------
-            */
-
-            $routeDecision =
-                $this->determineRoute(
-                    $calendar,
-                    $hoInterventionRequired,
-                    $issue->created_at ?? now()
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Resolve Team
-            |--------------------------------------------------------------------------
-            */
-
-            $teamId =
-                $this->resolveTeam(
-                    $rule,
-                    $routeDecision['route']
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Team Not Configured
-            |--------------------------------------------------------------------------
-            */
-
-            if (!$teamId) {
-
-                $issue->update([
-                    'status' => 'UNASSIGNED',
-                ]);
-
-                $this->writeHistory(
-                    $issue,
-                    'ROUTING_FAILED',
-                    $issue->status,
-                    'UNASSIGNED',
-                    $issue->current_team_id,
-                    null,
-                    'No team configured for route: ' .
-                    $routeDecision['route']
-                );
-
-                return null;
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Previous Team
-            |--------------------------------------------------------------------------
-            */
-
-            $oldTeam =
-                $issue->current_team_id;
-
-            /*
-            |--------------------------------------------------------------------------
-            | Create Assignment
-            |--------------------------------------------------------------------------
-            */
-
-            $assignment =
-                IssueAssignment::create([
-
-                    'issue_id' =>
-                        $issue->issue_id,
-
-                    'routing_rule_id' =>
-                        $rule->routing_rule_id,
-                    'support_config_id' => $issue->support_config_id,
-
-                    'support_team_id' =>
-                        $teamId,
-
-                    'assignment_level' =>
-                        $routeDecision['route']
-                            === 'HO_IT_LEVEL_1'
-                            ? 1
-                            : 2,
-
-                    'assignment_type' =>
-                        'AUTO',
-
-                    'status' =>
-                        'ASSIGNED',
-
-                    'assigned_at' =>
-                        now(),
-                    'assignment_reason' => 'WORKING_HOURS',
-                    'remarks'           => 'HO IT Level 1 assigned automatically.',
-                    'assigned_by'       => auth()->id(),
-
-                    // 'remarks' =>
-                    //     $routeDecision['reason'],
-                ]);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Update Issue
-            |--------------------------------------------------------------------------
-            */
-
-            $issue->update([
-
-                'current_team_id' =>
-                    $teamId,
-
-                'routing_rule_id' =>
-                    $rule->routing_rule_id,
-
-                'status' =>
-                    'ASSIGNED',
-
-                'assigned_at' =>
-                    now(),
+            $assignment = IssueAssignment::create([
+                'issue_id' => $issue->issue_id,
+                'routing_rule_id' => $rule->routing_rule_id,
+                'support_team_id' => $rule->support_team_id,
+                'assignment_level' => $rule->routing_level,
+                'assignment_type' => 'AUTO',
+                'status' => 'ASSIGNED',
+                'assigned_at' => now(),
             ]);
 
-            /*
-            |--------------------------------------------------------------------------
-            | History
-            |--------------------------------------------------------------------------
-            */
+            $issue->update([
+                'current_team_id' => $rule->support_team_id,
+                'status' => 'ASSIGNED',
+                'assigned_at' => now(),
+            ]);
 
             $this->writeHistory(
                 $issue,
                 'AUTO_ROUTED',
-                'Open',
+                'OPEN',
                 'ASSIGNED',
                 $oldTeam,
-                $teamId,
-                'Route: ' .
-                $routeDecision['route'] .
-                ' | Reason: ' .
-                $routeDecision['reason']
+                $rule->support_team_id,
+                'Issue automatically routed using rule: ' . $rule->rule_code
             );
 
             return $assignment;
         });
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESOLVE TEAM
-    |--------------------------------------------------------------------------
-    */
+    protected function findMatchingRule(Issue $issue): ?IssueRoutingRule
+    {
+        $query = IssueRoutingRule::query()
+            ->where('is_active', 1);
 
-    protected function resolveTeam(
-        IssueRoutingRule $rule,
-        string $route
-    ): ?int {
-
-        /*
-        |--------------------------------------------------------------------------
-        | HO IT LEVEL 1
-        |--------------------------------------------------------------------------
-        */
-
-        if ($route === 'HO_IT_LEVEL_1') {
-
-            return $rule->ho_it_team_id
-                ?? $rule->support_team_id;
+        if ($issue->issue_category) {
+            $query->where(function ($q) use ($issue) {
+                $q->whereNull('issue_category')
+                    ->orWhere('issue_category', $issue->issue_category);
+            });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | VENDOR LEVEL 2
-        |--------------------------------------------------------------------------
-        */
-
-        if ($route === 'VENDOR_LEVEL_2') {
-
-            return $rule->vendor_team_id
-                ?? $rule->support_team_id;
+        if ($issue->issue_type) {
+            $query->where(function ($q) use ($issue) {
+                $q->whereNull('issue_type')
+                    ->orWhere('issue_type', $issue->issue_type);
+            });
         }
 
-        return null;
+        if ($issue->priority) {
+            $query->where(function ($q) use ($issue) {
+                $q->whereNull('priority')
+                    ->orWhere('priority', $issue->priority);
+            });
+        }
+
+        return $query
+            ->orderByDesc('is_default')
+            ->orderBy('routing_level')
+            ->first();
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | HISTORY
-    |--------------------------------------------------------------------------
-    */
 
     protected function writeHistory(
         Issue $issue,
@@ -542,35 +283,145 @@ class IssueRoutingService
         ?int $toTeam,
         ?string $remarks = null
     ): void {
-
         IssueHistory::create([
-
-            'issue_id' =>
-                $issue->issue_id,
-
-            'action' =>
-                $action,
-
-            'from_status' =>
-                $fromStatus,
-
-            'to_status' =>
-                $toStatus,
-
-            'from_team_id' =>
-                $fromTeam,
-
-            'to_team_id' =>
-                $toTeam,
-
-            'remarks' =>
-                $remarks,
-
-            'performed_by' =>
-                auth()->id(),
-
-            'created_at' =>
-                now(),
+            'issue_id' => $issue->issue_id,
+            'action' => $action,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'from_team_id' => $fromTeam,
+            'to_team_id' => $toTeam,
+            'remarks' => $remarks,
+            'performed_by' => auth()->id(),
+            'created_at' => now(),
         ]);
     }
+
+    public function manuallyRoute(
+        Issue $issue,
+        int $teamId,
+        ?string $remarks = null
+    ): IssueAssignment {
+
+        return DB::transaction(function () use ($issue, $teamId, $remarks) {
+
+            $oldTeam = $issue->current_team_id;
+
+            $assignment = IssueAssignment::create([
+                'issue_id' => $issue->issue_id,
+                'support_team_id' => $teamId,
+                'assignment_level' => 1,
+                'assignment_type' => 'MANUAL',
+                'status' => 'ASSIGNED',
+                'assigned_at' => now(),
+                'remarks' => $remarks,
+            ]);
+
+            $issue->update([
+                'current_team_id' => $teamId,
+                'status' => 'ASSIGNED',
+                'assigned_at' => now(),
+            ]);
+
+            $this->writeHistory(
+                $issue,
+                'MANUAL_ROUTING',
+                'ASSIGNED',
+                'ASSIGNED',
+                $oldTeam,
+                $teamId,
+                $remarks
+            );
+
+            return $assignment;
+        });
+    }
+
+
+
+    public function calculateSla(Issue $issue): array
+{
+    /*
+    |--------------------------------------------------------------------------
+    | Replace this with your existing SLA service.
+    |--------------------------------------------------------------------------
+    */
+
+    $slaHours = null;
+
+    if (
+        isset($issue->routingRule) &&
+        $issue->routingRule
+    ) {
+        $slaHours =
+            $issue->routingRule->sla_hours;
+    }
+
+    if (!$slaHours) {
+
+        return [
+            'sla_remaining_minutes' => null,
+            'sla_remaining_label' => '-',
+        ];
+    }
+
+
+    $start =
+        $issue->raised_at
+        ?? now();
+
+
+    $deadline =
+        $start->copy()
+            ->addHours($slaHours);
+
+
+    $remaining =
+        now()->diffInMinutes(
+            $deadline,
+            false
+        );
+
+
+    if ($remaining <= 0) {
+
+        return [
+            'sla_remaining_minutes' =>
+                $remaining,
+
+            'sla_remaining_label' =>
+                'Breached',
+        ];
+    }
+
+
+    $hours =
+        intdiv($remaining, 60);
+
+
+    $minutes =
+        $remaining % 60;
+
+
+    if ($hours > 0) {
+
+        $label =
+            $hours . ' hr ' .
+            $minutes . ' min';
+
+    } else {
+
+        $label =
+            $minutes . ' min';
+
+    }
+
+
+    return [
+        'sla_remaining_minutes' =>
+            $remaining,
+
+        'sla_remaining_label' =>
+            $label . ' remaining',
+    ];
+}
 }
