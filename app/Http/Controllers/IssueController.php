@@ -1450,9 +1450,17 @@ class IssueController extends Controller
             return abort(404, 'Attachment not found');
         }
 
-        $filePath = storage_path('app/public/' . $attachment->file_path);
+        // Remove '/storage/' prefix if present, then build full path
+        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
+        $filePath = storage_path('app/public/' . $relativePath);
 
         if (!file_exists($filePath)) {
+            \Log::error('Attachment file not found', [
+                'attachment_id' => $id,
+                'stored_path' => $attachment->file_path,
+                'constructed_path' => $filePath,
+                'file_exists' => file_exists($filePath)
+            ]);
             return abort(404, 'File not found');
         }
 
