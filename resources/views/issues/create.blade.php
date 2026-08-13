@@ -893,6 +893,11 @@
                         });
                         applicationSelect.dataset.handlerAttached = '1';
                     }
+
+                    // Auto-load projects if a state is already selected when form loads
+                    if (stateSelect && stateSelect.value) {
+                        loadProjects(stateSelect.value);
+                    }
                 });
                 </script>
                 @endpush
