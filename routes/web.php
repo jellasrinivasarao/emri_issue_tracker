@@ -65,8 +65,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('menu.access:issues')
         ->name('issues.index');
 
-    Route::redirect('/raise-issue', '/issues/create')
-        ->middleware('menu.access:raise.issue');
+    Route::get('/raise-issue', function () {
+        return redirect('/issues/create');
+    })->middleware('menu.access:raise.issue');
 
     Route::get('/issues/create', [IssueController::class, 'create'])
         ->middleware('menu.access:raise.issue')
