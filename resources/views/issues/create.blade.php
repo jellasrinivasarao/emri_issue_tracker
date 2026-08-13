@@ -527,14 +527,24 @@
 
                                     <input type="file" name="attachment" id="attachment" class="hidden">
 
-                                    <button type="button" onclick="document.getElementById('attachment').click()"
-                                        class="mt-4 px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                    <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                                        <button type="button" onclick="document.getElementById('attachment').click()"
+                                            class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                            Choose File
+                                        </button>
 
-                                        Choose File
+                                        <button type="button" id="previewTicketBtn" onclick="if (typeof openTicketPreviewModal === 'function') { openTicketPreviewModal(); } else { const modal = document.getElementById('ticketPreviewModal'); if (modal) modal.classList.remove('hidden'); }"
+                                            class="px-5 py-2 rounded-lg border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                            Preview Ticket
+                                        </button>
+                                    </div>
 
-                                    </button>
-
-                                    <div id="selectedFile" class="text-sm text-green-600 mt-3">
+                                    <div id="selectedFile" class="mt-3 hidden"></div>
+                                    <div id="selectedFileActions" class="mt-3 hidden flex items-center gap-3">
+                                        <button type="button" id="selectedFilePreviewBtn" onclick="if (typeof openTicketPreviewModal === 'function') { openTicketPreviewModal(); } else { const modal = document.getElementById('ticketPreviewModal'); if (modal) modal.classList.remove('hidden'); }"
+                                            class="px-4 py-2 rounded-lg border border-blue-600 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                                            Preview
+                                        </button>
                                     </div>
 
                                 </div>
@@ -594,13 +604,284 @@
                 <!-- <script src="{{ asset('js/issue.js') }}"></script> -->
 
                 <script>
-                document.getElementById('attachment').addEventListener('change', function() {
-                    let file = this.files[0];
-                    if (file) {
-                        document.getElementById('selectedFile').innerHTML =
-                            "Selected : " + file.name;
+                function readFormValue(selector, fallback = '-') {
+                    const el = document.querySelector(selector);
+                    if (!el) return fallback;
+                    const value = (el.value || '').trim();
+                    return value || fallback;
+                }
+
+                function getAttachmentName() {
+                    const attachment = document.getElementById('attachment');
+                    if (attachment && attachment.files && attachment.files.length) {
+                        return attachment.files[0].name;
                     }
-                });
+                    return 'No attachment selected';
+                }
+
+                function getAttachmentImageMarkup() {
+                    const attachment = document.getElementById('attachment');
+                    if (!attachment || !attachment.files || !attachment.files.length) return '';
+                    const file = attachment.files[0];
+                    if (!file.type || !file.type.startsWith('image/')) return '';
+                    const previewUrl = URL.createObjectURL(file);
+                    return `<img src="${previewUrl}" alt="${file.name}" class="max-h-64 rounded-xl border border-gray-200 object-contain bg-gray-50 p-2" />`;
+                }
+
+                function buildTicketPreviewHtml() {
+                    const state = readFormValue('#state_id');
+                    const project = readFormValue('#project_id');
+                    const application = readFormValue('#application_id');
+                    const module = readFormValue('#module_id');
+                    const issueCategory = readFormValue('#issue_category_id');
+                    const priority = readFormValue('#priority_id');
+                    const subject = readFormValue('#subject');
+                    const description = readFormValue('#description');
+                    const occurredDate = readFormValue('#occurred_date');
+                    const occurredTime = readFormValue('#occurred_time');
+                    const affectedUsers = readFormValue('#affected_users');
+                    const attachmentName = getAttachmentName();
+                    const imageMarkup = getAttachmentImageMarkup();
+
+                    return `
+                        <div class="space-y-4 bg-white">
+                            <!-- TICKET INFORMATION Header -->
+                            <div class="bg-blue-100 border-l-4 border-blue-600 px-4 py-3 mb-4">
+                                <p class="text-sm font-semibold text-blue-700 flex items-center gap-2">
+                                    <span>📋</span> TICKET INFORMATION
+                                </p>
+                            </div>
+
+                            <!-- Row 1: Ticket ID, State, Priority -->
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Ticket ID</p>
+                                    <p class="mt-2 font-bold text-gray-900">DRAFT-PREVIEW</p>
+                                </div>
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">State</p>
+                                    <p class="mt-2 font-bold text-gray-900">${state}</p>
+                                </div>
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Priority</p>
+                                    <p class="mt-2 font-bold text-gray-900">${priority}</p>
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Project, Application, Module -->
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Project</p>
+                                    <p class="mt-2 font-bold text-gray-900">${project}</p>
+                                </div>
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Application</p>
+                                    <p class="mt-2 font-bold text-gray-900">${application}</p>
+                                </div>
+                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Module</p>
+                                    <p class="mt-2 font-bold text-gray-900">${module}</p>
+                                </div>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</p>
+                                <p class="mt-2 font-bold text-gray-900">${state}</p>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Description</p>
+                                <p class="mt-2 text-gray-700 whitespace-pre-wrap">${description}</p>
+                            </div>
+
+                            <!-- Attachments -->
+                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
+                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Attachments</p>
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between py-2">
+                                        <p class="text-sm text-gray-700">${attachmentName}</p>
+                                        <div class="flex gap-3">
+                                            <a href="#" class="text-sm font-semibold text-blue-600 hover:underline">View</a>
+                                            <a href="#" class="text-sm font-semibold text-blue-600 hover:underline">Download</a>
+                                        </div>
+                                    </div>
+                                    ${imageMarkup ? '<div class="mt-3 border-t pt-3">' + imageMarkup + '</div>' : ''}
+                                </div>
+                            </div>
+
+                            <!-- Update History Section -->
+                            <div class="mt-6">
+                                <div class="bg-blue-100 border-l-4 border-blue-600 px-4 py-3 mb-4">
+                                    <p class="text-sm font-semibold text-blue-700 flex items-center gap-2">
+                                        <span>⏱</span> UPDATE HISTORY
+                                    </p>
+                                </div>
+                                
+                                <!-- History Entries -->
+                                <div class="space-y-3">
+                                    <!-- Entry 1: Issue Created -->
+                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                                        <div class="mb-3">
+                                            <p class="font-bold text-blue-600">Issue Created</p>
+                                            <p class="text-xs text-gray-600">by System · Just now</p>
+                                        </div>
+                                        <p class="text-sm text-gray-700">Action: <span class="font-semibold">Issue Created</span></p>
+                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Issue created successfully.</p>
+                                    </div>
+
+                                    <!-- Entry 2: Status Change - Example -->
+                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                                        <div class="mb-3">
+                                            <p class="font-bold text-blue-600">Status Changed</p>
+                                            <p class="text-xs text-gray-600">by Support Team · 15 minutes ago</p>
+                                        </div>
+                                        <div class="text-sm text-gray-700 space-y-1">
+                                            <p>Status: <span class="font-semibold">Assigned</span> → <span class="font-semibold">In Progress</span></p>
+                                        </div>
+                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Issue under investigation</p>
+                                    </div>
+
+                                    <!-- Entry 3: Attachment Addition - Example -->
+                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                                        <div class="mb-3">
+                                            <p class="font-bold text-blue-600">Information Updated</p>
+                                            <p class="text-xs text-gray-600">by Support Team · 10 minutes ago</p>
+                                        </div>
+                                        <p class="text-sm text-gray-700">Action: <span class="font-semibold">Attachment Added / Details Updated</span></p>
+                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Supporting document attached for reference</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                function renderAttachmentPreview(file) {
+                    const selectedFile = document.getElementById('selectedFile');
+                    const selectedFileActions = document.getElementById('selectedFileActions');
+                    if (!selectedFile) return;
+
+                    if (!file) {
+                        selectedFile.classList.add('hidden');
+                        selectedFile.innerHTML = '';
+                        if (selectedFileActions) selectedFileActions.classList.add('hidden');
+                        return;
+                    }
+
+                    selectedFile.classList.remove('hidden');
+                    if (selectedFileActions) selectedFileActions.classList.remove('hidden');
+
+                    if (file.type && file.type.startsWith('image/')) {
+                        const previewUrl = URL.createObjectURL(file);
+                        selectedFile.innerHTML = `
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <img src="${previewUrl}" alt="${file.name}" class="max-h-48 rounded-lg object-contain mx-auto" />
+                                <p class="mt-2 text-sm text-gray-700 text-center">${file.name}</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    selectedFile.innerHTML = `
+                        <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                            <p class="text-sm text-gray-500">No preview available for this file type.</p>
+                            <p class="mt-2 text-sm font-medium text-gray-700">${file.name}</p>
+                        </div>
+                    `;
+                }
+
+                function openTicketPreviewModal() {
+                    const previewContent = document.getElementById('ticketPreviewContent');
+                    if (!previewContent) return;
+                    previewContent.innerHTML = buildTicketPreviewHtml();
+                    const modal = document.getElementById('ticketPreviewModal');
+                    if (modal) modal.classList.remove('hidden');
+                }
+
+                window.openTicketPreviewModal = openTicketPreviewModal;
+
+                function closeTicketPreviewModal() {
+                    const modal = document.getElementById('ticketPreviewModal');
+                    if (modal) modal.classList.add('hidden');
+                }
+
+                window.closeTicketPreviewModal = closeTicketPreviewModal;
+
+                function printTicketPreview() {
+                    const previewHtml = buildTicketPreviewHtml();
+                    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+
+                    if (!printWindow) {
+                        alert('Your browser blocked the print popup. Please allow popups and try again.');
+                        return;
+                    }
+
+                    printWindow.document.write(`<!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Issue Ticket Preview</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+                                .section { margin-bottom: 18px; }
+                                .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 12px; }
+                                .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f9fafb; }
+                                .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; }
+                                .value { margin-top: 6px; font-weight: 600; }
+                                .title { font-size: 28px; font-weight: 700; margin-bottom: 14px; }
+                                img { max-height: 220px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; background: #fff; }
+                                @media print { body { margin: 0; } }
+                            </style>
+                        </head>
+                        <body>${previewHtml}</body>
+                        </html>`);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => printWindow.print(), 400);
+                }
+
+                const attachmentInput = document.getElementById('attachment');
+                if (attachmentInput) {
+                    attachmentInput.addEventListener('change', function() {
+                        const file = this.files && this.files[0] ? this.files[0] : null;
+                        renderAttachmentPreview(file);
+                    });
+                }
+
+                const previewTicketBtn = document.getElementById('previewTicketBtn');
+                if (previewTicketBtn) {
+                    previewTicketBtn.addEventListener('click', openTicketPreviewModal);
+                }
+
+                const closePreviewBtn = document.getElementById('closePreviewBtn');
+                if (closePreviewBtn) {
+                    closePreviewBtn.addEventListener('click', closeTicketPreviewModal);
+                }
+
+                const printTicketBtn = document.getElementById('printTicketBtn');
+                if (printTicketBtn) {
+                    printTicketBtn.addEventListener('click', printTicketPreview);
+                }
+
+                const exportPdfBtn = document.getElementById('exportPdfBtn');
+                if (exportPdfBtn) {
+                    exportPdfBtn.addEventListener('click', printTicketPreview);
+                }
+
+                const ticketPreviewModal = document.getElementById('ticketPreviewModal');
+                if (ticketPreviewModal) {
+                    ticketPreviewModal.addEventListener('click', function(event) {
+                        if (event.target === ticketPreviewModal) {
+                            closeTicketPreviewModal();
+                        }
+                    });
+                }
+
+                const selectedFilePreviewBtn = document.getElementById('selectedFilePreviewBtn');
+                if (selectedFilePreviewBtn) {
+                    selectedFilePreviewBtn.addEventListener('click', openTicketPreviewModal);
+                }
 
                 document.addEventListener('DOMContentLoaded', function() {
                     let subject = document.getElementById('subject');
@@ -718,16 +999,24 @@
                                             $('#issue_category_id').val('').trigger('change');
                                             $('#priority_id').val('').trigger('change');
 
-                                            document.getElementById('selectedFile').innerHTML = '';
+                                            renderAttachmentPreview(null);
                                             return;
                                         }
 
                                         const message = (data && data.message) ? data.message : 'Unable to raise issue.';
-                                        document.getElementById('selectedFile').innerHTML = '<span class="text-red-600">' + message + '</span>';
+                                        const selectedFile = document.getElementById('selectedFile');
+                                        if (selectedFile) {
+                                            selectedFile.classList.remove('hidden');
+                                            selectedFile.innerHTML = '<span class="text-red-600">' + message + '</span>';
+                                        }
                                     })
                                     .catch((err) => {
                                         console.error('Issue create failed', err);
-                                        document.getElementById('selectedFile').innerHTML = '<span class="text-red-600">Unable to raise issue.</span>';
+                                        const selectedFile = document.getElementById('selectedFile');
+                                        if (selectedFile) {
+                                            selectedFile.classList.remove('hidden');
+                                            selectedFile.innerHTML = '<span class="text-red-600">Unable to raise issue.</span>';
+                                        }
                                     })
                                     .finally(() => {
                                         submitBtn.disabled = false;
@@ -742,6 +1031,31 @@
 
 
                 @endpush
+
+                <div id="ticketPreviewModal" class="fixed inset-0 z-50 hidden bg-black/40 flex items-center justify-center">
+                    <div class="w-full max-w-4xl rounded-2xl bg-white shadow-2xl flex flex-col" style="max-height: 90vh;">
+                        <div class="border-b border-gray-200 bg-white px-6 py-4 flex-shrink-0">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-2xl font-bold text-gray-800">Draft Ticket Preview</h2>
+                                <button type="button" id="closePreviewBtn" onclick="closeTicketPreviewModal()" class="text-gray-500 hover:text-gray-700 text-lg font-semibold">
+                                    ✕
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="if (typeof printTicketPreview === 'function') { printTicketPreview(); }" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700">
+                                    <span>🖨</span> Print
+                                </button>
+                                <button type="button" onclick="if (typeof printTicketPreview === 'function') { printTicketPreview(); }" class="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700">
+                                    <span>📄</span> Export PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-y-auto p-6 flex-1">
+                            <div id="ticketPreviewContent"></div>
+                        </div>
+                    </div>
+                </div>
                 
                 @push('scripts')
                 <script>

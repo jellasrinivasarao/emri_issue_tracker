@@ -103,7 +103,7 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Queue</p>
                         <p class="mt-1 text-sm text-slate-500">Click any ticket ID to open details.</p>
                     </div>
-                    <a href="#" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Export</a>
+                    <a href="#" onclick="exportIssueQueue(event)" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Export</a>
                 </div>
 
                 <div class="mt-3 max-h-[230px] overflow-y-auto rounded-[12px] border border-slate-200">
@@ -278,6 +278,7 @@
                                     <button @click="activeTab='details'" :class="['px-3 py-2 text-sm', activeTab==='details' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Details</button>
                                     <button @click="activeTab='history'" :class="['px-3 py-2 text-sm', activeTab==='history' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Status History</button>
                                     <button @click="activeTab='attachments'" :class="['px-3 py-2 text-sm', activeTab==='attachments' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Attachments</button>
+                                    <button @click="activeTab='preview'" :class="['px-3 py-2 text-sm', activeTab==='preview' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Preview</button>
                                 </nav>
                             </div>
 
@@ -378,7 +379,7 @@
                                                         </div>
                                                     </div>
                                                     <div class="flex items-center gap-2">
-                                                        <a :href="attachment.download_url || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'View'">View</a>
+                                                        <a :href="attachment.view_url || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.view_url" x-text="'View'">View</a>
                                                         <span class="text-slate-300">|</span>
                                                         <a :href="attachment.download_url || '#'" download class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'Download'">Download</a>
                                                     </div>
@@ -387,6 +388,113 @@
                                         </template>
                                         <template x-if="selectedTicket && (!selectedTicket.attachments || selectedTicket.attachments.length === 0)">
                                             <div class="rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-500">No attachments found.</div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div x-show="activeTab==='preview'" x-cloak id="ticketPreviewSection" class="rounded-[18px] border border-slate-200 bg-white p-6">
+                                    <div class="border-b border-slate-200 pb-4 mb-6">
+                                        <div class="flex items-center justify-between mb-4">
+                                            <h2 class="text-2xl font-bold text-slate-800">Ticket Details Preview</h2>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button type="button" onclick="printTicketPreviewSection()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700">
+                                                <span>🖨</span> Print
+                                            </button>
+                                            <button type="button" onclick="printTicketPreviewSection()" class="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700">
+                                                <span>📄</span> Export PDF
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-6">
+                                        <div class="border-l-4 border-blue-600 bg-blue-50 px-4 py-3 rounded">
+                                            <h3 class="text-sm font-semibold text-blue-700 uppercase tracking-wide">🎫 Ticket Information</h3>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Ticket ID</p>
+                                                <p class="mt-2 text-sm font-bold text-slate-800" x-text="selectedTicket ? selectedTicket.id : '—'">—</p>
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">State</p>
+                                                <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.state : '—'">—</p>
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Priority</p>
+                                                <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.priority : '—'">—</p>
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Project</p>
+                                                <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.project : '—'">—</p>
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Application</p>
+                                                <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.application : '—'">—</p>
+                                            </div>
+                                            <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                                <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Module</p>
+                                                <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.module : '—'">—</p>
+                                            </div>
+                                        </div>
+
+                                        <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                            <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest">Status</p>
+                                            <p class="mt-2 text-sm font-semibold text-slate-800" x-text="selectedTicket ? selectedTicket.status : '—'">—</p>
+                                        </div>
+
+                                        <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                            <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-3">Description</p>
+                                            <p class="whitespace-pre-line text-sm text-slate-700 leading-relaxed" x-text="selectedTicket ? selectedTicket.description : 'No description available.'">No description available.</p>
+                                        </div>
+
+                                        <div class="bg-white border border-slate-200 rounded-lg p-4">
+                                            <p class="text-xs font-semibold text-slate-600 uppercase tracking-widest mb-3">Attachments</p>
+                                            <template x-if="selectedTicket && selectedTicket.attachments && selectedTicket.attachments.length">
+                                                <div class="space-y-2">
+                                                    <template x-for="(attachment, index) in selectedTicket.attachments" :key="index">
+                                                        <div class="flex items-center justify-between bg-slate-50 p-3 rounded">
+                                                            <p class="text-sm text-slate-700" x-text="attachment.file_name">—</p>
+                                                            <div class="flex gap-2">
+                                                                <a :href="attachment.view_url || '#'" target="_blank" class="text-xs text-blue-600 hover:underline" x-show="attachment.view_url">View</a>
+                                                                <a :href="attachment.download_url || '#'" download class="text-xs text-blue-600 hover:underline" x-show="attachment.download_url">Download</a>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="selectedTicket && (!selectedTicket.attachments || selectedTicket.attachments.length === 0)">
+                                                <p class="text-sm text-slate-500 italic">No attachments available</p>
+                                            </template>
+                                        </div>
+
+                                        <!-- UPDATE HISTORY Section in Preview Tab -->
+                                        <div class="border-l-4 border-blue-600 bg-blue-50 px-4 py-3 rounded">
+                                            <h3 class="text-sm font-semibold text-blue-700 uppercase tracking-wide">⏱ Update History</h3>
+                                        </div>
+
+                                        <template x-if="selectedTicket && selectedTicket.history && selectedTicket.history.length">
+                                            <div class="space-y-3">
+                                                <template x-for="(row, index) in selectedTicket.history" :key="index">
+                                                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                                        <div class="flex items-start justify-between gap-3 mb-3">
+                                                            <div>
+                                                                <p class="text-sm font-bold text-blue-600" x-text="row.action">Action</p>
+                                                                <p class="text-xs text-slate-600 mt-1" x-text="'by ' + (row.changed_by || 'System') + ' · ' + (row.changed_at || 'Just now')">—</p>
+                                                            </div>
+                                                            <span class="rounded-full bg-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-700" x-text="row.status_name || row.action">Status</span>
+                                                        </div>
+                                                        <template x-if="row.from_status && row.to_status">
+                                                            <p class="text-sm text-slate-700 mb-2" x-html="'Status: <span class=&quot;font-semibold&quot;>' + row.from_status + '</span> → <span class=&quot;font-semibold&quot;>' + row.to_status + '</span>'">—</p>
+                                                        </template>
+                                                        <p class="text-sm font-semibold text-slate-900" x-text="'Remarks: ' + (row.comment || row.remarks || 'No remarks')">Remarks</p>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="selectedTicket && (!selectedTicket.history || selectedTicket.history.length === 0)">
+                                            <div class="rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-500">No update history found.</div>
                                         </template>
                                     </div>
                                 </div>
@@ -425,6 +533,46 @@
     </div>
 
     <script>
+        function printTicketPreviewSection() {
+            const previewSection = document.getElementById('ticketPreviewSection');
+            if (!previewSection) return;
+
+            const printWindow = window.open('', '_blank', 'width=1000,height=800');
+            if (!printWindow) {
+                alert('Your browser blocked the print popup. Please allow popups and try again.');
+                return;
+            }
+
+            const printHtml = `
+                <html>
+                    <head>
+                        <title>Ticket Preview</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
+                            .wrap { max-width: 900px; margin: 0 auto; }
+                            .box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+                            .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #6b7280; }
+                            .value { margin-top: 6px; font-size: 16px; font-weight: 700; }
+                            .row { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 12px; }
+                            .pill { display: inline-block; background: #f3f4f6; border-radius: 999px; padding: 6px 10px; font-size: 12px; margin-right: 8px; }
+                            .muted { color: #6b7280; }
+                            @media print { body { margin: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="wrap">
+                            ${previewSection.innerHTML}
+                        </div>
+                    </body>
+                </html>
+            `;
+
+            printWindow.document.write(printHtml);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 400);
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             const vendorOptions = @json($vendorOptions->map(function ($vendor) {
                 return ['vendor_id' => $vendor->vendor_id, 'vendor_name' => $vendor->vendor_name];
@@ -585,6 +733,50 @@
 
             renderList();
             renderChips();
+
+            function exportIssueQueue(event) {
+                event.preventDefault();
+                
+                const issues = @js($issues);
+                if (!issues || issues.length === 0) {
+                    alert('No issues to export.');
+                    return;
+                }
+
+                // Create CSV content
+                const headers = ['Ticket ID', 'Issue Title', 'State', 'Project', 'Application', 'Module', 'Status', 'Priority', 'Updated On'];
+                const rows = issues.map(ticket => [
+                    ticket.id,
+                    ticket.title,
+                    ticket.state,
+                    ticket.project,
+                    ticket.application,
+                    ticket.module,
+                    ticket.status,
+                    ticket.priority,
+                    ticket.updated_on
+                ]);
+
+                let csv = headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
+
+                // Create blob and download
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'issue_queue_' + new Date().getTime() + '.csv');
+                link.style.visibility = 'hidden';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            window.exportIssueQueue = exportIssueQueue;
         });
     </script>
 </x-app-layout>

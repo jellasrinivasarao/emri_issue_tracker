@@ -1416,25 +1416,196 @@ class IssueController extends Controller
 
         $file = $request->file('attachment');
 
-        $path = $file->store(
-            'issues/' . $issue->issue_id,
-            'public'
-        );
+        try {
+            \Log::info('Starting attachment upload', [
+                'issue_id' => $issue->issue_id,
+                'file_name' => $file->getClientOriginalName(),
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType()
+            ]);
 
-        $issue->attachments()->create([
-            'original_file_name' => $file->getClientOriginalName(),
-            'stored_file_name' => basename($path),
-            'file_path' => $path,
-            'file_size' => $file->getSize(),
-            'file_type' => $file->getMimeType(),
-            'user_id' => Auth::id(),
-            'uploaded_at' => now(),
+            $path = $file->store(
+                'issues/' . $issue->issue_id,
+                'public'
+            );
+
+            if (!$path) {
+                throw new \Exception('File store returned empty path');
+            }
+
+            \Log::info('File stored successfully', [
+                'path' => $path,
+                'full_path' => storage_path('app/public/' . $path)
+            ]);
+
+            $issue->attachments()->create([
+                'original_file_name' => $file->getClientOriginalName(),
+                'stored_file_name' => basename($path),
+                'file_path' => '/storage/' . $path,
+                'file_size' => $file->getSize(),
+                'file_type' => $file->getMimeType(),
+                'user_id' => Auth::id(),
+                'uploaded_at' => now(),
+            ]);
+
+            \Log::info('Attachment record created successfully', [
+                'issue_id' => $issue->issue_id,
+                'file_path' => '/storage/' . $path
+            ]);
+
+            return back()->with(
+                'success',
+                'Attachment uploaded successfully.'
+            );
+        } catch (\Throwable $e) {
+            \Log::error('Attachment upload failed', [
+                'issue_id' => $issue->issue_id,
+                'file_name' => $file->getClientOriginalName(),
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+
+            return back()->with(
+                'error',
+                'Failed to upload attachment: ' . $e->getMessage()
+            );
+        }
+    }
+
+    /**
+     * Preview attachment in browser
+     */
+    public function previewAttachment($id)
+    {
+        $attachment = DB::table('txn_issue_attachment')
+            ->where('attachment_id', $id)
+            ->first();
+
+        if (!$attachment) {
+            return abort(404, 'Attachment not found');
+        }
+
+        // Remove '/storage/' prefix if present, then build full path
+        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
+        $filePath = storage_path('app/public/' . $relativePath);
+
+        if (!file_exists($filePath)) {
+            \Log::error('Attachment file not found', [
+                'attachment_id' => $id,
+                'stored_path' => $attachment->file_path,
+                'constructed_path' => $filePath,
+            ]);
+            return abort(404, 'File not found');
+        }
+
+        // Get file extension and determine type
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        
+        // Build the public URL for the file
+        $publicUrl = url('/storage/' . $relativePath);
+        
+        // Determine if we can preview this type
+        $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif']);
+        $isPdf = $ext === 'pdf';
+        $isText = in_array($ext, ['txt', 'log']);
+        $isOffice = in_array($ext, ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']);
+
+        \Log::info('Previewing attachment', [
+            'attachment_id' => $id,
+            'file_name' => $attachment->original_file_name,
+            'extension' => $ext,
+            'is_image' => $isImage,
+            'is_pdf' => $isPdf,
+            'is_text' => $isText,
+            'is_office' => $isOffice
         ]);
 
-        return back()->with(
-            'success',
-            'Attachment uploaded successfully.'
-        );
+        $data = [
+            'attachment' => $attachment,
+            'filePath' => $filePath,
+            'publicUrl' => $publicUrl,
+            'extension' => $ext,
+            'isImage' => $isImage,
+            'isPdf' => $isPdf,
+            'isText' => $isText,
+            'isOffice' => $isOffice,
+            'downloadUrl' => route('attachment.download', ['id' => $id]),
+        ];
+
+        // Load and display as plain text if text file
+        if ($isText) {
+            $content = file_get_contents($filePath);
+            $data['content'] = $content;
+        }
+
+        return view('attachments.preview', $data);
+    }
+
+    /**
+     * View attachment file inline (for PDFs, images, etc.)
+     */
+    public function viewAttachment($id)
+    {
+        $attachment = DB::table('txn_issue_attachment')
+            ->where('attachment_id', $id)
+            ->first();
+
+        if (!$attachment) {
+            return abort(404, 'Attachment not found');
+        }
+
+        // Remove '/storage/' prefix if present, then build full path
+        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
+        $filePath = storage_path('app/public/' . $relativePath);
+
+        if (!file_exists($filePath)) {
+            \Log::error('Attachment file not found', [
+                'attachment_id' => $id,
+                'stored_path' => $attachment->file_path,
+                'constructed_path' => $filePath,
+                'file_exists' => file_exists($filePath)
+            ]);
+            return abort(404, 'File not found');
+        }
+
+        // Get file extension
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $isViewable = in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt']);
+
+        if ($isViewable) {
+            // For viewable files, return with inline disposition
+            $mimeType = $attachment->file_type;
+            
+            if (!$mimeType || $mimeType === 'application/octet-stream') {
+                $mimeTypes = [
+                    'pdf' => 'application/pdf',
+                    'jpg' => 'image/jpeg',
+                    'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'gif' => 'image/gif',
+                    'txt' => 'text/plain',
+                ];
+                $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
+            }
+
+            \Log::info('Viewing attachment', [
+                'attachment_id' => $id,
+                'file_name' => $attachment->original_file_name,
+                'mime_type' => $mimeType,
+                'file_path' => $filePath
+            ]);
+
+            return response()
+                ->file($filePath)
+                ->header('Content-Type', $mimeType)
+                ->header('Content-Disposition', 'inline; filename="' . $attachment->original_file_name . '"')
+                ->header('Cache-Control', 'public, max-age=3600');
+        } else {
+            // For non-viewable files (doc, docx, xls, xlsx), force download
+            return response()->download($filePath, $attachment->original_file_name);
+        }
     }
 
     /**
