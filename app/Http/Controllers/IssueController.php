@@ -1436,4 +1436,26 @@ class IssueController extends Controller
         );
     }
 
+    /**
+     * Download attachment file
+     */
+    public function downloadAttachment($id)
+    {
+        $attachment = DB::table('txn_issue_attachment')
+            ->where('attachment_id', $id)
+            ->first();
+
+        if (!$attachment) {
+            return abort(404, 'Attachment not found');
+        }
+
+        $filePath = storage_path('app/public/' . $attachment->file_path);
+
+        if (!file_exists($filePath)) {
+            return abort(404, 'File not found');
+        }
+
+        return response()->download($filePath, $attachment->original_file_name);
+    }
+
 }

@@ -90,6 +90,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('auth')
         ->name('issues.ajax.modules');
 
+    // Attachment download route
+    Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
+        ->middleware('auth')
+        ->name('attachment.download');
+
     Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
         ->name('reports');
