@@ -786,7 +786,7 @@
                         stateSelect.disabled = true;
 
                         try {
-                            const res = await fetch('/ajax/projects?state_id=' + encodeURIComponent(stateId), {
+                            const res = await fetch('{{ route("issues.ajax.projects") }}?state_id=' + encodeURIComponent(stateId), {
                                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
                             });
                             if (!res.ok) return;
@@ -830,7 +830,7 @@
                         clearSelect(moduleSelect, 'Select Module');
                         if (!projectId) return;
 
-                        const res = await fetch('/ajax/applications?project_id=' + encodeURIComponent(projectId), {
+                        const res = await fetch('{{ route("issues.ajax.applications") }}?project_id=' + encodeURIComponent(projectId), {
                             headers: { 'X-Requested-With': 'XMLHttpRequest' }
                         });
                         if (!res.ok) return;
@@ -855,7 +855,7 @@
                         const params = new URLSearchParams({ application_id: applicationId });
                         if (projectId) params.set('project_id', projectId);
 
-                        const res = await fetch('/ajax/modules?' + params.toString(), {
+                        const res = await fetch('{{ route("issues.ajax.modules") }}?' + params.toString(), {
                             headers: { 'X-Requested-With': 'XMLHttpRequest' }
                         });
                         if (!res.ok) return;
