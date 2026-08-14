@@ -5,19 +5,82 @@
         </h2>
     </x-slot>
 
-    <div x-data="issueDashboard()" x-init="init()" class="relative">
+    <div x-data="issueDashboard()" x-init="init()">
         <div class="mx-auto max-w-full px-4 sm:px-6 lg:px-8">
-            <!-- Raise Issue Button -->
+            
+        
+        <!-- Raise Issue Button -->
             <div class="mb-4 flex justify-end">
                 <button
+    type="button"
+    @click="openRaiseIssue()"
+    class="inline-flex items-center gap-2 rounded-[12px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700">
+    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
+    </svg>
+    Raise Issue
+</button>
+
+
+    <!-- Raise Issue Modal -->
+<div
+    x-show="raiseIssueOpen"
+    x-cloak
+    class="fixed inset-0 z-50 overflow-y-auto">
+
+    <!-- Overlay -->
+    <div
+        class="fixed inset-0 bg-slate-900/50"
+        @click="closeRaiseIssuePopup()">
+    </div>
+
+    <!-- Modal -->
+    <div class="relative flex min-h-screen items-center justify-center p-4">
+
+        <div
+            class="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl"
+            @click.stop>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-900">
+                        Raise New Issue
+                    </h3>
+
+                    <p class="mt-1 text-sm text-slate-500">
+                        Create a new support ticket
+                    </p>
+                </div>
+
+                <button
                     type="button"
-                    @click="openRaiseIssue()"
-                    class="inline-flex items-center gap-2 rounded-[12px] bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Raise Issue
+                    @click="closeRaiseIssuePopup()"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200">
+                    ✕
                 </button>
+            </div>
+
+            <!-- Loading -->
+            <div
+                x-show="raiseIssueLoading"
+                class="px-6 py-10 text-center text-sm text-slate-500">
+                Loading form...
+            </div>
+
+            <!-- AJAX Form -->
+            <div
+                x-show="!raiseIssueLoading"
+                x-html="raiseIssueContent"
+                class="px-6 py-6">
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+
             </div>
 
             <div class="grid gap-4 xl:grid-cols-[minmax(460px,1fr)_minmax(700px,1fr)]">
@@ -254,12 +317,19 @@
 
                 const formData = new FormData(updateForm);
 
+                console.log('Submitting form data:', Array.from(formData.entries()));
+                console.log('Form action URL:', updateForm.action);
+
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
                 fetch(updateForm.action, {
                         method: 'POST',
+                        referrerPolicy: 'no-referrer-when-downgrade',
                         credentials: 'same-origin',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'application/json'
+                            'Accept': 'application/json',
+                            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {})
                         },
                         body: formData
                     })
@@ -739,105 +809,103 @@
     });
     </script>
 
-    <!-- Raise Issue Modal -->
-    <div x-show="raiseIssueOpen" x-cloak
-        class="fixed left-0 right-0 z-30 bg-slate-900/40 transition-opacity duration-200"
-        style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));"></div>
-    <aside x-show="raiseIssueOpen" x-cloak
-        class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]"
-        style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
-        <div class="flex items-start justify-between gap-4 mb-6">
-            <div>
-                <p class="text-xs uppercase tracking-[0.32em] text-slate-500">Raise New Issue</p>
-                <h3 class="mt-2 text-xl font-semibold text-slate-900">Create Ticket</h3>
-            </div>
-            <button @click="raiseIssueOpen = false"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
 
-        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 mb-6">
-            <p class="text-sm text-slate-600">Fill out the form below to create a new support ticket.</p>
-        </div>
 
-        <!-- Content loaded via AJAX -->
-        <div x-html="raiseIssueContent"></div>
-
-        <div
-            class="sticky bottom-0 left-0 z-20 mt-4 rounded-[18px] border border-slate-200 bg-white p-4 shadow-xl flex justify-end gap-2">
-            <button @click="raiseIssueOpen = false"
-                class="rounded-[10px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-        </div>
-    </aside>
-    </div>
     <script>
-        function issueDashboard() {
-            return {
-                drawerOpen: false,
-                selectedTicket: null,
-                selectedStatus: 'In Progress',
-                activeTab: 'details',
-                raiseIssueOpen: false,
-                raiseIssueContent: '',
-                raiseIssueLoading: false,
+       function issueDashboard() {
+    return {
+        drawerOpen: false,
+        selectedTicket: null,
+        selectedStatus: 'In Progress',
+        activeTab: 'details',
 
-                init() {
-                    this.drawerOpen = false;
-                    this.selectedTicket = null;
-                    this.selectedStatus = 'In Progress';
-                    this.activeTab = 'details';
-                    this.raiseIssueOpen = false;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = false;
-                },
+        // Raise Issue
+        raiseIssueOpen: false,
+        raiseIssueContent: '',
+        raiseIssueLoading: false,
 
-                openRaiseIssue() {
-                    this.raiseIssueOpen = true;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = true;
+        init() {
+            this.drawerOpen = false;
+            this.activeTab = 'details';
+            this.selectedTicket = null;
+            this.selectedStatus = 'In Progress';
 
-                    fetch('{{ route('issues.create.popup') }}', {
-                        method: 'GET',
-                        credentials: 'same-origin',
-                        referrerPolicy: 'no-referrer-when-downgrade',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'Accept': 'text/html'
-                        }
-                    })
-                    .then((response) => {
-                        if (!response.ok) {
-                            throw new Error('Unable to load issue creation form.');
-                        }
-                        return response.text();
-                    })
-                    .then((html) => {
-                        this.raiseIssueContent = html;
-                        this.$nextTick(() => {
-                            if (typeof window.initIssueCreatePopup === 'function') {
-                                window.initIssueCreatePopup();
-                            }
-                        });
-                    })
-                    .catch((error) => {
-                        console.error('Raise Issue Error:', error);
-                        this.raiseIssueContent = '<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">' + (error.message || 'Unable to load issue form.') + '</div>';
-                    })
-                    .finally(() => {
-                        this.raiseIssueLoading = false;
-                    });
-                },
+            this.raiseIssueOpen = false;
+            this.raiseIssueContent = '';
+            this.raiseIssueLoading = false;
+        },
 
-                closeRaiseIssuePopup() {
-                    this.raiseIssueOpen = false;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = false;
+        openRaiseIssue() {
+            this.raiseIssueOpen = true;
+            this.raiseIssueContent = '';
+            this.raiseIssueLoading = true;
+
+            fetch('{{ route('issues.create.popup') }}', {
+                method: 'GET',
+                credentials: 'same-origin',
+                referrerPolicy: 'no-referrer-when-downgrade',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
                 }
-            };
+            })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Unable to load issue creation form.');
+                }
+
+                return response.text();
+            })
+            .then((html) => {
+                this.raiseIssueContent = html;
+
+                this.$nextTick(() => {
+                    if (typeof window.initIssueCreatePopup === 'function') {
+                        window.initIssueCreatePopup();
+                    }
+                });
+            })
+            .catch((error) => {
+                console.error('Raise Issue Error:', error);
+
+                this.raiseIssueContent = `
+                    <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        ${error.message || 'Unable to load issue form.'}
+                    </div>
+                `;
+            })
+            .finally(() => {
+                this.raiseIssueLoading = false;
+            });
+        },
+
+        closeRaiseIssuePopup() {
+            this.raiseIssueOpen = false;
+            this.raiseIssueContent = '';
+            this.raiseIssueLoading = false;
         }
+    };
+}
+
+        window.openRaiseIssue = function openRaiseIssue() {
+            const root = document.querySelector('[x-data="issueDashboard()"]');
+            if (root && window.Alpine) {
+                const component = Alpine.$data(root);
+                if (component && typeof component.openRaiseIssue === 'function') {
+                    component.openRaiseIssue();
+                }
+            }
+        };
+
+        window.closeRaiseIssuePopup = function closeRaiseIssuePopup() {
+            const root = document.querySelector('[x-data="issueDashboard()"]');
+            if (root && window.Alpine) {
+                const component = Alpine.$data(root);
+                if (component && typeof component.closeRaiseIssuePopup === 'function') {
+                    component.closeRaiseIssuePopup();
+                }
+            }
+        };
 
 
         window.initIssueCreatePopup = function () {
@@ -845,53 +913,34 @@
     const form = document.getElementById('issueCreateForm');
 
     if (!form) {
-        console.error('issueCreateForm not found');
         return;
     }
-
-    // Prevent duplicate event handlers
-    if (form.dataset.initialized === 'true') {
-        return;
-    }
-
-
-    if (typeof window.bindIssueCreatePopupForm === 'function') {
-        window.bindIssueCreatePopupForm();
-    }
-
-    form.dataset.initialized = 'true';
 
     form.addEventListener('submit', async function (event) {
 
         event.preventDefault();
 
-        console.log('Issue form submitted');
-
         clearValidationErrors();
 
-        const submitButton = form.querySelector(
-            'button[type="submit"]'
-        );
+        const submitButton = document.getElementById('issueSubmitButton');
+        const submitText = submitButton.querySelector('.submit-text');
+        const submitLoading = submitButton.querySelector('.submit-loading');
 
-        if (submitButton) {
-            submitButton.disabled = true;
-        }
+        submitButton.disabled = true;
+
+        submitText.classList.add('hidden');
+        submitLoading.classList.remove('hidden');
 
         const formData = new FormData(form);
-
-        console.log(
-            'Form data:',
-            Array.from(formData.entries())
-        );
 
         try {
 
             const response = await fetch(form.action, {
                 method: 'POST',
 
-                credentials: 'same-origin',
-
                 referrerPolicy: 'no-referrer-when-downgrade',
+
+                credentials: 'same-origin',
 
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -901,59 +950,25 @@
                 body: formData
             });
 
-            console.log('HTTP status:', response.status);
-
-            const contentType =
-                response.headers.get('content-type') || '';
-
-            let data = {};
-
-            if (contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                const text = await response.text();
-
-                console.error(
-                    'Expected JSON but received:',
-                    text
-                );
-
-                showFormMessage(
-                    'Server returned an unexpected response.',
-                    'error'
-                );
-
-                return;
-            }
-
-            console.log('Server response:', data);
+            const data = await response.json();
 
             /*
-             * Laravel validation error
+             * Laravel validation failed
              */
             if (response.status === 422) {
 
-                showValidationErrors(
-                    data.errors || {}
-                );
-
-                showFormMessage(
-                    data.message ||
-                    'Please correct the highlighted errors.',
-                    'error'
-                );
+                showValidationErrors(data.errors || {});
 
                 return;
             }
 
             /*
-             * Other errors
+             * Other server error
              */
             if (!response.ok) {
 
                 showFormMessage(
-                    data.message ||
-                    'Unable to create issue.',
+                    data.message || 'Unable to create issue.',
                     'error'
                 );
 
@@ -961,16 +976,18 @@
             }
 
             /*
-             * SUCCESS
+             * Success
              */
             showFormMessage(
-                data.message ||
-                'Issue created successfully.',
+                data.message || 'Issue created successfully.',
                 'success'
             );
 
             form.reset();
 
+            /*
+             * Close modal after short delay
+             */
             setTimeout(() => {
 
                 const root = document.querySelector(
@@ -985,10 +1002,10 @@
                     component.raiseIssueContent = '';
                 }
 
-                if (
-                    typeof window.refreshIssueDashboard ===
-                    'function'
-                ) {
+                /*
+                 * Refresh dashboard
+                 */
+                if (typeof window.refreshIssueDashboard === 'function') {
                     window.refreshIssueDashboard();
                 }
 
@@ -996,30 +1013,27 @@
 
         } catch (error) {
 
-            console.error(
-                'AJAX submit error:',
-                error
-            );
+            console.error('Issue submit error:', error);
 
             showFormMessage(
-                'Unable to connect to the server.',
+                'Something went wrong. Please try again.',
                 'error'
             );
 
         } finally {
 
-            if (submitButton) {
-                submitButton.disabled = false;
-            }
+            submitButton.disabled = false;
 
+            submitText.classList.remove('hidden');
+            submitLoading.classList.add('hidden');
         }
     });
 
 
     function clearValidationErrors() {
 
-        // Remove old field errors
-        form.querySelectorAll('[data-error]')
+        document
+            .querySelectorAll('[data-error]')
             .forEach(function (element) {
 
                 element.textContent = '';
@@ -1027,108 +1041,49 @@
 
             });
 
-        // Remove invalid borders
-        form.querySelectorAll('.border-red-500')
-            .forEach(function (element) {
-
-                element.classList.remove(
-                    'border-red-500'
-                );
-
-            });
-
-        const errorBox =
-            document.getElementById(
-                'issueValidationErrors'
-            );
+        const errorBox = document.getElementById(
+            'issueValidationErrors'
+        );
 
         if (errorBox) {
-
-            errorBox.innerHTML = '';
             errorBox.classList.add('hidden');
-
-        }
-
-        const messageBox =
-            document.getElementById(
-                'issueFormMessage'
-            );
-
-        if (messageBox) {
-
-            messageBox.innerHTML = '';
-            messageBox.classList.add('hidden');
-
+            errorBox.innerHTML = '';
         }
     }
 
 
     function showValidationErrors(errors) {
 
-        console.log(
-            'Validation errors:',
-            errors
+        const errorBox = document.getElementById(
+            'issueValidationErrors'
         );
+
+        let html = '<ul class="list-disc pl-5 space-y-1">';
 
         Object.keys(errors).forEach(function (field) {
 
             const messages = errors[field];
 
             /*
-             * Find field error element
+             * Field-level error
              */
-            const errorElement =
-                form.querySelector(
-                    `[data-error="${field}"]`
-                );
+            const fieldError = document.querySelector(
+                `[data-error="${field}"]`
+            );
 
-            if (errorElement) {
+            if (fieldError) {
 
-                errorElement.textContent =
-                    messages[0];
+                fieldError.textContent = messages[0];
+                fieldError.classList.remove('hidden');
 
-                errorElement.classList.remove(
-                    'hidden'
-                );
             }
 
             /*
-             * Highlight input
+             * Summary
              */
-            const input =
-                form.querySelector(
-                    `[name="${field}"]`
-                );
+            messages.forEach(function (message) {
 
-            if (input) {
-
-                input.classList.add(
-                    'border-red-500'
-                );
-            }
-        });
-
-        /*
-         * Summary box
-         */
-        const errorBox =
-            document.getElementById(
-                'issueValidationErrors'
-            );
-
-        if (!errorBox) {
-            return;
-        }
-
-        let html =
-            '<ul class="list-disc space-y-1 pl-5">';
-
-        Object.keys(errors).forEach(function (field) {
-
-            errors[field].forEach(function (message) {
-
-                html +=
-                    `<li>${escapeHtml(message)}</li>`;
+                html += `<li>${escapeHtml(message)}</li>`;
 
             });
 
@@ -1137,30 +1092,36 @@
         html += '</ul>';
 
         errorBox.innerHTML = html;
-
-        errorBox.classList.remove(
-            'hidden'
-        );
+        errorBox.classList.remove('hidden');
     }
 
 
     function showFormMessage(message, type) {
 
-        const box =
-            document.getElementById(
-                'issueFormMessage'
-            );
+        const box = document.getElementById(
+            'issueFormMessage'
+        );
 
         if (!box) {
             return;
         }
 
-        box.className =
-            'mb-4 rounded-xl border px-4 py-3 text-sm font-semibold';
+        box.textContent = message;
+
+        box.classList.remove(
+            'hidden',
+            'border-red-200',
+            'bg-red-50',
+            'text-red-700',
+            'border-emerald-200',
+            'bg-emerald-50',
+            'text-emerald-700'
+        );
 
         if (type === 'success') {
 
             box.classList.add(
+                'border',
                 'border-emerald-200',
                 'bg-emerald-50',
                 'text-emerald-700'
@@ -1169,305 +1130,83 @@
         } else {
 
             box.classList.add(
+                'border',
                 'border-red-200',
                 'bg-red-50',
                 'text-red-700'
             );
         }
-
-        box.textContent = message;
-
-        box.classList.remove('hidden');
     }
 
 
     function escapeHtml(value) {
 
-        const div =
-            document.createElement('div');
+        const div = document.createElement('div');
 
         div.textContent = value;
 
         return div.innerHTML;
     }
-};
 
 
+    openRaiseIssue() {
 
-    </script>
+    this.raiseIssueOpen = true;
+    this.raiseIssueContent = '';
+    this.raiseIssueLoading = true;
 
+    fetch('{{ route('issues.create.popup') }}', {
+        method: 'GET',
 
-<script>
-window.bindIssueCreatePopupForm = function () {
+        referrerPolicy: 'no-referrer-when-downgrade',
 
-    const form = document.getElementById('issueCreateForm');
+        credentials: 'same-origin',
 
-    if (!form) {
-        console.warn('issueCreateForm not found');
-        return;
-    }
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'text/html'
+        }
+    })
+    .then(response => {
 
-    // Prevent binding multiple times
-    if (form.dataset.ajaxBound === '1') {
-        return;
-    }
+        if (!response.ok) {
+            throw new Error('Unable to load issue creation form.');
+        }
 
-    form.dataset.ajaxBound = '1';
+        return response.text();
 
-    form.addEventListener('submit', async function (event) {
+    })
+    .then(html => {
 
-        event.preventDefault();
+        this.raiseIssueContent = html;
 
-        console.log('Issue form submitted');
+        this.$nextTick(() => {
 
-        const submitButton = document.getElementById('issueSubmitButton');
-        const submitText = submitButton?.querySelector('.submit-text');
-        const submitLoading = submitButton?.querySelector('.submit-loading');
+            if (typeof window.initIssueCreatePopup === 'function') {
+                window.initIssueCreatePopup();
+            }
 
-        const messageBox = document.getElementById('issueFormMessage');
-        const validationBox = document.getElementById('issueValidationErrors');
-
-        // Clear previous errors
-        document.querySelectorAll('[data-error]').forEach(function (element) {
-            element.textContent = '';
-            element.classList.add('hidden');
         });
 
-        if (messageBox) {
-            messageBox.className =
-                'hidden mb-4 rounded-xl border px-4 py-3 text-sm font-semibold';
+    })
+    .catch(error => {
 
-            messageBox.innerHTML = '';
-        }
+        console.error(error);
 
-        if (validationBox) {
-            validationBox.className =
-                'hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700';
+        this.raiseIssueContent = `
+            <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                ${error.message}
+            </div>
+        `;
 
-            validationBox.innerHTML = '';
-        }
+    })
+    .finally(() => {
 
-        // Disable button
-        if (submitButton) {
-            submitButton.disabled = true;
-            submitButton.classList.add('opacity-60', 'cursor-not-allowed');
-        }
+        this.raiseIssueLoading = false;
 
-        if (submitText) {
-            submitText.classList.add('hidden');
-        }
-
-        if (submitLoading) {
-            submitLoading.classList.remove('hidden');
-        }
-
-        const formData = new FormData(form);
-
-        console.log('Submitting:', [...formData.entries()]);
-
-        try {
-
-            const response = await fetch(form.action, {
-                method: 'POST',
-
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-
-                credentials: 'same-origin',
-
-                body: formData
-            });
-
-            const data = await response.json();
-
-            console.log('Response:', data);
-
-            /*
-             * Laravel validation failed
-             */
-            if (response.status === 422) {
-
-                const errors = data.errors || {};
-
-                let errorHtml = '<ul class="list-disc pl-5 space-y-1">';
-
-                Object.keys(errors).forEach(function (field) {
-
-                    const messages = errors[field];
-
-                    messages.forEach(function (error) {
-
-                        errorHtml += `<li>${escapeHtml(error)}</li>`;
-
-                    });
-
-                    // Show error below field
-                    const errorElement =
-                        document.querySelector(`[data-error="${field}"]`);
-
-                    if (errorElement) {
-
-                        errorElement.innerHTML =
-                            messages.map(escapeHtml).join('<br>');
-
-                        errorElement.classList.remove('hidden');
-                    }
-
-                    // Select2 fields
-                    const fieldElement =
-                        document.getElementById(field);
-
-                    if (fieldElement) {
-                        fieldElement.classList.add(
-                            'border-red-500',
-                            'ring-1',
-                            'ring-red-500'
-                        );
-                    }
-                });
-
-                errorHtml += '</ul>';
-
-                if (validationBox) {
-
-                    validationBox.innerHTML =
-                        '<strong>Please correct the following errors:</strong>' +
-                        errorHtml;
-
-                    validationBox.classList.remove('hidden');
-                }
-
-                // Scroll to errors
-                if (validationBox) {
-                    validationBox.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center'
-                    });
-                }
-
-                return;
-            }
-
-            /*
-             * Other server errors
-             */
-            if (!response.ok) {
-
-                throw new Error(
-                    data.message || 'Unable to create issue.'
-                );
-            }
-
-            /*
-             * SUCCESS
-             */
-            if (messageBox) {
-
-                messageBox.className =
-                    'mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800';
-
-                messageBox.innerHTML =
-                    data.message || 'Issue created successfully.';
-
-                messageBox.classList.remove('hidden');
-            }
-
-            // Show issue number
-            const successBox =
-                document.getElementById('issueSuccess');
-
-            const successIssueNumber =
-                document.getElementById('successIssueNumber');
-
-            if (successBox) {
-                successBox.classList.remove('hidden');
-            }
-
-            if (successIssueNumber && data.issue_number) {
-                successIssueNumber.textContent =
-                    data.issue_number;
-            }
-
-            // Reset form
-            form.reset();
-
-            // Reset counters
-            const subjectCount =
-                document.getElementById('subjectCount');
-
-            const descriptionCount =
-                document.getElementById('descriptionCount');
-
-            if (subjectCount) {
-                subjectCount.textContent = '0';
-            }
-
-            if (descriptionCount) {
-                descriptionCount.textContent = '0';
-            }
-
-            // Optional: close popup after success
-            setTimeout(function () {
-
-                if (typeof window.closeRaiseIssuePopup === 'function') {
-                    window.closeRaiseIssuePopup();
-                }
-
-                if (typeof window.refreshIssueDashboard === 'function') {
-                    window.refreshIssueDashboard();
-                }
-
-            }, 1500);
-
-        } catch (error) {
-
-            console.error('Issue submit error:', error);
-
-            if (messageBox) {
-
-                messageBox.className =
-                    'mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800';
-
-                messageBox.innerHTML =
-                    escapeHtml(
-                        error.message ||
-                        'Something went wrong while submitting the issue.'
-                    );
-
-                messageBox.classList.remove('hidden');
-            }
-
-        } finally {
-
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.classList.remove(
-                    'opacity-60',
-                    'cursor-not-allowed'
-                );
-            }
-
-            if (submitText) {
-                submitText.classList.remove('hidden');
-            }
-
-            if (submitLoading) {
-                submitLoading.classList.add('hidden');
-            }
-        }
     });
-};
-
-
-function escapeHtml(value) {
-
-    const div = document.createElement('div');
-
-    div.textContent = value ?? '';
-
-    return div.innerHTML;
 }
-</script>
+
+};
+    </script>
 </x-app-layout>

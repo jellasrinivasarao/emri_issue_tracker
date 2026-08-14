@@ -35,6 +35,7 @@
             <p class="mt-1 text-sm text-slate-500">Submit a new support issue</p>
         </div>
 
+
         <div id="issueSuccess" class="hidden mt-6">
         <div class="bg-green-50 border border-green-200 rounded-xl p-6">
             <div class="flex items-center gap-3">
@@ -56,7 +57,9 @@
         </div>
     </div>
 
-            <form id="issueForm" action="{{ route('issues.store') }}" method="POST" enctype="multipart/form-data">
+            <form id="issueCreateForm" action="{{ route('issues.store') }}" method="POST" enctype="multipart/form-data">
+                <div id="issueFormMessage" class="hidden mb-4 rounded-xl px-4 py-3 text-sm font-semibold"></div>
+                <div id="issueValidationErrors" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
                 @csrf
 
@@ -127,6 +130,7 @@
                                     {{ $message }}
                                 </span>
                                 @enderror
+                                <div data-error="state_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -156,6 +160,7 @@
                                     @endforeach
 
                                 </select>
+                                <div data-error="project_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -183,6 +188,7 @@
                                     @endforeach
 
                                 </select>
+                                <div data-error="application_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -206,6 +212,7 @@
                                     @endforeach
 
                                 </select>
+                                <div data-error="module_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -276,6 +283,7 @@
                                     {{ $message }}
                                 </p>
                                 @enderror
+                                <div data-error="issue_category_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -313,6 +321,7 @@
                                     {{ $message }}
                                 </p>
                                 @enderror
+                                <div data-error="priority_id" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -336,6 +345,7 @@
                                 {{ $message }}
                             </p>
                             @enderror
+                            <div data-error="subject" class="mt-1 hidden text-xs text-red-600"></div>
 
                             <div class="flex justify-between mt-1">
 
@@ -369,6 +379,7 @@
                                 {{ $message }}
                             </p>
                             @enderror
+                            <div data-error="description" class="mt-1 hidden text-xs text-red-600"></div>
 
                             <div class="flex justify-between mt-1">
 
@@ -434,6 +445,7 @@
                                 @error('occurred_date')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
+                                <div data-error="occurred_date" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -451,6 +463,7 @@
                                 @error('occurred_time')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
+                                <div data-error="occurred_time" class="mt-1 hidden text-xs text-red-600"></div>
 
                             </div>
 
@@ -546,10 +559,11 @@
 
 
 
-                            <button id="submitBtn" type="submit"
+                            <button id="issueSubmitButton" type="submit"
                                 class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
 
-                                Submit Issue
+                                <span class="submit-text">Submit Issue</span>
+                                <span class="submit-loading hidden">Submitting...</span>
 
                             </button>
 
@@ -585,8 +599,8 @@
                         });
                     }
 
-                    let subject = document.getElementById('subject');
-                    let description = document.getElementById('description');
+                    const subject = document.getElementById('subject');
+                    const description = document.getElementById('description');
                     if (subject && !subject.dataset.bound) {
                         subject.dataset.bound = '1';
                         const subjectCount = document.getElementById('subjectCount');
@@ -607,211 +621,8 @@
                         description.addEventListener('keyup', () => updateCounter(description, descriptionCount));
                     }
 
-                    const issueForm = document.getElementById('issueForm');
-                    if (issueForm && !issueForm.dataset.handlerAttached) {
-                        issueForm.dataset.handlerAttached = '1';
-
-                        issueForm.addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            if (issueForm.dataset.submitting === '1') return;
-
-                            issueForm.dataset.submitting = '1';
-                            const submitBtn = document.getElementById('submitBtn');
-                            const originalText = submitBtn ? submitBtn.innerHTML : '';
-
-                            if (submitBtn) {
-                                submitBtn.disabled = true;
-                                submitBtn.innerHTML = 'Submitting...';
-                            }
-
-                            const formData = new FormData(issueForm);
-                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-                            fetch(issueForm.action, {
-                                    method: 'POST',
-                                    body: formData,
-                                    headers: {
-                                        'X-Requested-With': 'XMLHttpRequest',
-                                        'Accept': 'application/json',
-                                        ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {})
-                                    }
-                                })
-                                .then(response => response.json().then(data => ({ status: response.status, data })))
-                                .then(({ status, data }) => {
-                                    document.querySelectorAll('.validation-error').forEach(e => e.remove());
-
-                                    if (status === 422) {
-                                        Object.keys(data.errors || {}).forEach(function(field) {
-                                            const input = document.querySelector(`[name="${field}"]`);
-                                            if (input) {
-                                                const error = document.createElement('div');
-                                                error.className = 'validation-error text-red-500 text-sm mt-1';
-                                                error.innerHTML = (data.errors[field] || [])[0];
-                                                input.parentNode.appendChild(error);
-                                            }
-                                        });
-                                        return;
-                                    }
-
-                                    if (data && data.success) {
-                                        const message = data.message || 'Issue created successfully.';
-                                        const issue = data.issue || {};
-
-                                        if (typeof Swal !== 'undefined') {
-                                            Swal.fire({
-                                                icon: 'success',
-                                                title: 'Issue Raised Successfully',
-                                                html: `<b>${message}</b><br><br>${data.error || ''} <b>Issue Number: ${issue.issue_number || '-'}</b><br><br>${message}${issue.issue_title ? `<br><br><b>Subject:</b> ${issue.issue_title}` : ''}`,
-                                                allowOutsideClick: false,
-                                                allowEscapeKey: false,
-                                                confirmButtonText: 'OK'
-                                            }).then(function() {
-                                                window.location.href = window.location.href;
-                                            });
-                                        } else {
-                                            alert(message + '\nIssue Number: ' + (issue.issue_number || '-'));
-                                            window.location.href = window.location.href;
-                                        }
-
-                                        issueForm.reset();
-                                        const successIssueNumber = document.getElementById('successIssueNumber');
-                                        if (successIssueNumber) successIssueNumber.textContent = issue.issue_number || '-';
-                                        const issueSuccess = document.getElementById('issueSuccess');
-                                        if (issueSuccess) issueSuccess.classList.remove('hidden');
-
-                                        $('#state_id').val('').trigger('change');
-                                        $('#project_id').val('').trigger('change');
-                                        $('#application_id').val('').trigger('change');
-                                        $('#module_id').val('').trigger('change');
-                                        $('#issue_category_id').val('').trigger('change');
-                                        $('#priority_id').val('').trigger('change');
-
-                                        const selectedFile = document.getElementById('selectedFile');
-                                        if (selectedFile) selectedFile.innerHTML = '';
-                                        return;
-                                    }
-
-                                    const message = (data && data.message) ? data.message : 'Unable to raise issue.';
-                                    const selectedFile = document.getElementById('selectedFile');
-                                    if (selectedFile) selectedFile.innerHTML = '<span class="text-red-600">' + message + '</span>';
-                                })
-                                .catch((err) => {
-                                    console.error('Issue create failed', err);
-                                    const selectedFile = document.getElementById('selectedFile');
-                                    if (selectedFile) selectedFile.innerHTML = '<span class="text-red-600">Unable to raise issue.</span>';
-                                })
-                                .finally(() => {
-                                    if (submitBtn) {
-                                        submitBtn.disabled = false;
-                                        submitBtn.innerHTML = originalText;
-                                    }
-                                    issueForm.dataset.submitting = '0';
-                                });
-                        });
-                    }
-
-                    const stateSelect = document.getElementById('state_id');
-                    const projectSelect = document.getElementById('project_id');
-                    const applicationSelect = document.getElementById('application_id');
-                    const moduleSelect = document.getElementById('module_id');
-
-                    function clearSelect(select, placeholder) {
-                        if (!select) return;
-                        select.innerHTML = '';
-                        const option = document.createElement('option');
-                        option.value = '';
-                        option.textContent = placeholder || 'Select';
-                        select.appendChild(option);
-                    }
-
-                    if (stateSelect && !stateSelect.dataset.handlerAttached) {
-                        stateSelect.dataset.handlerAttached = '1';
-                        stateSelect.addEventListener('change', function() {
-                            const stateId = this.value;
-                            clearSelect(projectSelect, 'Select Project');
-                            clearSelect(applicationSelect, 'Select Application');
-                            clearSelect(moduleSelect, 'Select Module');
-                            if (!stateId) return;
-
-                            fetch('{{ route("issues.ajax.projects") }}?state_id=' + encodeURIComponent(stateId), {
-                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                            }).then(r => r.json()).then(data => {
-                                const seen = new Set();
-                                data.forEach(function(p) {
-                                    if (!p || !p.project_id || seen.has(String(p.project_id))) return;
-                                    seen.add(String(p.project_id));
-                                    const option = document.createElement('option');
-                                    option.value = p.project_id;
-                                    option.textContent = p.project_name;
-                                    projectSelect.appendChild(option);
-                                });
-
-                                if (projectSelect.options.length > 1) {
-                                    projectSelect.value = String(projectSelect.options[1].value);
-                                    projectSelect.dispatchEvent(new Event('change'));
-                                }
-                            });
-                        });
-                    }
-
-                    if (projectSelect && !projectSelect.dataset.handlerAttached) {
-                        projectSelect.dataset.handlerAttached = '1';
-                        projectSelect.addEventListener('change', function() {
-                            const projectId = this.value;
-                            clearSelect(applicationSelect, 'Select Application');
-                            clearSelect(moduleSelect, 'Select Module');
-                            if (!projectId) return;
-
-                            fetch('{{ route("issues.ajax.applications") }}?project_id=' + encodeURIComponent(projectId), {
-                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                            }).then(r => r.json()).then(data => {
-                                const seen = new Set();
-                                data.forEach(function(a) {
-                                    if (!a || !a.application_id || seen.has(String(a.application_id))) return;
-                                    seen.add(String(a.application_id));
-                                    const option = document.createElement('option');
-                                    option.value = a.application_id;
-                                    option.textContent = a.application_name;
-                                    applicationSelect.appendChild(option);
-                                });
-
-                                if (applicationSelect.options.length > 1) {
-                                    applicationSelect.value = String(applicationSelect.options[1].value);
-                                    applicationSelect.dispatchEvent(new Event('change'));
-                                }
-                            });
-                        });
-                    }
-
-                    if (applicationSelect && !applicationSelect.dataset.handlerAttached) {
-                        applicationSelect.dataset.handlerAttached = '1';
-                        applicationSelect.addEventListener('change', function() {
-                            const appId = this.value;
-                            const projectId = projectSelect ? projectSelect.value : '';
-                            clearSelect(moduleSelect, 'Select Module');
-                            if (!appId) return;
-
-                            const params = new URLSearchParams({ application_id: appId });
-                            if (projectId) params.set('project_id', projectId);
-
-                            fetch('{{ route("issues.ajax.modules") }}?' + params.toString(), {
-                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                            }).then(r => r.json()).then(data => {
-                                const seen = new Set();
-                                data.forEach(function(m) {
-                                    if (!m || !m.module_id || seen.has(String(m.module_id))) return;
-                                    seen.add(String(m.module_id));
-                                    const option = document.createElement('option');
-                                    option.value = m.module_id;
-                                    option.textContent = m.module_name;
-                                    moduleSelect.appendChild(option);
-                                });
-                            });
-                        });
-                    }
-
-                    if (stateSelect && stateSelect.value) {
-                        stateSelect.dispatchEvent(new Event('change'));
+                    if (typeof window.bindIssueCreatePopupForm === 'function') {
+                        window.bindIssueCreatePopupForm();
                     }
                 };
 

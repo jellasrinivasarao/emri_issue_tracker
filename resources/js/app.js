@@ -127,6 +127,126 @@ window.loadIssuePopupModules = function loadIssuePopupModules(applicationId, pro
         .catch((error) => console.error('[issue-popup] modules load failed', error));
 };
 
+window.bindIssueCreatePopupForm = function bindIssueCreatePopupForm() {
+    const form = document.getElementById('issueCreateForm') || document.getElementById('issueForm');
+    if (!form || form.dataset.bound === '1') {
+        return;
+    }
+
+    form.dataset.bound = '1';
+
+    const submitButton = form.querySelector('#issueSubmitButton') || form.querySelector('#submitBtn');
+    const submitText = submitButton?.querySelector('.submit-text') || submitButton;
+    const submitLoading = submitButton?.querySelector('.submit-loading');
+    const messageBox = document.getElementById('issueFormMessage') || document.getElementById('issuePopupMessage');
+    const validationBox = document.getElementById('issueValidationErrors');
+
+    const clearStatus = () => {
+        if (messageBox) {
+            messageBox.className = 'hidden mb-4 rounded-xl px-4 py-3 text-sm font-semibold';
+            messageBox.textContent = '';
+        }
+        if (validationBox) {
+            validationBox.className = 'hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700';
+            validationBox.textContent = '';
+        }
+        form.querySelectorAll('[data-error]').forEach((node) => {
+            node.textContent = '';
+            node.classList.add('hidden');
+        });
+    };
+
+    const showMessage = (type, text) => {
+        if (messageBox) {
+            messageBox.className = `mb-4 rounded-xl px-4 py-3 text-sm font-semibold ${type === 'success' ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-red-200 bg-red-50 text-red-700'}`;
+            messageBox.textContent = text;
+        }
+    };
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (form.dataset.submitting === '1') {
+            return;
+        }
+
+        clearStatus();
+        form.dataset.submitting = '1';
+
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
+        if (submitText) submitText.classList.add('hidden');
+        if (submitLoading) submitLoading.classList.remove('hidden');
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {})
+                }
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (response.status === 422 && payload.errors) {
+                Object.entries(payload.errors).forEach(([field, messages]) => {
+                    const node = form.querySelector(`[data-error="${field}"]`);
+                    if (node) {
+                        const msg = Array.isArray(messages) ? messages[0] : messages;
+                        node.textContent = msg;
+                        node.classList.remove('hidden');
+                    }
+                });
+
+                if (validationBox) {
+                    validationBox.className = 'mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700';
+                    validationBox.textContent = payload.message || 'Please correct the highlighted fields.';
+                }
+
+                showMessage('error', payload.message || 'Please correct the highlighted fields.');
+                return;
+            }
+
+            if (!response.ok) {
+                showMessage('error', payload.message || 'Unable to raise issue.');
+                return;
+            }
+
+            const successText = payload.message || 'Issue created successfully.';
+            showMessage('success', successText);
+            form.reset();
+
+            if (typeof window.Swal !== 'undefined') {
+                window.Swal.fire({
+                    icon: 'success',
+                    title: 'Issue Raised Successfully',
+                    text: successText,
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                setTimeout(() => window.location.reload(), 800);
+            }
+        } catch (error) {
+            console.error('Issue popup submit failed', error);
+            showMessage('error', 'Unable to raise issue. Please try again.');
+        } finally {
+            form.dataset.submitting = '0';
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+            if (submitText) submitText.classList.remove('hidden');
+            if (submitLoading) submitLoading.classList.add('hidden');
+        }
+    });
+};
+
 window.initIssueCreatePopup = function initIssueCreatePopup() {
     const stateSelect = document.getElementById('state_id');
     const projectSelect = document.getElementById('project_id');
@@ -152,6 +272,8 @@ window.initIssueCreatePopup = function initIssueCreatePopup() {
             window.loadIssuePopupModules(this.value, document.getElementById('project_id')?.value || '');
         };
     }
+
+    window.bindIssueCreatePopupForm();
 
     if (stateSelect && stateSelect.value) {
         window.loadIssuePopupProjects(stateSelect.value);
