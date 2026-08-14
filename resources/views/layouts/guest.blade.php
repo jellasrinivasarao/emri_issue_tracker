@@ -13,6 +13,19 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        
+        <!-- Prevent going back from login page to authenticated pages -->
+        <script>
+            (function () {
+                // Replace history to prevent accessing old authenticated pages
+                history.replaceState({ page: 'login' }, null, location.href);
+
+                // If someone tries to go forward/back from login, keep them at login
+                window.addEventListener('popstate', function () {
+                    history.replaceState({ page: 'login' }, null, location.href);
+                });
+            })();
+        </script>
     </head>
     <body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased">
         <div class="relative min-h-screen overflow-hidden bg-slate-100">
