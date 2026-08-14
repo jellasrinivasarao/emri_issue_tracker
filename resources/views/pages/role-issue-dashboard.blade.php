@@ -13,7 +13,6 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Summary</p>
                         <p class="mt-1 text-sm text-slate-500">Overview of all issues in the system.</p>
                     </div>
-
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         @php
                             $allCardUrl = route('role.issue.dashboard');
