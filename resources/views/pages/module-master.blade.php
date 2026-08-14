@@ -11,18 +11,22 @@
                         <div>
                             <p class="text-sm text-slate-600">{{ $description ?? __('Manage application modules and module assignments.') }}</p>
                         </div>
-                        <div class="flex items-center justify-end rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                            <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"></path></svg>
-                            <input id="module-search" type="text" placeholder="Search" class="ml-2 w-36 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center justify-end rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                                <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"></path></svg>
+                                <input id="module-search" type="text" placeholder="Search" class="ml-2 w-36 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
+                            </div>
+                            @if(data_get($permissions, 'export'))
+                                <button type="button" onclick="exportModuleTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                                <button type="button" onclick="exportModuleTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                                <button type="button" onclick="exportModuleTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                            @endif
                         </div>
-                        <button type="button" onclick="openModuleMasterModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
-                    </div>
-                </div>
-                <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" onclick="exportModuleTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
-                        <button type="button" onclick="exportModuleTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
-                        <button type="button" onclick="exportModuleTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                        <div class="flex justify-end">
+                            @if(data_get($permissions, 'create'))
+                                <button type="button" onclick="openModuleMasterModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
+                            @endif
+                        </div>
                     </div>
                 </div>
                 @if(session('success') || session('error'))
@@ -52,17 +56,26 @@
                                         <td class="px-5 py-3 text-sm"><span class="rounded-full {{ (int)$module->is_active === 1 ? 'bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700' : 'bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700' }}">{{ (int)$module->is_active === 1 ? 'Active' : 'Inactive' }}</span></td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <button type="button" data-module-id="{{ $module->module_id }}" data-module-name="{{ $module->module_name }}" data-description="{{ $module->description ?? '' }}" data-status="{{ (int)$module->is_active === 1 ? 'active' : 'inactive' }}" onclick="editModule(this.dataset)" class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
-                                                <form method="POST" action="{{ route('module.master.toggle', ['module_id' => $module->module_id]) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold {{ (int)$module->is_active === 1 ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }}">{{ (int)$module->is_active === 1 ? 'Disable' : 'Activate' }}</button>
-                                                </form>
+                                                @if(data_get($permissions, 'edit'))
+                                                    <button type="button" data-module-id="{{ $module->module_id }}" data-module-name="{{ $module->module_name }}" data-description="{{ $module->description ?? '' }}" data-status="{{ (int)$module->is_active === 1 ? 'active' : 'inactive' }}" onclick="editModule(this.dataset)" class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                                @endif
+                                                @if((int)$module->is_active === 1 && data_get($permissions, 'deactivate'))
+                                                    <form method="POST" action="{{ route('module.master.toggle', ['module_id' => $module->module_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200">Disable</button>
+                                                    </form>
+                                                @elseif((int)$module->is_active !== 1 && data_get($permissions, 'activate'))
+                                                    <form method="POST" action="{{ route('module.master.toggle', ['module_id' => $module->module_id]) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200">Activate</button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr class="empty-row">
-                                        <td colspan="5" class="px-5 py-6 text-center text-sm text-slate-500">No modules found.</td>
+                                        <td colspan="4" class="px-5 py-6 text-center text-sm text-slate-500">No modules found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

@@ -9,7 +9,30 @@ use App\Http\Controllers\Admin\StateMasterController;
 use App\Http\Controllers\Admin\SupportGroupMasterController;
 use App\Http\Controllers\Admin\UserMasterController;
 use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\Admin\MenuMasterController;
+use App\Http\Controllers\Admin\PrivilegeMasterController;
+use App\Http\Controllers\Admin\RoleMenuMappingController;
+use App\Http\Controllers\Admin\RolePrivilegeMappingController;
+use App\Http\Controllers\Admin\ProjectApplicationModuleMappingController;
+use App\Http\Controllers\Admin\ProjectStateMappingController;
+use App\Http\Controllers\Admin\UserRoleMappingController;
+use App\Http\Controllers\Admin\UserProjectMappingController;
+use App\Http\Controllers\Admin\UserSupportGroupMappingController;
+use App\Http\Controllers\Admin\VendorStateMappingController;
+use App\Http\Controllers\Admin\AdminConfigController;
+use App\Http\Controllers\Admin\IssueRoutingRuleController;
+use App\Http\Controllers\IssueController;
+
+use App\Http\Controllers\Admin\WorkingCalendarController;
+use App\Http\Controllers\Admin\WorkingScheduleController;
+use App\Http\Controllers\Admin\WorkingHoursController;
+use App\Http\Controllers\Admin\CalendarHolidayController;
+use App\Http\Controllers\Admin\SlaConfigurationController;
+
+
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Auth\ForcePasswordController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -29,43 +52,80 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
-    Route::view('/role-dashboard', 'role-dashboard')->name('role.dashboard');
+    Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
+    Route::get('/role-issue-dashboard', [PageController::class, 'roleIssueDashboard'])
+        ->middleware('menu.access:role.issue.dashboard')
+        ->name('role.issue.dashboard');
 
-    Route::view('/issues', 'pages.issues')
+    Route::post('/role-issue-dashboard/update', [PageController::class, 'updateIssueStatus'])
+        ->middleware(['auth', 'menu.access:role.issue.dashboard'])
+        ->name('role.issue.update');
+
+    Route::get('/issues', [IssueController::class, 'index'])
         ->middleware('menu.access:issues')
-        ->name('issues');
+        ->name('issues.index');
 
-    Route::view('/raise-issue', 'pages.raise-issue')
+    Route::get('/raise-issue', function () {
+        return redirect('/issues/create');
+    })->middleware('menu.access:raise.issue');
+
+    Route::get('/issues/create', [IssueController::class, 'create'])
         ->middleware('menu.access:raise.issue')
         ->name('raise.issue');
 
-    Route::view('/reports', 'pages.reports')
+    Route::post('/issues', [IssueController::class, 'store'])
+        ->middleware('menu.access:raise.issue')
+        ->name('issues.store');
+
+    // AJAX endpoints for dependent selects on issue create
+    Route::get('/ajax/projects', [IssueController::class, 'projectsByState'])
+        ->middleware('auth')
+        ->name('issues.ajax.projects');
+
+    Route::get('/ajax/applications', [IssueController::class, 'applicationsByProject'])
+        ->middleware('auth')
+        ->name('issues.ajax.applications');
+
+    Route::get('/ajax/modules', [IssueController::class, 'modulesByApplication'])
+        ->middleware('auth')
+        ->name('issues.ajax.modules');
+
+    // Attachment routes
+    Route::get('/attachment/view/{id}', [IssueController::class, 'viewAttachment'])
+        ->middleware('auth')
+        ->name('attachment.view');
+    
+    Route::get('/attachment/preview/{id}', [IssueController::class, 'previewAttachment'])
+        ->middleware('auth')
+        ->name('attachment.preview');
+    
+    Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
+        ->middleware('auth')
+        ->name('attachment.download');
+
+    Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
         ->name('reports');
 
-    Route::view('/administration', 'pages.administration')
+    Route::get('/administration', [PageController::class, 'administration'])
         ->middleware('menu.access:administration')
         ->name('administration');
 
-    Route::view('/central-admin', 'pages.generic-admin-page', [
-        'title' => 'Main Dashboard',
-        'description' => 'View the main dashboard, system summaries, and overall administration status.',
-    ])->middleware('menu.access:central.admin')->name('central.admin');
+    Route::redirect('/central-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:central.admin'])
+        ->name('central.admin');
 
-    Route::view('/state-admin', 'pages.generic-admin-page', [
-        'title' => 'State Admin',
-        'description' => 'Access state administration capabilities and manage state-specific settings.',
-    ])->middleware('menu.access:state.admin')->name('state.admin');
+    Route::redirect('/state-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:state.admin'])
+        ->name('state.admin');
 
-    Route::view('/ho-admin', 'pages.generic-admin-page', [
-        'title' => 'HO Admin',
-        'description' => 'Manage head office administration and central operational controls.',
-    ])->middleware('menu.access:ho.admin')->name('ho.admin');
+    Route::redirect('/ho-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:ho.admin'])
+        ->name('ho.admin');
 
-    Route::view('/vendor-admin', 'pages.generic-admin-page', [
-        'title' => 'Vendor Admin',
-        'description' => 'Manage vendor administration tasks and vendor-specific operations.',
-    ])->middleware('menu.access:vendor.admin')->name('vendor.admin');
+    Route::redirect('/vendor-admin', '/role-dashboard')
+        ->middleware(['auth', 'menu.access:vendor.admin'])
+        ->name('vendor.admin');
 
     Route::get('/state-master', [StateMasterController::class, 'index'])
         ->middleware(['auth', 'menu.access:state.master'])
@@ -212,105 +272,365 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.master'])
         ->name('role.master.toggle');
 
-    Route::view('/privilege-master', 'pages.generic-admin-page', [
-        'title' => 'Privilege Master',
-        'description' => 'Manage privileges, privilege codes, and access permissions.',
-    ])->middleware('menu.access:privilege.master')->name('privilege.master');
+    Route::get('/privilege-master', [PrivilegeMasterController::class, 'index'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master');
+    Route::post('/privilege-master', [PrivilegeMasterController::class, 'store'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.store');
 
-    Route::view('/user-role-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Role Mapping',
-        'description' => 'Map users to roles and manage user role assignments.',
-    ])->middleware('menu.access:user.role.mapping')->name('user.role.mapping');
+    Route::put('/privilege-master/{privilege_id}', [PrivilegeMasterController::class, 'update'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.update');
 
-    Route::view('/user-project-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Project Mapping',
-        'description' => 'Manage user access to projects and project assignments.',
-    ])->middleware('menu.access:user.project.mapping')->name('user.project.mapping');
+    Route::post('/privilege-master/{privilege_id}/toggle', [PrivilegeMasterController::class, 'toggle'])
+        ->middleware(['auth','menu.access:privilege.master'])
+        ->name('privilege.master.toggle');
 
-    Route::view('/user-support-group-mapping', 'pages.generic-admin-page', [
-        'title' => 'Userâ€“Support Group Mapping',
-        'description' => 'Manage user membership in support groups.',
-    ])->middleware('menu.access:user.support.group.mapping')->name('user.support.group.mapping');
+    Route::get('/user-role-mapping', [UserRoleMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.role.mapping'])
+        ->name('user.role.mapping');
 
-    Route::view('/menu-master', 'pages.generic-admin-page', [
-        'title' => 'Menu Master',
-        'description' => 'Manage menu items, route access, and sidebar navigation entries.',
-    ])->middleware('menu.access:menu.master')->name('menu.master');
+    Route::get('/user-project-mapping', [UserProjectMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.project.mapping'])
+        ->name('user.project.mapping');
 
-    Route::view('/role-menu-mapping', 'pages.generic-admin-page', [
-        'title' => 'Role–Menu Mapping',
-        'description' => 'Manage role permissions and menu access mapping.',
-    ])->middleware('menu.access:role.menu.mapping')->name('role.menu.mapping');
+    Route::get('/user-support-group-mapping', [UserSupportGroupMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:user.support.group.mapping'])
+        ->name('user.support.group.mapping');
 
-    Route::view('/role-privilege-mapping', 'pages.generic-admin-page', [
-        'title' => 'Roleâ€“Privilege Mapping',
-        'description' => 'Map roles to privileges and control role-based actions.',
-    ])->middleware('menu.access:role.privilege.mapping')->name('role.privilege.mapping');
+    // Forced password change for first-time logins
+    Route::get('/password/force-change', [ForcePasswordController::class, 'show'])->name('password.force.change');
+    Route::post('/password/force-change', [ForcePasswordController::class, 'update'])->name('password.force.change.update');
 
-    Route::view('/working-hours', 'pages.generic-admin-page', [
-        'title' => 'Working Hours',
-        'description' => 'Manage working hours and shift schedules.',
-    ])->middleware('menu.access:working.hours')->name('working.hours');
+    Route::get('/project-application-module', [ProjectApplicationModuleMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping');
 
-    Route::view('/holiday-calendar', 'pages.generic-admin-page', [
-        'title' => 'Holiday Calendar',
-        'description' => 'Manage public holidays and calendar events.',
-    ])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
+    Route::post('/project-application-module', [ProjectApplicationModuleMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.store');
 
-    Route::view('/sla-configuration', 'pages.generic-admin-page', [
-        'title' => 'SLA Configuration',
-        'description' => 'Configure SLA rules, targets, and escalation conditions.',
-    ])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+    Route::get('/project-application-module/options', [ProjectApplicationModuleMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.options');
 
-    Route::view('/automatic-routing', 'pages.generic-admin-page', [
-        'title' => 'Automatic Routing Configuration',
-        'description' => 'Configure automatic issue routing rules.',
-    ])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+    Route::put('/project-application-module/{mapping_id}', [ProjectApplicationModuleMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.update');
 
-    Route::view('/notification-configuration', 'pages.generic-admin-page', [
-        'title' => 'Notification Configuration',
-        'description' => 'Manage notification templates and alerts.',
-    ])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+    Route::post('/project-application-module/{mapping_id}/toggle', [ProjectApplicationModuleMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:project.application.module.mapping'])
+        ->name('project.application.module.mapping.toggle');
+    Route::get('/project-state-mapping', [ProjectStateMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping');
 
-    Route::view('/priority-configuration', 'pages.generic-admin-page', [
-        'title' => 'Priority Configuration',
-        'description' => 'Manage priority definitions and priority levels.',
-    ])->middleware('menu.access:priority.configuration')->name('priority.configuration');
+    Route::post('/project-state-mapping', [ProjectStateMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.store');
 
-    Route::view('/severity-configuration', 'pages.generic-admin-page', [
-        'title' => 'Severity Configuration',
-        'description' => 'Manage severity levels and severity descriptors.',
-    ])->middleware('menu.access:severity.configuration')->name('severity.configuration');
+    Route::get('/project-state-mapping/options', [ProjectStateMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.options');
 
-    Route::view('/issue-category-configuration', 'pages.generic-admin-page', [
-        'title' => 'Issue Category Configuration',
-        'description' => 'Manage issue categories and categorization rules.',
-    ])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
+    Route::put('/project-state-mapping/{mapping_id}', [ProjectStateMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.update');
 
-    Route::view('/vendor-level2-mapping', 'pages.generic-admin-page', [
-        'title' => 'Vendor Level-2 Mapping',
-        'description' => 'Manage vendor level-2 mappings and escalation groups.',
-    ])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
+    Route::post('/project-state-mapping/{mapping_id}/toggle', [ProjectStateMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:project.state.mapping'])
+        ->name('project.state.mapping.toggle');
+    Route::get('/vendor-state-mapping', [VendorStateMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping');
 
-    Route::view('/active-inactive-status', 'pages.generic-admin-page', [
-        'title' => 'Active / Inactive Status',
-        'description' => 'View and manage active/inactive status for users and records.',
-    ])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
+    Route::post('/vendor-state-mapping', [VendorStateMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.store');
 
-    Route::view('/change-history', 'pages.generic-admin-page', [
-        'title' => 'Change History',
-        'description' => 'Review change history and audit trails.',
-    ])->middleware('menu.access:change.history')->name('change.history');
+    Route::get('/vendor-state-mapping/options', [VendorStateMappingController::class, 'options'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.options');
 
-    Route::view('/user-activity-log', 'pages.generic-admin-page', [
-        'title' => 'User Activity Log',
-        'description' => 'Review user activity and session logs.',
-    ])->middleware('menu.access:user.activity.log')->name('user.activity.log');
+    Route::put('/vendor-state-mapping/{mapping_id}', [VendorStateMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.update');
 
-    Route::view('/system-audit-logs', 'pages.generic-admin-page', [
-        'title' => 'System Audit Logs',
-        'description' => 'Review system audit logs and governance reports.',
-    ])->middleware('menu.access:system.audit.logs')->name('system.audit.logs');
+    Route::post('/vendor-state-mapping/{mapping_id}/toggle', [VendorStateMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:vendor.state.mapping'])
+        ->name('vendor.state.mapping.toggle');
+    Route::get('/menu-master', [MenuMasterController::class, 'index'])
+        ->middleware(['auth','menu.access:menu.master'])
+        ->name('menu.master');
+
+    Route::get('/role-menu-mapping', [RoleMenuMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:role.menu.mapping'])
+        ->name('role.menu.mapping');
+
+    Route::get('/role-privilege-mapping', [RolePrivilegeMappingController::class, 'index'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping');
+
+    Route::post('/role-privilege-mapping', [RolePrivilegeMappingController::class, 'store'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.store');
+
+    Route::put('/role-privilege-mapping/{role_privilege_id}', [RolePrivilegeMappingController::class, 'update'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.update');
+
+    Route::post('/role-privilege-mapping/{role_privilege_id}/toggle', [RolePrivilegeMappingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:role.privilege.mapping'])
+        ->name('role.privilege.mapping.toggle');
+
+    //Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
+
+    // Working calendar CRUD endpoints
+    // Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.store');
+
+    // Route::put('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'update'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.update');
+
+    // Route::delete('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'destroy'])
+    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->name('working.calendars.destroy');
+
+
+
+
+
+    Route::get('/working-calendars', [WorkingCalendarController::class, 'index'])
+        ->middleware('menu.access:working.hours')
+        ->name('working.calendars');
+
+    Route::post('/working-calendars', [WorkingCalendarController::class, 'store'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.store');
+
+    Route::put('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'update'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.update');
+
+    Route::post('/working-calendars/{calendar_id}/toggle', [WorkingCalendarController::class, 'toggle'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.toggle');
+
+    Route::delete('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'destroy'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.destroy');
+
+    Route::get('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'index'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules');
+
+    Route::post('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'store'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.store');
+
+    Route::put('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'update'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.update');
+
+    Route::post('/working-calendars/{calendar_id}/schedules/{schedule_id}/toggle', [WorkingScheduleController::class, 'toggle'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.toggle');
+
+    Route::delete('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'destroy'])
+        ->middleware(['auth','menu.access:working.hours'])
+        ->name('working.calendars.schedules.destroy');
+
+    Route::resource('working-schedules', WorkingHoursController::class);
+
+    Route::patch('working-schedules/{working_schedule}/toggle-status',
+        [WorkingHoursController::class, 'toggleStatus']
+    )->name('working-schedules.toggle-status');
+
+
+    #Route::resource('sla-configurations',SlaConfigurationController::class);
+
+    Route::resource('sla-configurations', SlaConfigurationController::class)->middleware(['auth', 'menu.access:sla.configuration']);
+
+    Route::patch('sla-configurations/{sla_configuration}/toggle',[SlaConfigurationController::class, 'toggle'])->middleware(['auth', 'menu.access:sla.configuration'])->name('sla-configurations.toggle');
+
+
+            // Holiday calendar CRUD
+
+    // Route::get('/holiday-calendar', [CalendarHolidayController::class, 'index'])->middleware('menu.access:holiday.calendar')->name('holiday.calendar');
+
+    // Route::post('/holiday-calendar', [CalendarHolidayController::class, 'store'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.store');
+
+    // Route::put('/holiday-calendar/{holiday_id}', [CalendarHolidayController::class, 'update'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.update');
+
+    // Route::post('/holiday-calendar/{holiday_id}/toggle', [CalendarHolidayController::class, 'toggle'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.toggle');
+
+    // Route::delete('/holiday-calendar/{holiday_id}', [CalendarHolidayController::class, 'destroy'])
+    //     ->middleware(['auth','menu.access:holiday.calendar'])
+    //     ->name('holiday.calendar.destroy');
+
+
+
+
+
+        Route::prefix('holiday-calendar')
+    ->name('holiday.')
+    ->controller(CalendarHolidayController::class)
+    ->group(function () {
+
+        Route::get('/', 'index')->name('calendar');
+
+        Route::post('/', 'store')->name('store');
+
+        Route::put('/{holiday_id}', 'update')->name('update');
+
+        Route::post('/{holiday_id}/toggle', 'toggle')->name('toggle');
+
+        Route::delete('/{holiday_id}', 'destroy')->name('destroy');
+    });
+        
+    
+    
+
+    Route::get('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'index'])->middleware('menu.access:sla.configuration')->name('sla.configuration');
+
+    // SLA CRUD
+    Route::post('/sla-configuration', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.store');
+
+    Route::put('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.update');
+
+    Route::post('/sla-configuration/{sla_id}/toggle', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.toggle');
+
+    Route::delete('/sla-configuration/{sla_id}', [\App\Http\Controllers\Admin\SlaConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:sla.configuration'])
+        ->name('sla.configuration.destroy');
+
+
+
+
+    Route::get('/automatic-routing', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'index'])->middleware('menu.access:automatic.routing')->name('automatic.routing');
+
+    // Automatic routing CRUD
+    Route::post('/automatic-routing', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'store'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.store');
+
+    Route::put('/automatic-routing/{id}', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'update'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.update');
+
+    Route::post('/automatic-routing/{id}/toggle', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'toggle'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.toggle');
+
+    Route::delete('/automatic-routing/{id}', [\App\Http\Controllers\Admin\AutomaticRoutingController::class, 'destroy'])
+        ->middleware(['auth','menu.access:automatic.routing'])
+        ->name('automatic.routing.destroy');
+
+    Route::get('/notification-configuration', [AdminConfigController::class, 'notificationConfiguration'])->middleware('menu.access:notification.configuration')->name('notification.configuration');
+
+    // Notification / Mail configuration CRUD (admin)
+    Route::post('/notification-configuration', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.store');
+
+    Route::put('/notification-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.update');
+
+    Route::post('/notification-configuration/{id}/toggle', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.toggle');
+
+    Route::delete('/notification-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.destroy');
+
+    Route::get('/mail-configuration', [PageController::class, 'mailConfiguration'])->middleware('menu.access:mail.configuration')->name('mail.configuration');
+
+    Route::get('/priority-configuration', [AdminConfigController::class, 'priorityConfiguration'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
+
+    Route::get('/severity-configuration', [AdminConfigController::class, 'severityConfiguration'])->middleware('menu.access:severity.configuration')->name('severity.configuration');
+
+    Route::get('/issue-category-configuration', [AdminConfigController::class, 'issueCategoryConfiguration'])->middleware('menu.access:issue.category.configuration')->name('issue.category.configuration');
+
+    // Issue category CRUD
+    Route::post('/issue-category-configuration', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.store');
+
+    Route::put('/issue-category-configuration/{id}', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.update');
+
+    Route::post('/issue-category-configuration/{id}/toggle', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.toggle');
+
+    Route::delete('/issue-category-configuration/{id}', [\App\Http\Controllers\Admin\IssueCategoryConfigurationController::class, 'destroy'])
+        ->middleware(['auth','menu.access:issue.category.configuration'])
+        ->name('issue.category.configuration.destroy');
+
+
+    Route::resource('issue-routing-rules',IssueRoutingRuleController::class)->middleware('menu.access:issue.routing.rules');
+
+Route::patch('issue-routing-rules/{issueRoutingRule}/toggle',
+[IssueRoutingRuleController::class, 'toggle']
+)->name('issue-routing-rules.toggle')->middleware('menu.access:issue.routing.rules');
+
+
+        Route::get(
+            'issue-routing-rules/dependencies/support-configs',
+            [IssueRoutingRuleController::class, 'supportConfigs']
+        )->name(
+            'issue-routing-rules.dependencies.support-configs'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/applications',
+            [IssueRoutingRuleController::class, 'applications']
+        )->name(
+            'issue-routing-rules.dependencies.applications'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/states',
+            [IssueRoutingRuleController::class, 'states']
+        )->name(
+            'issue-routing-rules.dependencies.states'
+        );
+
+        Route::get(
+            'issue-routing-rules/dependencies/targets',
+            [IssueRoutingRuleController::class, 'targets']
+        )->name(
+            'issue-routing-rules.dependencies.targets'
+        );
+
+
+    Route::get('/vendor-level2-mapping', [AdminConfigController::class, 'vendorLevel2Mapping'])->middleware('menu.access:vendor.level2.mapping')->name('vendor.level2.mapping');
+
+    Route::get('/active-inactive-status', [PageController::class, 'genericAdminPage'])->middleware('menu.access:active.inactive.status')->name('active.inactive.status');
+
+    Route::get('/change-history', [PageController::class, 'genericAdminPage'])->middleware('menu.access:change.history')->name('change.history');
+
+    Route::get('/user-activity-log', [PageController::class, 'genericAdminPage'])->middleware('menu.access:user.activity.log')->name('user.activity.log');
+
+    Route::get('/system-audit-logs', [PageController::class, 'genericAdminPage'])->middleware('menu.access:system.audit.logs')->name('system.audit.logs');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -328,5 +648,8 @@ if (app()->environment('local')) {
     })->middleware('auth')->name('debug.auth.user');
 }
 
+
 require __DIR__.'/auth.php';
+
+
 

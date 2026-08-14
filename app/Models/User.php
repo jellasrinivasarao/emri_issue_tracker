@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
@@ -73,6 +74,8 @@ class User extends Authenticatable
         'user_status',
         'last_login_at',
         'password_changed_at',
+        'password_reset_otp',
+        'password_reset_otp_expires_at',
     ];
 
     /**
@@ -102,6 +105,7 @@ class User extends Authenticatable
     protected $casts = [
         'last_login_at' => 'datetime',
         'password_changed_at' => 'datetime',
+        'password_reset_otp_expires_at' => 'datetime',
     ];
 
     /**
@@ -112,6 +116,22 @@ class User extends Authenticatable
     public function getAuthPassword()
     {
         return $this->password_hash;
+    }
+
+    /**
+     * Get the e-mail address where password reset links are sent.
+     */
+    public function getEmailForPasswordReset(): ?string
+    {
+        return $this->official_email;
+    }
+
+    /**
+     * Get the e-mail address where mail notifications are sent.
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        return $this->official_email;
     }
 
     public function getNameAttribute(): ?string
@@ -159,6 +179,41 @@ class User extends Authenticatable
         return $this->menus->contains(function ($menu) use ($routeName) {
             return strtolower($menu->route_name) === strtolower($routeName);
         });
+    }
+
+    public function hasPrivilege(int $menuId, string $privilegeCode): bool
+    {
+        if (! $this->relationLoaded('roles')) {
+            $this->load('roles.menus');
+        }
+
+        $privilegeCode = strtolower($privilegeCode);
+
+        return $this->roles->flatMap(function (Role $role) use ($menuId) {
+            return $role->menus->filter(fn($menu) => (int) $menu->menu_id === (int) $menuId)->map(fn($menu) => $menu->pivot);
+        })->contains(function ($pivot) use ($privilegeCode) {
+            $code = DB::table('mst_privilege')->where('privilege_id', $pivot->privilege_id)->value('privilege_code');
+            return $pivot->is_allowed && $code && strtolower($code) === $privilegeCode;
+        });
+    }
+
+    public function hasPrivilegeOnRoute(string $routeName, string $privilegeCode): bool
+    {
+        $this->loadMissing('roles');
+
+        $roleIds = $this->roles->pluck('role_id')->toArray();
+        if (empty($roleIds)) {
+            return false;
+        }
+
+        return DB::table('map_role_privilege as m')
+            ->join('mst_menu as u', 'm.menu_id', '=', 'u.menu_id')
+            ->join('mst_privilege as p', 'm.privilege_id', '=', 'p.privilege_id')
+            ->whereIn('m.role_id', $roleIds)
+            ->where('u.route_name', $routeName)
+            ->where(DB::raw('LOWER(p.privilege_code)'), strtolower($privilegeCode))
+            ->where('m.is_allowed', 1)
+            ->exists();
     }
 
     public function getDefaultSectionRouteAttribute(): string

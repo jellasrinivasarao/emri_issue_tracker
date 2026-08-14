@@ -34,8 +34,9 @@ foreach ($roleTables as $table) {
     $result['counts'][$table] = $stmt2->fetch(PDO::FETCH_ASSOC)['count'];
 }
 
-if (in_array('map_role_privilege', $roleTables, true)) {
-    $stmt = $pdo->query('SELECT * FROM map_role_privilege LIMIT 50');
+if (in_array('map_role_privilege', $roleTables, true) || in_array('t_map_role_privilege', $roleTables, true)) {
+    $table = in_array('map_role_privilege', $roleTables, true) ? 'map_role_privilege' : 't_map_role_privilege';
+    $stmt = $pdo->query("SELECT * FROM {$table} LIMIT 50");
     $result['map_role_privilege'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

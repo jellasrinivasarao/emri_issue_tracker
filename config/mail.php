@@ -15,6 +15,8 @@ return [
 
     'default' => env('MAIL_MAILER', 'smtp'),
 
+    'app_url' => env('MAIL_APP_URL', env('APP_URL')),
+
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations

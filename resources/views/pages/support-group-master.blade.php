@@ -7,23 +7,27 @@
         <div class="mx-auto flex h-full min-h-0 max-w-7xl flex-col box-border px-4 sm:px-6 lg:px-8 overflow-hidden">
             <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-200 bg-slate-50 px-5 py-5">
-                    <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-center">
-                        <div>
-                            <p class="text-sm text-slate-600">{{ $description ?? __('Manage support groups and group ownership details.') }}</p>
+                        <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-center">
+                            <div>
+                                <p class="text-sm text-slate-600">{{ $description ?? __('Manage support groups and group ownership details.') }}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center justify-end rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                                    <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19 a8 8 0 100-16 8 8 0 000 16z"></path></svg>
+                                    <input id="support-group-search" type="text" placeholder="Search" class="ml-2 w-36 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
+                                </div>
+                                @if(data_get($permissions, 'export'))
+                                    <button type="button" onclick="exportSupportGroupTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
+                                    <button type="button" onclick="exportSupportGroupTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
+                                    <button type="button" onclick="exportSupportGroupTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
+                                @endif
+                            </div>
+                            <div class="flex justify-end">
+                                @if(data_get($permissions, 'create'))
+                                    <button type="button" onclick="openSupportGroupMasterModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
+                                @endif
+                            </div>
                         </div>
-                        <div class="flex items-center justify-end rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                            <svg class="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"></path></svg>
-                            <input id="support-group-search" type="text" placeholder="Search" class="ml-2 w-36 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" />
-                        </div>
-                        <button type="button" onclick="openSupportGroupMasterModal()" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Add New</button>
-                    </div>
-                </div>
-                <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button type="button" onclick="exportSupportGroupTable('csv')" class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100">Export CSV</button>
-                        <button type="button" onclick="exportSupportGroupTable('xlsx')" class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100">Export XLSX</button>
-                        <button type="button" onclick="exportSupportGroupTable('pdf')" class="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-100">Export PDF</button>
-                    </div>
                 </div>
                 @if(session('success') || session('error'))
                     <div class="px-5 py-4" id="support-group-message-container">
@@ -59,17 +63,25 @@
                                         </td>
                                         <td class="px-5 py-3 text-sm">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <button type="button"
-                                                    data-group-id="{{ $group->support_group_id }}"
-                                                    data-group-name="{{ $group->support_group_name }}"
-                                                    data-description="{{ $group->description }}"
-                                                    data-status="{{ (int) $group->is_active === 1 ? 'active' : 'inactive' }}"
-                                                    onclick="editSupportGroup(this.dataset)"
-                                                    class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                                @if(data_get($permissions, 'edit'))
+                                                    <button type="button"
+                                                        data-group-id="{{ $group->support_group_id }}"
+                                                        data-group-name="{{ $group->support_group_name }}"
+                                                        data-description="{{ $group->description }}"
+                                                        data-status="{{ (int) $group->is_active === 1 ? 'active' : 'inactive' }}"
+                                                        onclick="editSupportGroup(this.dataset)"
+                                                        class="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Edit</button>
+                                                @endif
 
-                                                <form method="POST" action="{{ url('/support-group-master/' . $group->support_group_id . '/toggle') }}" style="display:inline">@csrf
-                                                    <button type="submit" class="rounded-lg {{ (int) $group->is_active === 1 ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' }} px-2.5 py-1.5 text-xs font-semibold">{{ (int) $group->is_active === 1 ? 'Disable' : 'Activate' }}</button>
-                                                </form>
+                                                @if((int) $group->is_active === 1 && data_get($permissions, 'deactivate'))
+                                                    <form method="POST" action="{{ url('/support-group-master/' . $group->support_group_id . '/toggle') }}" style="display:inline">@csrf
+                                                        <button type="submit" class="rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200 px-2.5 py-1.5 text-xs font-semibold">Disable</button>
+                                                    </form>
+                                                @elseif((int) $group->is_active !== 1 && data_get($permissions, 'activate'))
+                                                    <form method="POST" action="{{ url('/support-group-master/' . $group->support_group_id . '/toggle') }}" style="display:inline">@csrf
+                                                        <button type="submit" class="rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-2.5 py-1.5 text-xs font-semibold">Activate</button>
+                                                    </form>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>

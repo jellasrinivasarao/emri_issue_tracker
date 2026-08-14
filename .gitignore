@@ -16,3 +16,17 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+# Laravel generated files
+/storage/app/public/
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+
+# Local IDE / OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
