@@ -540,12 +540,6 @@
                                     </div>
 
                                     <div id="selectedFile" class="mt-3 hidden"></div>
-                                    <div id="selectedFileActions" class="mt-3 hidden flex items-center gap-3">
-                                        <button type="button" id="selectedFilePreviewBtn" onclick="if (typeof openTicketPreviewModal === 'function') { openTicketPreviewModal(); } else { const modal = document.getElementById('ticketPreviewModal'); if (modal) modal.classList.remove('hidden'); }"
-                                            class="px-4 py-2 rounded-lg border border-blue-600 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100">
-                                            Preview
-                                        </button>
-                                    </div>
 
                                 </div>
 
@@ -611,6 +605,15 @@
                     return value || fallback;
                 }
 
+                function getSelectedText(selector, fallback = '-') {
+                    const el = document.querySelector(selector);
+                    if (!el) return fallback;
+                    const selectedIndex = el.selectedIndex;
+                    const selectedOption = el.options[selectedIndex];
+                    const text = selectedOption ? (selectedOption.textContent || '').trim() : '';
+                    return text || readFormValue(selector, fallback);
+                }
+
                 function getAttachmentName() {
                     const attachment = document.getElementById('attachment');
                     if (attachment && attachment.files && attachment.files.length) {
@@ -629,130 +632,72 @@
                 }
 
                 function buildTicketPreviewHtml() {
-                    const state = readFormValue('#state_id');
-                    const project = readFormValue('#project_id');
-                    const application = readFormValue('#application_id');
-                    const module = readFormValue('#module_id');
-                    const issueCategory = readFormValue('#issue_category_id');
-                    const priority = readFormValue('#priority_id');
-                    const subject = readFormValue('#subject');
-                    const description = readFormValue('#description');
-                    const occurredDate = readFormValue('#occurred_date');
-                    const occurredTime = readFormValue('#occurred_time');
-                    const affectedUsers = readFormValue('#affected_users');
+                    const state = getSelectedText('#state_id', 'Not selected');
+                    const project = getSelectedText('#project_id', 'Not selected');
+                    const application = getSelectedText('#application_id', 'Not selected');
+                    const module = getSelectedText('#module_id', 'Not selected');
+                    const issueCategory = getSelectedText('#issue_category_id', 'Not selected');
+                    const priority = getSelectedText('#priority_id', 'Not selected');
+                    const subject = readFormValue('#subject', 'Not provided');
+                    const description = readFormValue('#description', 'No description provided');
+                    const occurredDate = readFormValue('#occurred_date', 'Not provided');
+                    const occurredTime = readFormValue('#occurred_time', 'Not provided');
+                    const affectedUsers = readFormValue('#affected_users', 'Not provided');
                     const attachmentName = getAttachmentName();
                     const imageMarkup = getAttachmentImageMarkup();
 
+                    const detailRows = [
+                        { label: 'State', value: state },
+                        { label: 'Priority', value: priority },
+                        { label: 'Project', value: project },
+                        { label: 'Application', value: application },
+                        { label: 'Module', value: module },
+                        { label: 'Issue Category', value: issueCategory },
+                        { label: 'Status', value: 'Draft' },
+                        { label: 'Ticket ID', value: 'DRAFT-PREVIEW' }
+                    ];
+
+                    const detailRowsHtml = detailRows.map(row => `
+                        <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                            <span class="font-semibold text-gray-600 uppercase tracking-wide">${row.label}</span>
+                            <span class="text-right text-gray-900">${row.value}</span>
+                        </div>
+                    `).join('');
+
                     return `
-                        <div class="space-y-4 bg-white">
-                            <!-- TICKET INFORMATION Header -->
-                            <div class="bg-blue-100 border-l-4 border-blue-600 px-4 py-3 mb-4">
-                                <p class="text-sm font-semibold text-blue-700 flex items-center gap-2">
-                                    <span>📋</span> TICKET INFORMATION
-                                </p>
+                        <div class="space-y-4 bg-white text-gray-800">
+                            <div class="border-b border-gray-200 pb-3">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600">Draft Ticket Preview</p>
+                                <h3 class="mt-2 text-2xl font-bold text-gray-900">${subject}</h3>
+                                <p class="mt-2 text-sm text-gray-600">This is a draft and has not been created yet. No ticket history is available until submission.</p>
                             </div>
 
-                            <!-- Row 1: Ticket ID, State, Priority -->
-                            <div class="grid grid-cols-3 gap-4">
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Ticket ID</p>
-                                    <p class="mt-2 font-bold text-gray-900">DRAFT-PREVIEW</p>
-                                </div>
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">State</p>
-                                    <p class="mt-2 font-bold text-gray-900">${state}</p>
-                                </div>
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Priority</p>
-                                    <p class="mt-2 font-bold text-gray-900">${priority}</p>
-                                </div>
+                            <div class="space-y-2">${detailRowsHtml}</div>
+
+                            <div class="pt-1">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-600">Description</p>
+                                <p class="mt-2 text-sm leading-7 text-gray-700 whitespace-pre-wrap">${description}</p>
                             </div>
 
-                            <!-- Row 2: Project, Application, Module -->
-                            <div class="grid grid-cols-3 gap-4">
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Project</p>
-                                    <p class="mt-2 font-bold text-gray-900">${project}</p>
+                            <div class="space-y-2 pt-1">
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Occurred Date</span>
+                                    <span class="text-gray-900">${occurredDate}</span>
                                 </div>
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Application</p>
-                                    <p class="mt-2 font-bold text-gray-900">${application}</p>
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Occurred Time</span>
+                                    <span class="text-gray-900">${occurredTime}</span>
                                 </div>
-                                <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                    <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Module</p>
-                                    <p class="mt-2 font-bold text-gray-900">${module}</p>
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Affected Users</span>
+                                    <span class="text-gray-900">${affectedUsers}</span>
                                 </div>
                             </div>
 
-                            <!-- Status -->
-                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Status</p>
-                                <p class="mt-2 font-bold text-gray-900">${state}</p>
-                            </div>
-
-                            <!-- Description -->
-                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Description</p>
-                                <p class="mt-2 text-gray-700 whitespace-pre-wrap">${description}</p>
-                            </div>
-
-                            <!-- Attachments -->
-                            <div class="border border-gray-300 rounded-lg p-4 bg-white">
-                                <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">Attachments</p>
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between py-2">
-                                        <p class="text-sm text-gray-700">${attachmentName}</p>
-                                        <div class="flex gap-3">
-                                            <a href="#" class="text-sm font-semibold text-blue-600 hover:underline">View</a>
-                                            <a href="#" class="text-sm font-semibold text-blue-600 hover:underline">Download</a>
-                                        </div>
-                                    </div>
-                                    ${imageMarkup ? '<div class="mt-3 border-t pt-3">' + imageMarkup + '</div>' : ''}
-                                </div>
-                            </div>
-
-                            <!-- Update History Section -->
-                            <div class="mt-6">
-                                <div class="bg-blue-100 border-l-4 border-blue-600 px-4 py-3 mb-4">
-                                    <p class="text-sm font-semibold text-blue-700 flex items-center gap-2">
-                                        <span>⏱</span> UPDATE HISTORY
-                                    </p>
-                                </div>
-                                
-                                <!-- History Entries -->
-                                <div class="space-y-3">
-                                    <!-- Entry 1: Issue Created -->
-                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                                        <div class="mb-3">
-                                            <p class="font-bold text-blue-600">Issue Created</p>
-                                            <p class="text-xs text-gray-600">by System · Just now</p>
-                                        </div>
-                                        <p class="text-sm text-gray-700">Action: <span class="font-semibold">Issue Created</span></p>
-                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Issue created successfully.</p>
-                                    </div>
-
-                                    <!-- Entry 2: Status Change - Example -->
-                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                                        <div class="mb-3">
-                                            <p class="font-bold text-blue-600">Status Changed</p>
-                                            <p class="text-xs text-gray-600">by Support Team · 15 minutes ago</p>
-                                        </div>
-                                        <div class="text-sm text-gray-700 space-y-1">
-                                            <p>Status: <span class="font-semibold">Assigned</span> → <span class="font-semibold">In Progress</span></p>
-                                        </div>
-                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Issue under investigation</p>
-                                    </div>
-
-                                    <!-- Entry 3: Attachment Addition - Example -->
-                                    <div class="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                                        <div class="mb-3">
-                                            <p class="font-bold text-blue-600">Information Updated</p>
-                                            <p class="text-xs text-gray-600">by Support Team · 10 minutes ago</p>
-                                        </div>
-                                        <p class="text-sm text-gray-700">Action: <span class="font-semibold">Attachment Added / Details Updated</span></p>
-                                        <p class="text-sm font-semibold text-gray-900 mt-2">Remarks: Supporting document attached for reference</p>
-                                    </div>
-                                </div>
+                            <div class="pt-1">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-600">Attachment</p>
+                                <p class="mt-2 text-sm text-gray-700">${attachmentName}</p>
+                                ${imageMarkup ? '<div class="mt-3">' + imageMarkup + '</div>' : '<p class="mt-2 text-sm text-gray-500">No preview image available for the selected file.</p>'}
                             </div>
                         </div>
                     `;
@@ -876,11 +821,6 @@
                             closeTicketPreviewModal();
                         }
                     });
-                }
-
-                const selectedFilePreviewBtn = document.getElementById('selectedFilePreviewBtn');
-                if (selectedFilePreviewBtn) {
-                    selectedFilePreviewBtn.addEventListener('click', openTicketPreviewModal);
                 }
 
                 document.addEventListener('DOMContentLoaded', function() {
@@ -1033,7 +973,7 @@
                 @endpush
 
                 <div id="ticketPreviewModal" class="fixed inset-0 z-50 hidden bg-black/40 flex items-center justify-center">
-                    <div class="w-full max-w-4xl rounded-2xl bg-white shadow-2xl flex flex-col" style="max-height: 90vh;">
+                    <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style="max-height: 80vh;">
                         <div class="border-b border-gray-200 bg-white px-6 py-4 flex-shrink-0">
                             <div class="flex items-center justify-between mb-4">
                                 <h2 class="text-2xl font-bold text-gray-800">Draft Ticket Preview</h2>
@@ -1044,9 +984,6 @@
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" onclick="if (typeof printTicketPreview === 'function') { printTicketPreview(); }" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700">
                                     <span>🖨</span> Print
-                                </button>
-                                <button type="button" onclick="if (typeof printTicketPreview === 'function') { printTicketPreview(); }" class="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700">
-                                    <span>📄</span> Export PDF
                                 </button>
                             </div>
                         </div>

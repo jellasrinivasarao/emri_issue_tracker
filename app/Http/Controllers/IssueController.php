@@ -1270,6 +1270,86 @@ class IssueController extends Controller
     }
 
 
+    private function normalizeAttachmentRelativePath(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        $normalized = str_replace('\\', '/', $path);
+        $normalized = preg_replace('#^https?://[^/]+#', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('#^/+(public|storage)/#', '', $normalized);
+        $normalized = preg_replace('#^app/(public/)?#', '', $normalized);
+        $normalized = ltrim($normalized, '/');
+
+        if ($normalized === '') {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function resolveAttachmentFilePath(object $attachment): ?string
+    {
+        $pathCandidates = [];
+
+        $basePath = $this->normalizeAttachmentRelativePath($attachment->file_path ?? null);
+        if ($basePath) {
+            $pathCandidates[] = $basePath;
+        }
+
+        if (!empty($attachment->stored_file_name)) {
+            $pathCandidates[] = 'issues/' . ($attachment->issue_id ?? 0) . '/' . $attachment->stored_file_name;
+            $pathCandidates[] = 'issue_attachments/' . ($attachment->issue_id ?? 0) . '/' . $attachment->stored_file_name;
+            $pathCandidates[] = $attachment->stored_file_name;
+        }
+
+        $pathCandidates = array_values(array_unique(array_filter($pathCandidates, fn ($value) => !blank($value))));
+
+        foreach ($pathCandidates as $candidate) {
+            $diskPath = storage_path('app/public/' . ltrim($candidate, '/'));
+            $fallbackDiskPath = storage_path('app/' . ltrim($candidate, '/'));
+
+            foreach ([$diskPath, $fallbackDiskPath] as $checkPath) {
+                if (is_file($checkPath)) {
+                    return $checkPath;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function getAttachmentResponseFile(string $filePath): string
+    {
+        $handle = fopen($filePath, 'rb');
+        $header = fread($handle, 3);
+        fclose($handle);
+
+        if ($header !== "\xEF\xBB\xBF") {
+            return $filePath;
+        }
+
+        $contents = file_get_contents($filePath);
+        if ($contents === false) {
+            return $filePath;
+        }
+
+        $contents = preg_replace('/^\xEF\xBB\xBF/', '', $contents);
+        if ($contents === null) {
+            return $filePath;
+        }
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'attachment_');
+        if ($tempPath === false) {
+            return $filePath;
+        }
+
+        file_put_contents($tempPath, $contents);
+
+        return $tempPath;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Format Issue
@@ -1280,7 +1360,32 @@ class IssueController extends Controller
     {
 
     #$sla = $this->calculateSla($issue);
-    
+
+        $attachments = collect($issue->attachments ?? [])
+            ->map(function ($attachment) {
+                $attachmentId = $attachment->attachment_id ?? null;
+                $fileName = $attachment->original_file_name ?? $attachment->stored_file_name ?? 'Attachment';
+                $resolvedPath = $this->resolveAttachmentFilePath($attachment);
+                $relativePath = $this->normalizeAttachmentRelativePath($attachment->file_path ?? null);
+
+                return [
+                    'attachment_id' => $attachmentId,
+                    'issue_id' => $attachment->issue_id ?? null,
+                    'original_file_name' => $fileName,
+                    'stored_file_name' => $attachment->stored_file_name ?? basename((string) $relativePath),
+                    'file_path' => $attachment->file_path ?? ($relativePath ? '/storage/' . $relativePath : null),
+                    'file_size' => $attachment->file_size ?? null,
+                    'file_type' => $attachment->file_type ?? null,
+                    'uploaded_at' => $attachment->uploaded_at ?? null,
+                    'exists' => $resolvedPath !== null,
+                    'view_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId]) : null,
+                    'preview_url' => $attachmentId ? route('attachment.preview', ['id' => $attachmentId]) : null,
+                    'download_url' => $attachmentId ? route('attachment.download', ['id' => $attachmentId]) : null,
+                ];
+            })
+            ->values()
+            ->all();
+
         return [
 
             'issue_id' =>
@@ -1359,6 +1464,9 @@ class IssueController extends Controller
 
             'resolution_summary' =>
                 $issue->resolution_summary,
+
+            'attachments' =>
+                $attachments,
 
             //     'sla_remaining_minutes' =>
             //     $sla['sla_remaining_minutes'],
@@ -1484,28 +1592,48 @@ class IssueController extends Controller
             ->first();
 
         if (!$attachment) {
+            \Log::error('Preview attachment request failed - attachment record missing', [
+                'attachment_id' => $id,
+            ]);
             return abort(404, 'Attachment not found');
         }
 
-        // Remove '/storage/' prefix if present, then build full path
-        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
-        $filePath = storage_path('app/public/' . $relativePath);
+        $filePath = $this->resolveAttachmentFilePath($attachment);
 
-        if (!file_exists($filePath)) {
-            \Log::error('Attachment file not found', [
+        \Log::info('Preview attachment request', [
+            'attachment_id' => $id,
+            'issue_id' => $attachment->issue_id ?? null,
+            'stored_path' => $attachment->file_path ?? null,
+            'stored_file_name' => $attachment->stored_file_name ?? null,
+            'original_file_name' => $attachment->original_file_name ?? null,
+            'resolved_path' => $filePath,
+            'file_exists' => $filePath ? file_exists($filePath) : false,
+        ]);
+
+        if (!$filePath || !file_exists($filePath)) {
+            \Log::error('Attachment file not found during preview', [
                 'attachment_id' => $id,
-                'stored_path' => $attachment->file_path,
-                'constructed_path' => $filePath,
+                'issue_id' => $attachment->issue_id ?? null,
+                'stored_path' => $attachment->file_path ?? null,
+                'stored_file_name' => $attachment->stored_file_name ?? null,
+                'original_file_name' => $attachment->original_file_name ?? null,
+                'resolved_path' => $filePath,
             ]);
             return abort(404, 'File not found');
+        }
+
+        $relativePath = $this->normalizeAttachmentRelativePath($attachment->file_path ?? $attachment->stored_file_name ?? null);
+        if (empty($relativePath)) {
+            $relativePath = basename($filePath);
         }
 
         // Get file extension and determine type
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         
-        // Build the public URL for the file
-        $publicUrl = url('/storage/' . $relativePath);
-        
+        // Use the app route that serves the file with the correct inline headers.
+        // This works even when the public/storage symlink is missing.
+        $publicUrl = route('attachment.view', ['id' => $id]);
+
         // Determine if we can preview this type
         $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif']);
         $isPdf = $ext === 'pdf';
@@ -1553,19 +1681,33 @@ class IssueController extends Controller
             ->first();
 
         if (!$attachment) {
+            \Log::error('View attachment request failed - attachment record missing', [
+                'attachment_id' => $id,
+            ]);
             return abort(404, 'Attachment not found');
         }
 
-        // Remove '/storage/' prefix if present, then build full path
-        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
-        $filePath = storage_path('app/public/' . $relativePath);
+        $filePath = $this->resolveAttachmentFilePath($attachment);
 
-        if (!file_exists($filePath)) {
-            \Log::error('Attachment file not found', [
+        \Log::info('View attachment request', [
+            'attachment_id' => $id,
+            'issue_id' => $attachment->issue_id ?? null,
+            'stored_path' => $attachment->file_path ?? null,
+            'stored_file_name' => $attachment->stored_file_name ?? null,
+            'original_file_name' => $attachment->original_file_name ?? null,
+            'resolved_path' => $filePath,
+            'file_exists' => $filePath ? file_exists($filePath) : false,
+        ]);
+
+        if (!$filePath || !file_exists($filePath)) {
+            \Log::error('Attachment file not found during view', [
                 'attachment_id' => $id,
-                'stored_path' => $attachment->file_path,
-                'constructed_path' => $filePath,
-                'file_exists' => file_exists($filePath)
+                'issue_id' => $attachment->issue_id ?? null,
+                'stored_path' => $attachment->file_path ?? null,
+                'stored_file_name' => $attachment->stored_file_name ?? null,
+                'original_file_name' => $attachment->original_file_name ?? null,
+                'resolved_path' => $filePath,
+                'file_exists' => false
             ]);
             return abort(404, 'File not found');
         }
@@ -1597,11 +1739,13 @@ class IssueController extends Controller
                 'file_path' => $filePath
             ]);
 
-            return response()
-                ->file($filePath)
-                ->header('Content-Type', $mimeType)
-                ->header('Content-Disposition', 'inline; filename="' . $attachment->original_file_name . '"')
-                ->header('Cache-Control', 'public, max-age=3600');
+            $responseFile = $this->getAttachmentResponseFile($filePath);
+
+            return response()->file($responseFile, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . $attachment->original_file_name . '"',
+                'Cache-Control' => 'public, max-age=3600',
+            ]);
         } else {
             // For non-viewable files (doc, docx, xls, xlsx), force download
             return response()->download($filePath, $attachment->original_file_name);
@@ -1618,24 +1762,40 @@ class IssueController extends Controller
             ->first();
 
         if (!$attachment) {
+            \Log::error('Download attachment request failed - attachment record missing', [
+                'attachment_id' => $id,
+            ]);
             return abort(404, 'Attachment not found');
         }
 
-        // Remove '/storage/' prefix if present, then build full path
-        $relativePath = ltrim(str_replace('/storage/', '', $attachment->file_path), '/');
-        $filePath = storage_path('app/public/' . $relativePath);
+        $filePath = $this->resolveAttachmentFilePath($attachment);
 
-        if (!file_exists($filePath)) {
-            \Log::error('Attachment file not found', [
+        \Log::info('Download attachment request', [
+            'attachment_id' => $id,
+            'issue_id' => $attachment->issue_id ?? null,
+            'stored_path' => $attachment->file_path ?? null,
+            'stored_file_name' => $attachment->stored_file_name ?? null,
+            'original_file_name' => $attachment->original_file_name ?? null,
+            'resolved_path' => $filePath,
+            'file_exists' => $filePath ? file_exists($filePath) : false,
+        ]);
+
+        if (!$filePath || !file_exists($filePath)) {
+            \Log::error('Attachment file not found during download', [
                 'attachment_id' => $id,
-                'stored_path' => $attachment->file_path,
-                'constructed_path' => $filePath,
-                'file_exists' => file_exists($filePath)
+                'issue_id' => $attachment->issue_id ?? null,
+                'stored_path' => $attachment->file_path ?? null,
+                'stored_file_name' => $attachment->stored_file_name ?? null,
+                'original_file_name' => $attachment->original_file_name ?? null,
+                'resolved_path' => $filePath,
+                'file_exists' => false
             ]);
             return abort(404, 'File not found');
         }
 
-        return response()->download($filePath, $attachment->original_file_name);
+        $responseFile = $this->getAttachmentResponseFile($filePath);
+
+        return response()->download($responseFile, $attachment->original_file_name ?? basename($filePath));
     }
 
 }

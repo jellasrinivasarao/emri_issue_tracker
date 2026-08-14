@@ -15,41 +15,36 @@
                     </div>
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         @php
-                            $allCardUrl = route('role.issue.dashboard');
-                            $inProcessStatusId = collect($statusOptions)->first(function ($row) {
-                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                                return str_contains($name, 'process') || str_contains($name, 'progress');
-                            })['status_id'] ?? null;
-                            $closedStatusId = collect($statusOptions)->first(function ($row) {
-                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                                return str_contains($name, 'close') || str_contains($name, 'resolved') || str_contains($name, 'complete');
-                            })['status_id'] ?? null;
-                            $onHoldStatusId = collect($statusOptions)->first(function ($row) {
-                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                                return str_contains($name, 'hold') || str_contains($name, 'pending');
-                            })['status_id'] ?? null;
-
                             $statusCards = [
-                                ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'color' => 'blue', 'icon' => 'M3 7h18M3 12h18M3 17h18', 'bg' => 'bg-blue-50', 'text' => 'text-blue-700', 'cardHref' => $allCardUrl, 'filterStatus' => ''],
-                                ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'color' => 'emerald', 'icon' => 'M5 13l4 4L19 7', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $inProcessStatusId]), 'filterStatus' => (string) ($inProcessStatusId ?? '')],
-                                ['label' => 'Task Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'color' => 'amber', 'icon' => 'M4 4h16v16H4z', 'bg' => 'bg-amber-50', 'text' => 'text-amber-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $closedStatusId]), 'filterStatus' => (string) ($closedStatusId ?? '')],
-                                ['label' => 'On-Hold', 'value' => (string) ($statusSummary['on_hold'] ?? 0), 'color' => 'violet', 'icon' => 'M12 8v8m4-4H8', 'bg' => 'bg-violet-50', 'text' => 'text-violet-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $onHoldStatusId]), 'filterStatus' => (string) ($onHoldStatusId ?? '')],
+                                ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'color' => 'blue', 'icon' => 'M3 7h18M3 12h18M3 17h18', 'bg' => 'bg-blue-50', 'text' => 'text-blue-700', 'filterStatus' => 'all'],
+                                ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'color' => 'emerald', 'icon' => 'M5 13l4 4L19 7', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700', 'filterStatus' => 'in_process'],
+                                ['label' => 'Resolved', 'value' => (string) ($statusSummary['resolved'] ?? 0), 'color' => 'amber', 'icon' => 'M9 12.75L11.25 15 15 9.75', 'bg' => 'bg-amber-50', 'text' => 'text-amber-700', 'filterStatus' => 'resolved'],
+                                ['label' => 'Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'color' => 'violet', 'icon' => 'M6 18L18 6M6 6l12 12', 'bg' => 'bg-violet-50', 'text' => 'text-violet-700', 'filterStatus' => 'closed'],
                             ];
                         @endphp
                         @foreach($statusCards as $card)
                             @php
                                 $active = ((string) ($filterValues['status_id'] ?? '') === (string) $card['filterStatus']);
+                                $currentFilterValues = ['state_id' => $filterValues['state_id'] ?? '', 'project_id' => $filterValues['project_id'] ?? '', 'application_id' => $filterValues['application_id'] ?? '', 'priority_id' => $filterValues['priority_id'] ?? '', 'date_from' => $filterValues['date_from'] ?? '', 'date_to' => $filterValues['date_to'] ?? '', 'ticket_id' => $filterValues['ticket_id'] ?? '', 'search' => $filterValues['search'] ?? ''];
                             @endphp
-                            <a href="{{ $card['cardHref'] }}" class="block rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
-                                <div class="flex items-center justify-between gap-2">
-                                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl {{ $card['bg'] }} {{ $card['text'] }}">
-                                        <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $card['icon'] }}"></path></svg>
+                            <form method="GET" action="{{ route('role.issue.dashboard') }}" class="block">
+                                @foreach($currentFilterValues as $field => $value)
+                                    @if($value !== '')
+                                        <input type="hidden" name="{{ $field }}" value="{{ $value }}">
+                                    @endif
+                                @endforeach
+                                <input type="hidden" name="status_id" value="{{ $card['filterStatus'] }}">
+                                <button type="submit" class="w-full rounded-[14px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl {{ $card['bg'] }} {{ $card['text'] }}">
+                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $card['icon'] }}"></path></svg>
+                                        </div>
+                                        <span class="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $active ? 'Open' : 'View' }}</span>
                                     </div>
-                                    <span class="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $active ? 'Open' : 'View' }}</span>
-                                </div>
-                                <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}</p>
-                                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
-                            </a>
+                                    <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}</p>
+                                    <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                                </button>
+                            </form>
                         @endforeach
                     </div>
                 </div>
@@ -59,6 +54,7 @@
                         <p class="text-sm font-semibold text-slate-900">Filters</p>
                         <p class="mt-1 text-sm text-slate-500">Quick filter your ticket queue.</p>
                     </div>
+                    <input type="hidden" name="status_id" value="{{ $filterValues['status_id'] ?? '' }}">
                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         <select name="state_id" onchange="this.form.submit()" class="rounded-[12px] border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                             <option value="">All States</option>
