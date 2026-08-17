@@ -740,104 +740,495 @@
     </script>
 
     <!-- Raise Issue Modal -->
-    <div x-show="raiseIssueOpen" x-cloak
-        class="fixed left-0 right-0 z-30 bg-slate-900/40 transition-opacity duration-200"
-        style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));"></div>
-    <aside x-show="raiseIssueOpen" x-cloak
-        class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]"
-        style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
-        <div class="flex items-start justify-between gap-4 mb-6">
-            <div>
-                <p class="text-xs uppercase tracking-[0.32em] text-slate-500">Raise New Issue</p>
-                <h3 class="mt-2 text-xl font-semibold text-slate-900">Create Ticket</h3>
-            </div>
-            <button @click="raiseIssueOpen = false"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-        </div>
+{{-- ========================================================= --}}
+{{-- RAISE ISSUE MODAL --}}
+{{-- ========================================================= --}}
 
-        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 mb-6">
-            <p class="text-sm text-slate-600">Fill out the form below to create a new support ticket.</p>
-        </div>
+<template x-teleport="body">
 
-        <!-- Content loaded via AJAX -->
-        <div x-html="raiseIssueContent"></div>
+    <div
+        x-show="raiseIssueOpen"
+        x-cloak
+        class="fixed inset-0 z-[9999]"
+        x-transition.opacity
+    >
 
+        {{-- BACKDROP --}}
         <div
-            class="sticky bottom-0 left-0 z-20 mt-4 rounded-[18px] border border-slate-200 bg-white p-4 shadow-xl flex justify-end gap-2">
-            <button @click="raiseIssueOpen = false"
-                class="rounded-[10px] border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+            class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            @click="closeRaiseIssuePopup()"
+        ></div>
+
+
+        {{-- MODAL --}}
+        <div
+            class="relative flex min-h-screen items-center justify-center p-4 sm:p-6"
+        >
+
+            <div
+                x-show="raiseIssueOpen"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+                x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+                x-transition:leave="transition ease-in duration-150"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+
+                @click.stop
+
+                class="
+                    relative
+                    flex
+                    w-full
+                    max-w-4xl
+                    max-h-[92vh]
+                    flex-col
+                    overflow-hidden
+                    rounded-2xl
+                    bg-white
+                    shadow-2xl
+                "
+            >
+
+                {{-- HEADER --}}
+                <div
+                    class="
+                        flex
+                        items-center
+                        justify-between
+                        border-b
+                        border-slate-200
+                        bg-white
+                        px-6
+                        py-4
+                    "
+                >
+
+                    <div>
+
+                        <p
+                            class="
+                                text-[10px]
+                                font-semibold
+                                uppercase
+                                tracking-[0.25em]
+                                text-blue-600
+                            "
+                        >
+                            Issue Management
+                        </p>
+
+                        <h2
+                            class="
+                                mt-1
+                                text-xl
+                                font-semibold
+                                text-slate-900
+                            "
+                        >
+                            Raise New Issue
+                        </h2>
+
+                        <p
+                            class="
+                                mt-1
+                                text-sm
+                                text-slate-500
+                            "
+                        >
+                            Create a new support ticket.
+                        </p>
+
+                    </div>
+
+
+                    {{-- CLOSE --}}
+                    <button
+                        type="button"
+                        @click="closeRaiseIssuePopup()"
+                        class="
+                            inline-flex
+                            h-10
+                            w-10
+                            items-center
+                            justify-center
+                            rounded-xl
+                            bg-slate-100
+                            text-slate-600
+                            transition
+                            hover:bg-slate-200
+                            hover:text-slate-900
+                        "
+                    >
+
+                        <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M6 18L18 6M6 6l12 12"
+                            />
+                        </svg>
+
+                    </button>
+
+                </div>
+
+
+                {{-- LOADING --}}
+                <div
+                    x-show="raiseIssueLoading"
+                    class="flex items-center justify-center p-10"
+                >
+
+                    <div class="flex items-center gap-3">
+
+                        <svg
+                            class="h-5 w-5 animate-spin text-blue-600"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                        >
+                            <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                            ></circle>
+
+                            <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                            ></path>
+                        </svg>
+
+                        <span class="text-sm text-slate-600">
+                            Loading issue form...
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                {{-- FORM CONTENT --}}
+                <div
+                    x-show="!raiseIssueLoading"
+                    class="
+                        flex-1
+                        overflow-y-auto
+                        bg-slate-50
+                        p-5
+                        sm:p-6
+                    "
+                >
+
+                    <div
+                        x-html="raiseIssueContent"
+                    ></div>
+
+                </div>
+
+
+                {{-- FOOTER --}}
+                <div
+                    class="
+                        flex
+                        justify-end
+                        gap-2
+                        border-t
+                        border-slate-200
+                        bg-white
+                        px-6
+                        py-4
+                    "
+                >
+
+                    <button
+                        type="button"
+                        @click="closeRaiseIssuePopup()"
+                        class="
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            px-5
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-slate-700
+                            hover:bg-slate-50
+                        "
+                    >
+                        Cancel
+                    </button>
+
+                </div>
+
+            </div>
+
         </div>
-    </aside>
+
     </div>
-    <script>
-        function issueDashboard() {
-            return {
-                drawerOpen: false,
-                selectedTicket: null,
-                selectedStatus: 'In Progress',
-                activeTab: 'details',
-                raiseIssueOpen: false,
-                raiseIssueContent: '',
-                raiseIssueLoading: false,
 
-                init() {
-                    this.drawerOpen = false;
-                    this.selectedTicket = null;
-                    this.selectedStatus = 'In Progress';
-                    this.activeTab = 'details';
-                    this.raiseIssueOpen = false;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = false;
-                },
+</template>
 
-                openRaiseIssue() {
-                    this.raiseIssueOpen = true;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = true;
 
-                    fetch('{{ route('issues.create.popup') }}', {
+<script>
+
+function issueDashboard() {
+
+    return {
+
+        drawerOpen: false,
+
+        selectedTicket: null,
+
+        selectedStatus: 'In Progress',
+
+        activeTab: 'details',
+
+
+        // =====================================================
+        // RAISE ISSUE MODAL
+        // =====================================================
+
+        raiseIssueOpen: false,
+
+        raiseIssueContent: '',
+
+        raiseIssueLoading: false,
+
+
+        init() {
+
+            this.drawerOpen = false;
+
+            this.selectedTicket = null;
+
+            this.selectedStatus = 'In Progress';
+
+            this.activeTab = 'details';
+
+            this.raiseIssueOpen = false;
+
+            this.raiseIssueContent = '';
+
+            this.raiseIssueLoading = false;
+
+
+            // ESC key
+            document.addEventListener('keydown', (event) => {
+
+                if (event.key === 'Escape') {
+
+                    if (this.raiseIssueOpen) {
+
+                        this.closeRaiseIssuePopup();
+
+                    }
+
+                    if (this.drawerOpen) {
+
+                        this.drawerOpen = false;
+
+                    }
+
+                }
+
+            });
+
+        },
+
+
+        // =====================================================
+        // OPEN RAISE ISSUE
+        // =====================================================
+
+        async openRaiseIssue() {
+
+            this.raiseIssueOpen = true;
+
+            this.raiseIssueContent = '';
+
+            this.raiseIssueLoading = true;
+
+
+            try {
+
+                const response = await fetch(
+                    '{{ route("issues.create.popup") }}',
+                    {
                         method: 'GET',
+
                         credentials: 'same-origin',
-                        referrerPolicy: 'no-referrer-when-downgrade',
+
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'text/html'
                         }
-                    })
-                    .then((response) => {
-                        if (!response.ok) {
-                            throw new Error('Unable to load issue creation form.');
-                        }
-                        return response.text();
-                    })
-                    .then((html) => {
-                        this.raiseIssueContent = html;
-                        this.$nextTick(() => {
-                            if (typeof window.initIssueCreatePopup === 'function') {
-                                window.initIssueCreatePopup();
-                            }
-                        });
-                    })
-                    .catch((error) => {
-                        console.error('Raise Issue Error:', error);
-                        this.raiseIssueContent = '<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">' + (error.message || 'Unable to load issue form.') + '</div>';
-                    })
-                    .finally(() => {
-                        this.raiseIssueLoading = false;
-                    });
-                },
+                    }
+                );
 
-                closeRaiseIssuePopup() {
-                    this.raiseIssueOpen = false;
-                    this.raiseIssueContent = '';
-                    this.raiseIssueLoading = false;
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        'Unable to load issue creation form.'
+                    );
+
                 }
-            };
+
+
+                const html = await response.text();
+
+                this.raiseIssueContent = html;
+
+
+                await this.$nextTick();
+
+
+                // Initialize dynamically loaded form
+                if (
+                    typeof window.initIssueCreatePopup ===
+                    'function'
+                ) {
+
+                    window.initIssueCreatePopup();
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    'Raise Issue Error:',
+                    error
+                );
+
+
+                this.raiseIssueContent = `
+
+                    <div class="
+                        rounded-xl
+                        border
+                        border-red-200
+                        bg-red-50
+                        p-4
+                        text-sm
+                        text-red-700
+                    ">
+
+                        ${
+                            error.message ||
+                            'Unable to load issue form.'
+                        }
+
+                    </div>
+
+                `;
+
+            } finally {
+
+                this.raiseIssueLoading = false;
+
+            }
+
+        },
+
+
+        // =====================================================
+        // CLOSE MODAL
+        // =====================================================
+
+        closeRaiseIssuePopup() {
+
+            this.raiseIssueOpen = false;
+
+            this.raiseIssueContent = '';
+
+            this.raiseIssueLoading = false;
+
         }
+
+    };
+
+}
+
+</script>
+
+
+    <script>
+        // function issueDashboard() {
+        //     return {
+        //         drawerOpen: false,
+        //         selectedTicket: null,
+        //         selectedStatus: 'In Progress',
+        //         activeTab: 'details',
+        //         raiseIssueOpen: false,
+        //         raiseIssueContent: '',
+        //         raiseIssueLoading: false,
+
+        //         init() {
+        //             this.drawerOpen = false;
+        //             this.selectedTicket = null;
+        //             this.selectedStatus = 'In Progress';
+        //             this.activeTab = 'details';
+        //             this.raiseIssueOpen = false;
+        //             this.raiseIssueContent = '';
+        //             this.raiseIssueLoading = false;
+        //         },
+
+        //         openRaiseIssue() {
+        //             this.raiseIssueOpen = true;
+        //             this.raiseIssueContent = '';
+        //             this.raiseIssueLoading = true;
+
+        //             fetch('{{ route('issues.create.popup') }}', {
+        //                 method: 'GET',
+        //                 credentials: 'same-origin',
+        //                 referrerPolicy: 'no-referrer-when-downgrade',
+        //                 headers: {
+        //                     'X-Requested-With': 'XMLHttpRequest',
+        //                     'Accept': 'text/html'
+        //                 }
+        //             })
+        //             .then((response) => {
+        //                 if (!response.ok) {
+        //                     throw new Error('Unable to load issue creation form.');
+        //                 }
+        //                 return response.text();
+        //             })
+        //             .then((html) => {
+        //                 this.raiseIssueContent = html;
+        //                 this.$nextTick(() => {
+        //                     if (typeof window.initIssueCreatePopup === 'function') {
+        //                         window.initIssueCreatePopup();
+        //                     }
+        //                 });
+        //             })
+        //             .catch((error) => {
+        //                 console.error('Raise Issue Error:', error);
+        //                 this.raiseIssueContent = '<div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">' + (error.message || 'Unable to load issue form.') + '</div>';
+        //             })
+        //             .finally(() => {
+        //                 this.raiseIssueLoading = false;
+        //             });
+        //         },
+
+        //         closeRaiseIssuePopup() {
+        //             this.raiseIssueOpen = false;
+        //             this.raiseIssueContent = '';
+        //             this.raiseIssueLoading = false;
+        //         }
+        //     };
+        // }
 
 
         window.initIssueCreatePopup = function () {

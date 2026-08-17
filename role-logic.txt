@@ -46,6 +46,11 @@ app
  │             VendorAdmin.php
  
  
+
+composer install --no-dev
+composer install --optimize-autoloader
+composer install --no-interaction
+
 Install Laravel Breeze
 composer require laravel/breeze:^2.2 --dev
 
