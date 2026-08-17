@@ -961,31 +961,43 @@ class IssueService
         Log::info('[TABLE: txn_issue_attachment] Processing attachment', [
             'issue_id' => $issue->issue_id,
             'filename' => $file->getClientOriginalName(),
-            'file_size' => $file->getSize()
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType()
         ]);
     
         Log::info('[STEP 3.1] Storing file to disk...');
-        $path = $file->store('issues', 'public');
-        Log::info('[STEP 3.1 COMPLETE] File stored', ['path' => $path]);
-
-        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
-        Log::channel('insert_log')->info('[INSERT] Starting txn_issue_attachment INSERT operation');
-        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
-        
-        Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Preparing INSERT statement', [
-            'issue_id' => $issue->issue_id,
-            'user_id' => auth()->id() ?? 1,
-            'original_file_name' => $file->getClientOriginalName(),
-            'stored_file_name' => basename($path),
-            'file_path' => '/storage/' . $path,
-            'file_size' => $file->getSize(),
-            'file_type' => $file->getMimeType(),
-            'uploaded_at' => now()
-        ]);
-        
-        Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Executing INSERT query');
         
         try {
+            // Ensure directory exists
+            $storeDir = 'issues/' . $issue->issue_id;
+            $path = $file->store($storeDir, 'public');
+            
+            if (!$path) {
+                throw new \Exception('File store returned empty path');
+            }
+            
+            Log::info('[STEP 3.1 COMPLETE] File stored successfully', [
+                'path' => $path,
+                'full_path' => storage_path('app/public/' . $path)
+            ]);
+
+            Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+            Log::channel('insert_log')->info('[INSERT] Starting txn_issue_attachment INSERT operation');
+            Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+            
+            Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Preparing INSERT statement', [
+                'issue_id' => $issue->issue_id,
+                'user_id' => auth()->id() ?? 1,
+                'original_file_name' => $file->getClientOriginalName(),
+                'stored_file_name' => basename($path),
+                'file_path' => '/storage/' . $path,
+                'file_size' => $file->getSize(),
+                'file_type' => $file->getMimeType(),
+                'uploaded_at' => now()
+            ]);
+            
+            Log::channel('insert_log')->info('[TABLE: txn_issue_attachment] Executing INSERT query');
+            
             $attachment = IssueAttachment::create([
                 'issue_id' => $issue->issue_id,
                 'user_id' => auth()->id() ?? 1,
@@ -1003,45 +1015,26 @@ class IssueService
                 'file_path' => '/storage/' . $path,
                 'file_size' => $file->getSize()
             ]);
+            
+            return $path;
+            
         } catch (\Throwable $e) {
+            Log::error('✗ [TABLE: txn_issue_attachment] File upload FAILED', [
+                'issue_id' => $issue->issue_id,
+                'file_name' => $file->getClientOriginalName(),
+                'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+            
             Log::channel('insert_log')->error('✗ [TABLE: txn_issue_attachment] INSERT Failed', [
                 'issue_id' => $issue->issue_id,
                 'error' => $e->getMessage(),
                 'file' => $file->getClientOriginalName()
             ]);
-            Log::error('[TABLE: txn_issue_attachment] Attachment creation failed', [
-                'message' => $e->getMessage(),
-                'line' => $e->getLine()
-            ]);
-        }
-        
-        Log::info('[STEP 3 COMPLETE] Attachment upload finished');
-
-        return $path;
-
-
-
-    }
-
-    /**
-     * Remove Attachment
-     */
-    protected function removeAttachment(
-        Issue $issue
-    ): void {
-
-        if (!$issue->attachment) {
-            return;
-        }
-
-        if (
-            Storage::disk('public')
-                ->exists('issues/'.$issue->attachment)
-        ) {
-
-            Storage::disk('public')
-                ->delete('issues/'.$issue->attachment);
-
+            
+            return null;
         }
     }
 

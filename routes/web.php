@@ -50,6 +50,16 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Attachment routes must remain accessible to the browser when the preview page itself loads the image.
+Route::get('/attachment/view/{id}', [IssueController::class, 'viewAttachment'])
+    ->name('attachment.view');
+
+Route::get('/attachment/preview/{id}', [IssueController::class, 'previewAttachment'])
+    ->name('attachment.preview');
+
+Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
+    ->name('attachment.download');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
@@ -89,11 +99,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ajax/modules', [IssueController::class, 'modulesByApplication'])
         ->middleware('auth')
         ->name('issues.ajax.modules');
-
-    // Attachment download route
-    Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
-        ->middleware('auth')
-        ->name('attachment.download');
 
     Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')

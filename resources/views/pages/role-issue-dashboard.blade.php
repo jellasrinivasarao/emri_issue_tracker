@@ -26,64 +26,43 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Summary</p>
                         <p class="mt-1 text-sm text-slate-500">Overview of all issues in the system.</p>
                     </div>
-
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         @php
-                        $allCardUrl = route('role.issue.dashboard');
-                        $inProcessStatusId = collect($statusOptions)->first(function ($row) {
-                        $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                        return str_contains($name, 'process') || str_contains($name, 'progress');
-                        })['status_id'] ?? null;
-                        $closedStatusId = collect($statusOptions)->first(function ($row) {
-                        $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                        return str_contains($name, 'close') || str_contains($name, 'resolved') || str_contains($name,
-                        'complete');
-                        })['status_id'] ?? null;
-                        $onHoldStatusId = collect($statusOptions)->first(function ($row) {
-                        $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
-                        return str_contains($name, 'hold') || str_contains($name, 'pending');
-                        })['status_id'] ?? null;
+                            $allCardUrl = route('role.issue.dashboard');
+                            $inProcessStatusId = collect($statusOptions)->first(function ($row) {
+                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
+                                return str_contains($name, 'process') || str_contains($name, 'progress');
+                            })['status_id'] ?? null;
+                            $closedStatusId = collect($statusOptions)->first(function ($row) {
+                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
+                                return str_contains($name, 'close') || str_contains($name, 'resolved') || str_contains($name, 'complete');
+                            })['status_id'] ?? null;
+                            $onHoldStatusId = collect($statusOptions)->first(function ($row) {
+                                $name = strtolower((string) ($row['status_name'] ?? $row->status_name ?? ''));
+                                return str_contains($name, 'hold') || str_contains($name, 'pending');
+                            })['status_id'] ?? null;
 
-                        $statusCards = [
-                        ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'color' => 'blue',
-                        'icon' => 'M3 7h18M3 12h18M3 17h18', 'bg' => 'bg-blue-50', 'text' => 'text-blue-700', 'cardHref'
-                        => $allCardUrl, 'filterStatus' => ''],
-                        ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'color' =>
-                        'emerald', 'icon' => 'M5 13l4 4L19 7', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700',
-                        'cardHref' => route('role.issue.dashboard', ['status_id' => $inProcessStatusId]), 'filterStatus'
-                        => (string) ($inProcessStatusId ?? '')],
-                        ['label' => 'Task Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'color' =>
-                        'amber', 'icon' => 'M4 4h16v16H4z', 'bg' => 'bg-amber-50', 'text' => 'text-amber-700',
-                        'cardHref' => route('role.issue.dashboard', ['status_id' => $closedStatusId]), 'filterStatus' =>
-                        (string) ($closedStatusId ?? '')],
-                        ['label' => 'On-Hold', 'value' => (string) ($statusSummary['on_hold'] ?? 0), 'color' =>
-                        'violet', 'icon' => 'M12 8v8m4-4H8', 'bg' => 'bg-violet-50', 'text' => 'text-violet-700',
-                        'cardHref' => route('role.issue.dashboard', ['status_id' => $onHoldStatusId]), 'filterStatus' =>
-                        (string) ($onHoldStatusId ?? '')],
-                        ];
+                            $statusCards = [
+                                ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'color' => 'blue', 'icon' => 'M3 7h18M3 12h18M3 17h18', 'bg' => 'bg-blue-50', 'text' => 'text-blue-700', 'cardHref' => $allCardUrl, 'filterStatus' => ''],
+                                ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'color' => 'emerald', 'icon' => 'M5 13l4 4L19 7', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $inProcessStatusId]), 'filterStatus' => (string) ($inProcessStatusId ?? '')],
+                                ['label' => 'Task Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'color' => 'amber', 'icon' => 'M4 4h16v16H4z', 'bg' => 'bg-amber-50', 'text' => 'text-amber-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $closedStatusId]), 'filterStatus' => (string) ($closedStatusId ?? '')],
+                                ['label' => 'On-Hold', 'value' => (string) ($statusSummary['on_hold'] ?? 0), 'color' => 'violet', 'icon' => 'M12 8v8m4-4H8', 'bg' => 'bg-violet-50', 'text' => 'text-violet-700', 'cardHref' => route('role.issue.dashboard', ['status_id' => $onHoldStatusId]), 'filterStatus' => (string) ($onHoldStatusId ?? '')],
+                            ];
                         @endphp
                         @foreach($statusCards as $card)
-                        @php
-                        $active = ((string) ($filterValues['status_id'] ?? '') === (string) $card['filterStatus']);
-                        @endphp
-                        <a href="{{ $card['cardHref'] }}"
-                            class="block rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
-                            <div class="flex items-center justify-between gap-2">
-                                <div
-                                    class="flex h-10 w-10 items-center justify-center rounded-2xl {{ $card['bg'] }} {{ $card['text'] }}">
-                                    <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.75"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="{{ $card['icon'] }}">
-                                        </path>
-                                    </svg>
+                            @php
+                                $active = ((string) ($filterValues['status_id'] ?? '') === (string) $card['filterStatus']);
+                            @endphp
+                            <a href="{{ $card['cardHref'] }}" class="block rounded-[14px] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="flex h-10 w-10 items-center justify-center rounded-2xl {{ $card['bg'] }} {{ $card['text'] }}">
+                                        <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $card['icon'] }}"></path></svg>
+                                    </div>
+                                    <span class="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $active ? 'Open' : 'View' }}</span>
                                 </div>
-                                <span
-                                    class="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $active ? 'Open' : 'View' }}</span>
-                            </div>
-                            <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}
-                            </p>
-                            <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
-                        </a>
+                                <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}</p>
+                                <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                            </a>
                         @endforeach
                     </div>
                 </div>
@@ -94,6 +73,7 @@
                         <p class="text-sm font-semibold text-slate-900">Filters</p>
                         <p class="mt-1 text-sm text-slate-500">Quick filter your ticket queue.</p>
                     </div>
+                    <input type="hidden" name="status_id" value="{{ $filterValues['status_id'] ?? '' }}">
                     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         <select name="state_id" onchange="this.form.submit()"
                             class="rounded-[12px] border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-blue-500">
@@ -160,7 +140,7 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Queue</p>
                         <p class="mt-1 text-sm text-slate-500">Click any ticket ID to open details.</p>
                     </div>
-                    <a href="#" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Export</a>
+                    <a href="#" onclick="exportIssueQueue(event)" class="text-sm font-semibold text-blue-600 hover:text-blue-700">Export</a>
                 </div>
 
                 <div class="mt-3 max-h-[230px] overflow-y-auto rounded-[12px] border border-slate-200">
@@ -351,18 +331,14 @@
                     </button>
                 </div>
 
-                <div class="mt-6">
-                    <div class="flex items-center justify-between">
-                        <nav class="flex items-center gap-2 bg-slate-50 px-2 py-1">
-                            <button @click="activeTab='details'"
-                                :class="['px-3 py-2 text-sm', activeTab==='details' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Details</button>
-                            <button @click="activeTab='history'"
-                                :class="['px-3 py-2 text-sm', activeTab==='history' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Status
-                                History</button>
-                            <button @click="activeTab='attachments'"
-                                :class="['px-3 py-2 text-sm', activeTab==='attachments' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Attachments</button>
-                        </nav>
-                    </div>
+                        <div class="mt-6">
+                            <div class="flex items-center justify-between">
+                                <nav class="flex items-center gap-2 bg-slate-50 px-2 py-1">
+                                    <button @click="activeTab='details'" :class="['px-3 py-2 text-sm', activeTab==='details' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Details</button>
+                                    <button @click="activeTab='history'" :class="['px-3 py-2 text-sm', activeTab==='history' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Status History</button>
+                                    <button @click="activeTab='attachments'" :class="['px-3 py-2 text-sm', activeTab==='attachments' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Attachments</button>
+                                </nav>
+                            </div>
 
                     <div class="mt-4 space-y-6">
                         <div x-show="activeTab==='details'" x-cloak class="space-y-4" x-data="{ showUpdate: false }">
@@ -476,46 +452,32 @@
                             </div>
                         </div>
 
-                        <div x-show="activeTab==='attachments'" x-cloak
-                            class="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                            <p class="text-sm font-semibold text-slate-900">Attachments</p>
-                            <div class="mt-3 space-y-3">
-                                <template
-                                    x-if="selectedTicket && selectedTicket.attachments && selectedTicket.attachments.length">
-                                    <template x-for="(attachment, index) in selectedTicket.attachments" :key="index">
-                                        <div
-                                            class="flex items-center justify-between rounded-[16px] border border-slate-200 bg-white px-4 py-3">
-                                            <div class="flex items-center gap-3">
-                                                <span
-                                                    class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 text-xs font-bold">FILE</span>
-                                                <div>
-                                                    <p class="text-sm font-semibold text-slate-900"
-                                                        x-text="attachment.file_name">Attachment</p>
-                                                    <p class="text-xs text-slate-500" x-text="attachment.created_at">—
-                                                    </p>
+                                <div x-show="activeTab==='attachments'" x-cloak class="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                                    <p class="text-sm font-semibold text-slate-900">Attachments</p>
+                                    <div class="mt-3 space-y-3">
+                                        <template x-if="selectedTicket && selectedTicket.attachments && selectedTicket.attachments.length">
+                                            <template x-for="(attachment, index) in selectedTicket.attachments" :key="index">
+                                                <div class="flex items-center justify-between rounded-[16px] border border-slate-200 bg-white px-4 py-3">
+                                                    <div class="flex items-center gap-3">
+                                                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 text-xs font-bold">FILE</span>
+                                                        <div>
+                                                            <p class="text-sm font-semibold text-slate-900" x-text="attachment.file_name">Attachment</p>
+                                                            <p class="text-xs text-slate-500" x-text="attachment.created_at">—</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="flex items-center gap-2">
+                                                        <a :href="attachment.download_url || '#'" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'View'">View</a>
+                                                        <span class="text-slate-300">|</span>
+                                                        <a :href="attachment.download_url || '#'" download class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline" x-show="attachment.download_url" x-text="'Download'">Download</a>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <a :href="attachment.download_url || '#'" target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-                                                    x-show="attachment.download_url" x-text="'View'">View</a>
-                                                <span class="text-slate-300">|</span>
-                                                <a :href="attachment.download_url || '#'" download
-                                                    class="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-                                                    x-show="attachment.download_url" x-text="'Download'">Download</a>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </template>
-                                <template
-                                    x-if="selectedTicket && (!selectedTicket.attachments || selectedTicket.attachments.length === 0)">
-                                    <div
-                                        class="rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-500">
-                                        No attachments found.</div>
-                                </template>
-                            </div>
-                        </div>
+                                            </template>
+                                        </template>
+                                        <template x-if="selectedTicket && (!selectedTicket.attachments || selectedTicket.attachments.length === 0)">
+                                            <div class="rounded-[14px] border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-500">No attachments found.</div>
+                                        </template>
+                                    </div>
+                                </div>
 
                         <div x-show="activeTab==='history'" x-cloak class="space-y-3">
                             <template x-if="selectedTicket && selectedTicket.history && selectedTicket.history.length">
@@ -557,27 +519,13 @@
         </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-
-         const vendorOptions = {{ Illuminate\Support\Js::from(
-        $vendorOptions->map(function ($vendor) {
-            return [
-                'vendor_id' => $vendor->vendor_id,
-                'vendor_name' => $vendor->vendor_name,
-            ];
-        })->toArray()
-    ) }};
-
-    const vendorStateMappings = {{ Illuminate\Support\Js::from(
-        $vendorStateMappings->map(function ($mapping) {
-            return [
-                'state_id' => $mapping->state_id,
-                'project_id' => $mapping->project_id,
-                'vendor_id' => $mapping->vendor_id,
-            ];
-        })->toArray()
-    ) }};
+        document.addEventListener('DOMContentLoaded', function () {
+            const vendorOptions = @json($vendorOptions->map(function ($vendor) {
+                return ['vendor_id' => $vendor->vendor_id, 'vendor_name' => $vendor->vendor_name];
+            })->all());
+            const vendorStateMappings = @json($vendorStateMappings->map(function ($mapping) {
+                return ['state_id' => $mapping->state_id, 'project_id' => $mapping->project_id, 'vendor_id' => $mapping->vendor_id];
+            })->all());
 
         const multiselectContainer = document.getElementById('vendor-multi-select');
         if (!multiselectContainer) {
@@ -734,9 +682,9 @@
             renderList(input.value);
         };
 
-        renderList();
-        renderChips();
-    });
+            renderList();
+            renderChips();
+        });
     </script>
 
     <!-- Raise Issue Modal -->

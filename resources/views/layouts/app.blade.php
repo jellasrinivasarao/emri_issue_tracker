@@ -1,6 +1,89 @@
 ﻿<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full m-0 overflow-x-hidden"
-    style="height:100%;margin:0;padding:0;">
+
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full m-0 overflow-x-hidden" style="height:100%;margin:0;padding:0;">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
+        <title>{{ config('app.name', 'Laravel') }}</title>
+        
+        <!-- Level 2: Prevent Browser Back/Forward - Logout on Any Back/Forward Attempt -->
+        <script>
+            (function () {
+                // Store a unique page marker to detect navigation
+                const pageMarker = Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('currentPageMarker', pageMarker);
+
+                // Replace current history state
+                history.replaceState({ pageMarker: pageMarker }, null, location.href);
+
+                // Listen for back/forward attempts via popstate
+                window.addEventListener('popstate', function (event) {
+                    // Check if we're navigating backwards in history
+                    const previousMarker = sessionStorage.getItem('currentPageMarker');
+                    if (!event.state || event.state.pageMarker !== previousMarker) {
+                        // User tried to go back/forward - logout immediately
+                        performLogout();
+                    }
+                });
+
+                // Detect page restoration from browser cache (back/forward cache)
+                window.addEventListener('pageshow', function (event) {
+                    if (event.persisted) {
+                        // Page was restored from bfcache - user used back/forward
+                        console.log('Page restored from back/forward cache - logging out');
+                        performLogout();
+                    }
+                });
+
+                // Also detect pagehide to prevent caching
+                window.addEventListener('pagehide', function (event) {
+                    if (event.persisted) {
+                        // Browser is putting page in bfcache - prevent by logging out
+                        performLogout();
+                    }
+                });
+
+                function performLogout() {
+                    // Clear browser-side application data
+                    try {
+                        sessionStorage.clear();
+                        localStorage.clear();
+                    } catch (e) {
+                        console.log('Error clearing storage:', e);
+                    }
+
+                    // Force logout by submitting a POST request to the logout route
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{{ route("logout") }}';
+                    
+                    // Add CSRF token
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = '_token';
+                    csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                    
+                    form.appendChild(csrfInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            })();
+        </script>
+        
+        <link rel="preconnect" href="https://fonts.bunny.net" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('styles')
+        <style>
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                height: 100%;
+                box-sizing: border-box;
+            }
+>>>>>>> a85f646f950487e608c82a39ede3ba671fd6d601
 
 <head>
     <meta charset="utf-8" />

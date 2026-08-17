@@ -45,15 +45,25 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * Destroy an authenticated session.
+     * Level 3: Clear all session data and prevent caching on logout
      */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();
 
+        // Level 3: Clear all session variables and cookies
         $request->session()->invalidate();
-
+        $request->session()->flush();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Redirect to login
+        $response = redirect()->route('login');
+        
+        // Add cache-preventing headers
+        $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
+        $response->header('Pragma', 'no-cache');
+        $response->header('Expires', '0');
+        
+        return $response;
     }
 }

@@ -527,15 +527,19 @@
 
                                     <input type="file" name="attachment" id="attachment" class="hidden">
 
-                                    <button type="button" onclick="document.getElementById('attachment').click()"
-                                        class="mt-4 px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                    <div class="flex flex-col sm:flex-row items-center gap-3 mt-4">
+                                        <button type="button" onclick="document.getElementById('attachment').click()"
+                                            class="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                                            Choose File
+                                        </button>
 
-                                        Choose File
-
-                                    </button>
-
-                                    <div id="selectedFile" class="text-sm text-green-600 mt-3">
+                                        <button type="button" id="previewTicketBtn" onclick="if (typeof openTicketPreviewModal === 'function') { openTicketPreviewModal(); } else { const modal = document.getElementById('ticketPreviewModal'); if (modal) modal.classList.remove('hidden'); }"
+                                            class="px-5 py-2 rounded-lg border border-blue-600 bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                            Preview Ticket
+                                        </button>
                                     </div>
+
+                                    <div id="selectedFile" class="mt-3 hidden"></div>
 
                                 </div>
 
@@ -594,13 +598,230 @@
                 <!-- <script src="{{ asset('js/issue.js') }}"></script> -->
 
                 <script>
-                document.getElementById('attachment').addEventListener('change', function() {
-                    let file = this.files[0];
-                    if (file) {
-                        document.getElementById('selectedFile').innerHTML =
-                            "Selected : " + file.name;
+                function readFormValue(selector, fallback = '-') {
+                    const el = document.querySelector(selector);
+                    if (!el) return fallback;
+                    const value = (el.value || '').trim();
+                    return value || fallback;
+                }
+
+                function getSelectedText(selector, fallback = '-') {
+                    const el = document.querySelector(selector);
+                    if (!el) return fallback;
+                    const selectedIndex = el.selectedIndex;
+                    const selectedOption = el.options[selectedIndex];
+                    const text = selectedOption ? (selectedOption.textContent || '').trim() : '';
+                    return text || readFormValue(selector, fallback);
+                }
+
+                function getAttachmentName() {
+                    const attachment = document.getElementById('attachment');
+                    if (attachment && attachment.files && attachment.files.length) {
+                        return attachment.files[0].name;
                     }
-                });
+                    return 'No attachment selected';
+                }
+
+                function getAttachmentImageMarkup() {
+                    const attachment = document.getElementById('attachment');
+                    if (!attachment || !attachment.files || !attachment.files.length) return '';
+                    const file = attachment.files[0];
+                    if (!file.type || !file.type.startsWith('image/')) return '';
+                    const previewUrl = URL.createObjectURL(file);
+                    return `<img src="${previewUrl}" alt="${file.name}" class="max-h-64 rounded-xl border border-gray-200 object-contain bg-gray-50 p-2" />`;
+                }
+
+                function buildTicketPreviewHtml() {
+                    const state = getSelectedText('#state_id', 'Not selected');
+                    const project = getSelectedText('#project_id', 'Not selected');
+                    const application = getSelectedText('#application_id', 'Not selected');
+                    const module = getSelectedText('#module_id', 'Not selected');
+                    const issueCategory = getSelectedText('#issue_category_id', 'Not selected');
+                    const priority = getSelectedText('#priority_id', 'Not selected');
+                    const subject = readFormValue('#subject', 'Not provided');
+                    const description = readFormValue('#description', 'No description provided');
+                    const occurredDate = readFormValue('#occurred_date', 'Not provided');
+                    const occurredTime = readFormValue('#occurred_time', 'Not provided');
+                    const affectedUsers = readFormValue('#affected_users', 'Not provided');
+                    const attachmentName = getAttachmentName();
+                    const imageMarkup = getAttachmentImageMarkup();
+
+                    const detailRows = [
+                        { label: 'State', value: state },
+                        { label: 'Priority', value: priority },
+                        { label: 'Project', value: project },
+                        { label: 'Application', value: application },
+                        { label: 'Module', value: module },
+                        { label: 'Issue Category', value: issueCategory },
+                        { label: 'Status', value: 'Draft' },
+                        { label: 'Ticket ID', value: 'DRAFT-PREVIEW' }
+                    ];
+
+                    const detailRowsHtml = detailRows.map(row => `
+                        <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                            <span class="font-semibold text-gray-600 uppercase tracking-wide">${row.label}</span>
+                            <span class="text-right text-gray-900">${row.value}</span>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="space-y-4 bg-white text-gray-800">
+                            <div class="border-b border-gray-200 pb-3">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600">Draft Ticket Preview</p>
+                                <h3 class="mt-2 text-2xl font-bold text-gray-900">${subject}</h3>
+                                <p class="mt-2 text-sm text-gray-600">This is a draft and has not been created yet. No ticket history is available until submission.</p>
+                            </div>
+
+                            <div class="space-y-2">${detailRowsHtml}</div>
+
+                            <div class="pt-1">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-600">Description</p>
+                                <p class="mt-2 text-sm leading-7 text-gray-700 whitespace-pre-wrap">${description}</p>
+                            </div>
+
+                            <div class="space-y-2 pt-1">
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Occurred Date</span>
+                                    <span class="text-gray-900">${occurredDate}</span>
+                                </div>
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Occurred Time</span>
+                                    <span class="text-gray-900">${occurredTime}</span>
+                                </div>
+                                <div class="flex justify-between items-center gap-4 border-b border-gray-200 pb-2 text-sm">
+                                    <span class="font-semibold text-gray-600 uppercase tracking-wide">Affected Users</span>
+                                    <span class="text-gray-900">${affectedUsers}</span>
+                                </div>
+                            </div>
+
+                            <div class="pt-1">
+                                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-600">Attachment</p>
+                                <p class="mt-2 text-sm text-gray-700">${attachmentName}</p>
+                                ${imageMarkup ? '<div class="mt-3">' + imageMarkup + '</div>' : '<p class="mt-2 text-sm text-gray-500">No preview image available for the selected file.</p>'}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                function renderAttachmentPreview(file) {
+                    const selectedFile = document.getElementById('selectedFile');
+                    const selectedFileActions = document.getElementById('selectedFileActions');
+                    if (!selectedFile) return;
+
+                    if (!file) {
+                        selectedFile.classList.add('hidden');
+                        selectedFile.innerHTML = '';
+                        if (selectedFileActions) selectedFileActions.classList.add('hidden');
+                        return;
+                    }
+
+                    selectedFile.classList.remove('hidden');
+                    if (selectedFileActions) selectedFileActions.classList.remove('hidden');
+
+                    if (file.type && file.type.startsWith('image/')) {
+                        const previewUrl = URL.createObjectURL(file);
+                        selectedFile.innerHTML = `
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <img src="${previewUrl}" alt="${file.name}" class="max-h-48 rounded-lg object-contain mx-auto" />
+                                <p class="mt-2 text-sm text-gray-700 text-center">${file.name}</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    selectedFile.innerHTML = `
+                        <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                            <p class="text-sm text-gray-500">No preview available for this file type.</p>
+                            <p class="mt-2 text-sm font-medium text-gray-700">${file.name}</p>
+                        </div>
+                    `;
+                }
+
+                function openTicketPreviewModal() {
+                    const previewContent = document.getElementById('ticketPreviewContent');
+                    if (!previewContent) return;
+                    previewContent.innerHTML = buildTicketPreviewHtml();
+                    const modal = document.getElementById('ticketPreviewModal');
+                    if (modal) modal.classList.remove('hidden');
+                }
+
+                window.openTicketPreviewModal = openTicketPreviewModal;
+
+                function closeTicketPreviewModal() {
+                    const modal = document.getElementById('ticketPreviewModal');
+                    if (modal) modal.classList.add('hidden');
+                }
+
+                window.closeTicketPreviewModal = closeTicketPreviewModal;
+
+                function printTicketPreview() {
+                    const previewHtml = buildTicketPreviewHtml();
+                    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+
+                    if (!printWindow) {
+                        alert('Your browser blocked the print popup. Please allow popups and try again.');
+                        return;
+                    }
+
+                    printWindow.document.write(`<!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Issue Ticket Preview</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+                                .section { margin-bottom: 18px; }
+                                .grid { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); gap: 12px; }
+                                .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #f9fafb; }
+                                .label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; }
+                                .value { margin-top: 6px; font-weight: 600; }
+                                .title { font-size: 28px; font-weight: 700; margin-bottom: 14px; }
+                                img { max-height: 220px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; background: #fff; }
+                                @media print { body { margin: 0; } }
+                            </style>
+                        </head>
+                        <body>${previewHtml}</body>
+                        </html>`);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => printWindow.print(), 400);
+                }
+
+                const attachmentInput = document.getElementById('attachment');
+                if (attachmentInput) {
+                    attachmentInput.addEventListener('change', function() {
+                        const file = this.files && this.files[0] ? this.files[0] : null;
+                        renderAttachmentPreview(file);
+                    });
+                }
+
+                const previewTicketBtn = document.getElementById('previewTicketBtn');
+                if (previewTicketBtn) {
+                    previewTicketBtn.addEventListener('click', openTicketPreviewModal);
+                }
+
+                const closePreviewBtn = document.getElementById('closePreviewBtn');
+                if (closePreviewBtn) {
+                    closePreviewBtn.addEventListener('click', closeTicketPreviewModal);
+                }
+
+                const printTicketBtn = document.getElementById('printTicketBtn');
+                if (printTicketBtn) {
+                    printTicketBtn.addEventListener('click', printTicketPreview);
+                }
+
+                const exportPdfBtn = document.getElementById('exportPdfBtn');
+                if (exportPdfBtn) {
+                    exportPdfBtn.addEventListener('click', printTicketPreview);
+                }
+
+                const ticketPreviewModal = document.getElementById('ticketPreviewModal');
+                if (ticketPreviewModal) {
+                    ticketPreviewModal.addEventListener('click', function(event) {
+                        if (event.target === ticketPreviewModal) {
+                            closeTicketPreviewModal();
+                        }
+                    });
+                }
 
                 document.addEventListener('DOMContentLoaded', function() {
                     let subject = document.getElementById('subject');
@@ -718,16 +939,24 @@
                                             $('#issue_category_id').val('').trigger('change');
                                             $('#priority_id').val('').trigger('change');
 
-                                            document.getElementById('selectedFile').innerHTML = '';
+                                            renderAttachmentPreview(null);
                                             return;
                                         }
 
                                         const message = (data && data.message) ? data.message : 'Unable to raise issue.';
-                                        document.getElementById('selectedFile').innerHTML = '<span class="text-red-600">' + message + '</span>';
+                                        const selectedFile = document.getElementById('selectedFile');
+                                        if (selectedFile) {
+                                            selectedFile.classList.remove('hidden');
+                                            selectedFile.innerHTML = '<span class="text-red-600">' + message + '</span>';
+                                        }
                                     })
                                     .catch((err) => {
                                         console.error('Issue create failed', err);
-                                        document.getElementById('selectedFile').innerHTML = '<span class="text-red-600">Unable to raise issue.</span>';
+                                        const selectedFile = document.getElementById('selectedFile');
+                                        if (selectedFile) {
+                                            selectedFile.classList.remove('hidden');
+                                            selectedFile.innerHTML = '<span class="text-red-600">Unable to raise issue.</span>';
+                                        }
                                     })
                                     .finally(() => {
                                         submitBtn.disabled = false;
@@ -742,6 +971,28 @@
 
 
                 @endpush
+
+                <div id="ticketPreviewModal" class="fixed inset-0 z-50 hidden bg-black/40 flex items-center justify-center">
+                    <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl flex flex-col" style="max-height: 80vh;">
+                        <div class="border-b border-gray-200 bg-white px-6 py-4 flex-shrink-0">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-2xl font-bold text-gray-800">Draft Ticket Preview</h2>
+                                <button type="button" id="closePreviewBtn" onclick="closeTicketPreviewModal()" class="text-gray-500 hover:text-gray-700 text-lg font-semibold">
+                                    ✕
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" onclick="if (typeof printTicketPreview === 'function') { printTicketPreview(); }" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700">
+                                    <span>🖨</span> Print
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="overflow-y-auto p-6 flex-1">
+                            <div id="ticketPreviewContent"></div>
+                        </div>
+                    </div>
+                </div>
                 
                 @push('scripts')
                 <script>
