@@ -2,138 +2,92 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Clarification;
+use App\Http\Requests\UpdateVendorRequirementRequest;
 use App\Models\Requirement;
-use Illuminate\Http\Request;
 use App\Services\RequirementService;
+use Illuminate\Http\Request;
 
-class ClarificationController extends Controller
+class VendorRequirementController extends Controller
 {
-    public function index()
+    public function __construct(
+        protected RequirementService $service
+    ) {
+    }
+
+
+    public function index(Request $request)
     {
-        $clarifications = Clarification::query()
+        $requirements = Requirement::query()
+            ->where(
+                'assigned_vendor_id',
+                auth()->id()
+            )
             ->with([
-                'requirement:id,title',
-                'user:id,name',
+                'state',
+                'project',
             ])
             ->latest()
-            ->paginate(20);
+            ->paginate(15);
+
 
         return view(
-            'clarifications.index',
-            compact('clarifications')
+            'vendor.dashboard',
+            compact('requirements')
         );
     }
 
 
-    public function store(
-        Request $request,
+    public function edit(
         Requirement $requirement
     ) {
 
-        $validated = $request->validate([
+        abort_unless(
+            $requirement->assigned_vendor_id
+                === auth()->id(),
+            403
+        );
 
-            'message' => [
-                'required',
-                'string',
-                'max:5000',
-            ],
 
+        $requirement->load([
+            'state',
+            'project',
+            'files',
         ]);
 
 
-        Clarification::create([
-
-            'requirement_id' =>
-                $requirement->id,
-
-            'user_id' =>
-                auth()->id(),
-
-            'message' =>
-                $validated['message'],
-
-            'status' =>
-                'Open',
-
-        ]);
-
-
-        /*
-         * Move requirement into clarification state.
-         */
-        if (
-            $requirement->status !==
-            'Clarification Pending'
-        ) {
-
-            app(RequirementService::class)
-                ->changeStatus(
-                    $requirement,
-                    'Clarification Pending',
-                    'New clarification raised.'
-                );
-        }
-
-
-        return back()
-            ->with(
-                'success',
-                'Clarification raised successfully.'
-            );
+        return view(
+            'vendor.requirements.edit',
+            compact('requirement')
+        );
     }
 
 
-    public function reply(
-        Request $request,
-        Clarification $clarification
+    public function update(
+        UpdateVendorRequirementRequest $request,
+        Requirement $requirement
     ) {
 
-        $validated = $request->validate([
-
-            'message' => [
-                'required',
-                'string',
-                'max:5000',
-            ],
-
-        ]);
+        abort_unless(
+            $requirement->assigned_vendor_id
+                === auth()->id(),
+            403
+        );
 
 
-        $clarification->replies()->create([
-
-            'user_id' =>
-                auth()->id(),
-
-            'message' =>
-                $validated['message'],
-
-        ]);
+        $this->service->updateVendorDetails(
+            $requirement,
+            $request->validated()
+        );
 
 
-        return back()
+        return redirect()
+            ->route(
+                'vendor.requirements.edit',
+                $requirement
+            )
             ->with(
                 'success',
-                'Reply added successfully.'
-            );
-    }
-
-
-    public function close(
-        Clarification $clarification
-    ) {
-
-        $clarification->update([
-            'status' => 'Closed',
-            'closed_at' => now(),
-            'closed_by' => auth()->id(),
-        ]);
-
-
-        return back()
-            ->with(
-                'success',
-                'Clarification closed successfully.'
+                'Requirement update submitted successfully.'
             );
     }
 }

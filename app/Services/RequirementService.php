@@ -7,29 +7,81 @@ use App\Models\RequirementFile;
 use App\Models\RequirementStatusHistory;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class RequirementService
 {
-    /**
-     * Create requirement and upload BRD.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Status lifecycle
+    |--------------------------------------------------------------------------
+    */
+
+    public const BRD_RAISED =
+        'BRD Raised';
+
+    public const RECEIVED_AT_HO =
+        'Received at HO';
+
+    public const SENT_TO_VENDOR =
+        'Sent to Vendor';
+
+    public const CLARIFICATION_PENDING =
+        'Clarification Pending';
+
+    public const IN_PROGRESS =
+        'In Progress';
+
+    public const UAT_REQUESTED =
+        'UAT Requested';
+
+    public const UAT_IN_PROGRESS =
+        'UAT In Progress';
+
+    public const UAT_COMPLETED =
+        'UAT Completed';
+
+    public const MOVED_TO_PRODUCTION =
+        'Moved to Production';
+
+    public const CLOSED =
+        'Closed';
+
+    public const ON_HOLD =
+        'On Hold';
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create
+    |--------------------------------------------------------------------------
+    */
+
     public function create(
         array $data,
         UploadedFile $brd
     ): Requirement {
 
-        return DB::transaction(function () use ($data, $brd) {
+        return DB::transaction(function () use (
+            $data,
+            $brd
+        ) {
 
             $requirement = Requirement::create([
 
-                'title' => $data['title'],
+                'requirement_no' =>
+                    $this->generateRequirementNumber(),
 
-                'description' => $data['description'],
+                'title' =>
+                    $data['title'],
 
-                'state_id' => $data['state_id'],
+                'description' =>
+                    $data['description'],
 
-                'project_id' => $data['project_id'],
+                'state_id' =>
+                    $data['state_id'],
+
+                'project_id' =>
+                    $data['project_id'],
 
                 'brd_raised_by' =>
                     $data['brd_raised_by'] ?? null,
@@ -46,16 +98,16 @@ class RequirementService
                 'additional_details' =>
                     $data['additional_details'] ?? null,
 
-                'status' => 'BRD Raised',
+                'status' =>
+                    self::BRD_RAISED,
 
                 'created_by' =>
                     auth()->id(),
-
             ]);
 
 
             /*
-             * Store BRD.
+             * Upload BRD.
              */
             $path = $brd->store(
                 'requirements/' . $requirement->id,
@@ -82,31 +134,18 @@ class RequirementService
 
                 'uploaded_by' =>
                     auth()->id(),
-
             ]);
 
 
             /*
-             * Status history.
+             * Audit.
              */
-            RequirementStatusHistory::create([
-
-                'requirement_id' =>
-                    $requirement->id,
-
-                'from_status' =>
-                    null,
-
-                'to_status' =>
-                    'BRD Raised',
-
-                'remarks' =>
-                    'Requirement created.',
-
-                'changed_by' =>
-                    auth()->id(),
-
-            ]);
+            $this->createHistory(
+                $requirement,
+                null,
+                self::BRD_RAISED,
+                'Requirement created.'
+            );
 
 
             return $requirement;
@@ -114,90 +153,124 @@ class RequirementService
     }
 
 
-    /**
-     * Update requirement.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Generate requirement number
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateRequirementNumber(): string
+    {
+        $year = now()->format('Y');
+
+        $last = Requirement::query()
+            ->whereYear('created_at', $year)
+            ->lockForUpdate()
+            ->latest('id')
+            ->first();
+
+        $number = $last
+            ? ((int) substr(
+                $last->requirement_no,
+                -4
+            )) + 1
+            : 1;
+
+        return sprintf(
+            'REQ-%s-%04d',
+            $year,
+            $number
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+
     public function update(
         Requirement $requirement,
         array $data
     ): Requirement {
 
-        return DB::transaction(function () use (
-            $requirement,
-            $data
-        ) {
+        $data['updated_by'] =
+            auth()->id();
 
-            $requirement->update($data);
+        $requirement->update($data);
 
-            return $requirement->refresh();
-        });
+        return $requirement->refresh();
     }
 
 
-    /**
-     * Change requirement status.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Change status
+    |--------------------------------------------------------------------------
+    */
+
     public function changeStatus(
         Requirement $requirement,
         string $newStatus,
         ?string $remarks = null
     ): Requirement {
 
-        return DB::transaction(function () use (
-            $requirement,
-            $newStatus,
-            $remarks
-        ) {
+        return DB::transaction(
+            function () use (
+                $requirement,
+                $newStatus,
+                $remarks
+            ) {
 
-            $oldStatus = $requirement->status;
+                $oldStatus =
+                    $requirement->status;
 
-            if ($oldStatus === $newStatus) {
-                return $requirement;
-            }
-
-
-            /*
-             * Validate status transition.
-             */
-            $this->validateTransition(
-                $oldStatus,
-                $newStatus
-            );
+                if ($oldStatus === $newStatus) {
+                    return $requirement;
+                }
 
 
-            $requirement->update([
-                'status' => $newStatus,
-            ]);
+                $this->validateTransition(
+                    $oldStatus,
+                    $newStatus
+                );
 
 
-            RequirementStatusHistory::create([
+                $requirement->update([
 
-                'requirement_id' =>
-                    $requirement->id,
+                    'status' =>
+                        $newStatus,
 
-                'from_status' =>
+                    'updated_by' =>
+                        auth()->id(),
+                ]);
+
+
+                $this->createHistory(
+
+                    $requirement,
+
                     $oldStatus,
 
-                'to_status' =>
                     $newStatus,
 
-                'remarks' =>
-                    $remarks,
-
-                'changed_by' =>
-                    auth()->id(),
-
-            ]);
+                    $remarks
+                );
 
 
-            return $requirement->refresh();
-        });
+                return $requirement->refresh();
+            }
+        );
     }
 
 
-    /**
-     * Validate status lifecycle.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Status transition validation
+    |--------------------------------------------------------------------------
+    */
+
     protected function validateTransition(
         ?string $from,
         string $to
@@ -205,58 +278,58 @@ class RequirementService
 
         $workflow = [
 
-            'BRD Raised' => [
-                'Received at HO',
-                'On Hold',
+            self::BRD_RAISED => [
+                self::RECEIVED_AT_HO,
+                self::ON_HOLD,
             ],
 
-            'Received at HO' => [
-                'Sent to Vendor',
-                'On Hold',
+            self::RECEIVED_AT_HO => [
+                self::SENT_TO_VENDOR,
+                self::ON_HOLD,
             ],
 
-            'Sent to Vendor' => [
-                'Clarification Pending',
-                'In Progress',
-                'On Hold',
+            self::SENT_TO_VENDOR => [
+                self::CLARIFICATION_PENDING,
+                self::IN_PROGRESS,
+                self::ON_HOLD,
             ],
 
-            'Clarification Pending' => [
-                'In Progress',
-                'On Hold',
+            self::CLARIFICATION_PENDING => [
+                self::IN_PROGRESS,
+                self::ON_HOLD,
             ],
 
-            'In Progress' => [
-                'UAT Requested',
-                'Clarification Pending',
-                'On Hold',
+            self::IN_PROGRESS => [
+                self::UAT_REQUESTED,
+                self::CLARIFICATION_PENDING,
+                self::ON_HOLD,
             ],
 
-            'UAT Requested' => [
-                'UAT In Progress',
-                'On Hold',
+            self::UAT_REQUESTED => [
+                self::UAT_IN_PROGRESS,
+                self::ON_HOLD,
             ],
 
-            'UAT In Progress' => [
-                'UAT Completed',
-                'On Hold',
+            self::UAT_IN_PROGRESS => [
+                self::UAT_COMPLETED,
+                self::ON_HOLD,
             ],
 
-            'UAT Completed' => [
-                'Moved to Production',
-                'On Hold',
+            self::UAT_COMPLETED => [
+                self::MOVED_TO_PRODUCTION,
+                self::ON_HOLD,
             ],
 
-            'Moved to Production' => [
-                'Closed',
+            self::MOVED_TO_PRODUCTION => [
+                self::CLOSED,
             ],
 
-            'On Hold' => [
-                'In Progress',
-                'Clarification Pending',
+            self::ON_HOLD => [
+                self::IN_PROGRESS,
+                self::CLARIFICATION_PENDING,
             ],
 
-            'Closed' => [],
+            self::CLOSED => [],
         ];
 
 
@@ -268,10 +341,136 @@ class RequirementService
                 true
             )
         ) {
-
             throw new \RuntimeException(
                 "Invalid status transition: {$from} → {$to}"
             );
         }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | History
+    |--------------------------------------------------------------------------
+    */
+
+    protected function createHistory(
+        Requirement $requirement,
+        ?string $from,
+        string $to,
+        ?string $remarks
+    ): void {
+
+        RequirementStatusHistory::create([
+
+            'requirement_id' =>
+                $requirement->id,
+
+            'from_status' =>
+                $from,
+
+            'to_status' =>
+                $to,
+
+            'remarks' =>
+                $remarks,
+
+            'changed_by' =>
+                auth()->id(),
+        ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vendor update
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateVendorDetails(
+        Requirement $requirement,
+        array $data
+    ): Requirement {
+
+        return DB::transaction(
+            function () use (
+                $requirement,
+                $data
+            ) {
+
+                $requirement->update([
+
+                    'man_days' =>
+                        $data['man_days'],
+
+                    'timeline' =>
+                        $data['timeline'],
+
+                    'delivery_status' =>
+                        $data['delivery_status'],
+
+                    'vendor_remarks' =>
+                        $data['remarks'] ?? null,
+
+                    'updated_by' =>
+                        auth()->id(),
+                ]);
+
+
+                $status =
+                    $this->mapVendorStatus(
+                        $data['delivery_status']
+                    );
+
+
+                if (
+                    $status &&
+                    $requirement->status !== $status
+                ) {
+
+                    $this->changeStatus(
+                        $requirement,
+                        $status,
+                        $data['remarks'] ?? null
+                    );
+                }
+
+
+                return $requirement->refresh();
+            }
+        );
+    }
+
+
+    protected function mapVendorStatus(
+        string $vendorStatus
+    ): ?string {
+
+        return match ($vendorStatus) {
+
+            'Requirements Understood' =>
+                self::SENT_TO_VENDOR,
+
+            'Development Started' =>
+                self::IN_PROGRESS,
+
+            'Development Completed' =>
+                self::IN_PROGRESS,
+
+            'Moved to UAT' =>
+                self::UAT_REQUESTED,
+
+            'UAT Completed' =>
+                self::UAT_COMPLETED,
+
+            'Moved to Production' =>
+                self::MOVED_TO_PRODUCTION,
+
+            'On Hold' =>
+                self::ON_HOLD,
+
+            default =>
+                null,
+        };
     }
 }

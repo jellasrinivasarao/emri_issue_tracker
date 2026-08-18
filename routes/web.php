@@ -664,10 +664,7 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get(
-        '/dashboard',
-        [DashboardController::class, 'index']
-    )->name('dashboard');
+    Route::get('/dashboard',[DashboardController::class, 'index'])->name('dashboard');
 
 
     /*
@@ -676,10 +673,13 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::resource(
-        'requirements',
-        RequirementController::class
-    );
+    Route::resource('requirements',RequirementController::class);
+
+
+    Route::get(
+    '/requirements/{requirement}/files/{file}/download',
+    [RequirementController::class, 'downloadFile']
+)->name('requirements.files.download');
 
 
     /*
@@ -690,7 +690,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::prefix('vendor')
         ->name('vendor.')
-        ->middleware('role:achala')
         ->group(function () {
 
             Route::get(
@@ -709,7 +708,6 @@ Route::middleware(['auth'])->group(function () {
                 '/requirements/{requirement}',
                 [VendorRequirementController::class, 'update']
             )->name('requirements.update');
-
         });
 
 
@@ -743,3 +741,4 @@ Route::middleware(['auth'])->group(function () {
     )->name('clarifications.close');
 
 });
+

@@ -3,53 +3,66 @@
 namespace App\Http\Controllers;
 
 use App\Models\Requirement;
+use App\Models\State;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $baseQuery = Requirement::query();
 
 
-        /*
-         * Apply filters.
-         */
-        $this->applyFilters(
-            $baseQuery,
+        $states = State::query()
+        ->where('is_active', true)
+        ->orderBy('state_name')
+        ->get([
+            'state_id',
+            'state_name',
+        ]);
+
+        $query = Requirement::query();
+
+        $this->filters(
+            $query,
             $request
         );
 
 
-        /*
-         * KPI values.
-         */
         $stats = [
 
             'total' =>
-                (clone $baseQuery)->count(),
+                (clone $query)->count(),
 
             'in_progress' =>
-                (clone $baseQuery)
-                    ->where('status', 'In Progress')
+                (clone $query)
+                    ->where(
+                        'status',
+                        'In Progress'
+                    )
                     ->count(),
 
             'uat' =>
-                (clone $baseQuery)
-                    ->whereIn('status', [
-                        'UAT Requested',
-                        'UAT In Progress',
-                        'UAT Completed',
-                    ])
+                (clone $query)
+                    ->whereIn(
+                        'status',
+                        [
+                            'UAT Requested',
+                            'UAT In Progress',
+                            'UAT Completed',
+                        ]
+                    )
                     ->count(),
 
             'production' =>
-                (clone $baseQuery)
-                    ->where('status', 'Moved to Production')
+                (clone $query)
+                    ->where(
+                        'status',
+                        'Moved to Production'
+                    )
                     ->count(),
 
             'clarifications' =>
-                (clone $baseQuery)
+                (clone $query)
                     ->where(
                         'status',
                         'Clarification Pending'
@@ -58,13 +71,10 @@ class DashboardController extends Controller
         ];
 
 
-        /*
-         * Main table.
-         */
-        $requirements = (clone $baseQuery)
+        $requirements = (clone $query)
             ->with([
-                'state:id,name',
-                'project:id,name',
+                'state:state_id,state_name',
+                'project:project_id,project_name',
             ])
             ->latest()
             ->paginate(15)
@@ -75,13 +85,14 @@ class DashboardController extends Controller
             'dashboard.index',
             compact(
                 'requirements',
-                'stats'
+                'stats',
+                'states'
             )
         );
     }
 
 
-    private function applyFilters(
+    private function filters(
         $query,
         Request $request
     ): void {
@@ -110,9 +121,12 @@ class DashboardController extends Controller
                 $request->filled('search'),
                 function ($q) use ($request) {
 
-                    $search = $request->search;
+                    $search =
+                        $request->search;
 
-                    $q->where(function ($query) use ($search) {
+                    $q->where(function ($query) use (
+                        $search
+                    ) {
 
                         $query
                             ->where(
@@ -121,11 +135,15 @@ class DashboardController extends Controller
                                 "%{$search}%"
                             )
                             ->orWhere(
+                                'requirement_no',
+                                'like',
+                                "%{$search}%"
+                            )
+                            ->orWhere(
                                 'description',
                                 'like',
                                 "%{$search}%"
                             );
-
                     });
                 }
             )
