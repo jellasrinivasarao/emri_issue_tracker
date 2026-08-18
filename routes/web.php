@@ -647,3 +647,99 @@ Route::get('/issues',[IssueController::class, 'index'])->name('issues.index');
 Route::get('/issues/create',[IssueController::class, 'create'])->name('issues.create');
 Route::get('/issues/create/popup',[IssueController::class, 'createModalPopup'])->name('issues.create.popup');
 Route::post('/issues',[IssueController::class, 'store'])->name('issues.store');
+
+
+
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\RequirementController;
+use App\Http\Controllers\VendorRequirementController;
+use App\Http\Controllers\ClarificationController;
+##########################
+
+Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/dashboard',
+        [DashboardController::class, 'index']
+    )->name('dashboard');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | HO IT Requirements
+    |--------------------------------------------------------------------------
+    */
+
+    Route::resource(
+        'requirements',
+        RequirementController::class
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vendor / Achala
+    |--------------------------------------------------------------------------
+    */
+
+    Route::prefix('vendor')
+        ->name('vendor.')
+        ->middleware('role:achala')
+        ->group(function () {
+
+            Route::get(
+                '/dashboard',
+                [VendorRequirementController::class, 'index']
+            )->name('dashboard');
+
+
+            Route::get(
+                '/requirements/{requirement}/edit',
+                [VendorRequirementController::class, 'edit']
+            )->name('requirements.edit');
+
+
+            Route::put(
+                '/requirements/{requirement}',
+                [VendorRequirementController::class, 'update']
+            )->name('requirements.update');
+
+        });
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Clarifications
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/clarifications',
+        [ClarificationController::class, 'index']
+    )->name('clarifications.index');
+
+
+    Route::post(
+        '/requirements/{requirement}/clarifications',
+        [ClarificationController::class, 'store']
+    )->name('clarifications.store');
+
+
+    Route::post(
+        '/clarifications/{clarification}/reply',
+        [ClarificationController::class, 'reply']
+    )->name('clarifications.reply');
+
+
+    Route::post(
+        '/clarifications/{clarification}/close',
+        [ClarificationController::class, 'close']
+    )->name('clarifications.close');
+
+});
