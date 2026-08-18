@@ -156,7 +156,7 @@ class IssueController extends Controller
 
     public function index(Request $request)
     {
-                $query = Issue::query();
+        $query = Issue::query();
 
         /*
         |--------------------------------------------------------------------------

@@ -83,7 +83,7 @@ npm install
 sudo yum install -y nodejs
 yum list installed | grep node
 
-
+timedatectl
 
 
 ##########################
@@ -1521,3 +1521,6 @@ public function handle(Request $request, Closure $next)
     return $next($request);
 
 }
+
+
+
