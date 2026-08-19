@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content="{{ csrf_token() }}" />
         <title>{{ config('app.name', 'Laravel') }}</title>
+        <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon" />
         
         <!-- Level 2: Prevent Browser Back/Forward - Logout on Any Back/Forward Attempt -->
         <script>
