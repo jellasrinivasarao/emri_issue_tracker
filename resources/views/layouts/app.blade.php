@@ -158,19 +158,22 @@
 
         <div class="min-h-screen bg-slate-100 flex flex-col m-0 p-0" style="margin:0 !important;padding:0 !important;box-sizing:border-box;" x-data="{ sidebarOpen: false, openSections: {{ $sectionOpen->toJson() }}, noSidebar: {{ $withoutSidebar ? 'true' : 'false' }}, init() { window.addEventListener('layout:sidebar', e => { this.noSidebar = !!e.detail.noSidebar }) } }">
             <header class="sticky top-0 z-50 m-0 border-b border-slate-200 bg-white shadow-sm" style="position:sticky;top:0;left:0;right:0;margin:0;padding:0;">
-                <div class="flex min-h-[64px] w-full flex-wrap items-center justify-between gap-3 px-3 sm:px-4 lg:px-6">
+                <div class="relative grid min-h-[76px] w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 sm:px-4 lg:px-6">
                     <div class="flex min-w-0 items-center gap-3">
                         <button @click="sidebarOpen = !sidebarOpen" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-50 text-slate-700 md:hidden">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                         </button>
-                        <div class="hidden items-center gap-3 md:flex">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">EM</div>
-                            <div>
-                                <p class="text-xs uppercase tracking-[0.24em] text-slate-500">EMRI ISSUE TRACKER</p>
-                            </div>
+                        <div class="hidden items-center md:flex">
+                            <img src="{{ asset('images/logo.png') }}" alt="EMRI Green Health Services" class="h-12 w-auto max-w-[260px] object-contain" />
                         </div>
                     </div>
-                    <div class="ml-auto flex min-w-0 flex-wrap items-center gap-3">
+                    <div class="flex min-w-0 items-center justify-center gap-3 justify-self-center">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-200">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75h7.5L18.75 8v12.25H6.75V3.75Z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 3.75V8h4.5M9.5 12h6M9.5 15.5h6"></path></svg>
+                        </div>
+                        <p class="whitespace-nowrap text-base font-bold uppercase tracking-[0.18em] text-slate-900 sm:text-lg">EMRI ISSUE TRACKER</p>
+                    </div>
+                    <div class="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-3">
                         <div class="inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-900/10">
                             <span class="mr-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-[0.30em] text-white">Role</span>
                             <span>{{ auth()->user()->role_names ?: 'Central Admin' }}</span>

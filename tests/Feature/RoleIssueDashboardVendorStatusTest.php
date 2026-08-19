@@ -34,4 +34,34 @@ class RoleIssueDashboardVendorStatusTest extends TestCase
         $this->assertStringContainsString('Achala', $message);
         $this->assertStringContainsString('Ticket cannot be resolved', $message);
     }
+
+    public function test_reopen_status_ids_are_resolved_by_status_name_keywords(): void
+    {
+        $controller = new PageController();
+
+        $rows = [
+            ['status_id' => 1, 'status_name' => 'New'],
+            ['status_id' => 11, 'status_name' => 'Reopened'],
+            ['status_id' => 12, 'status_name' => 'Approved'],
+            ['status_id' => 13, 'status_name' => 'Rejected'],
+            ['status_id' => 3, 'status_name' => 'Resolved'],
+        ];
+
+        $this->assertSame([11], $controller->extractMatchingStatusIds($rows, ['reopened']));
+        $this->assertSame([12], $controller->extractMatchingStatusIds($rows, ['approved']));
+        $this->assertSame([13], $controller->extractMatchingStatusIds($rows, ['rejected']));
+    }
+
+    public function test_ho_and_vendor_actions_require_state_approval_for_reopened_tickets(): void
+    {
+        $controller = new PageController();
+
+        $this->assertTrue($controller->requiresStateApprovalBeforeRoleAction('HO Admin', 'Reopened'));
+        $this->assertTrue($controller->requiresStateApprovalBeforeRoleAction('HO IT', 'Reopened'));
+        $this->assertTrue($controller->requiresStateApprovalBeforeRoleAction('Vendor Admin', 'Reopened'));
+        $this->assertTrue($controller->requiresStateApprovalBeforeRoleAction('Vendor IT', 'Reopened'));
+        $this->assertTrue($controller->requiresStateApprovalBeforeRoleAction('State IT', 'Reopened'));
+        $this->assertFalse($controller->requiresStateApprovalBeforeRoleAction('HO Admin', 'Approved'));
+        $this->assertFalse($controller->requiresStateApprovalBeforeRoleAction('State Admin', 'Reopened'));
+    }
 }

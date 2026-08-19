@@ -13,13 +13,14 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Summary</p>
                         <p class="mt-1 text-sm text-slate-500">Overview of all issues in the system.</p>
                     </div>
-                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
                         @php
                             $statusCards = [
-                                ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'color' => 'blue', 'icon' => 'M3 7h18M3 12h18M3 17h18', 'bg' => 'bg-blue-50', 'text' => 'text-blue-700', 'filterStatus' => 'all'],
-                                ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'color' => 'emerald', 'icon' => 'M5 13l4 4L19 7', 'bg' => 'bg-emerald-50', 'text' => 'text-emerald-700', 'filterStatus' => 'in_process'],
-                                ['label' => 'Resolved', 'value' => (string) ($statusSummary['resolved'] ?? 0), 'color' => 'amber', 'icon' => 'M9 12.75L11.25 15 15 9.75', 'bg' => 'bg-amber-50', 'text' => 'text-amber-700', 'filterStatus' => 'resolved'],
-                                ['label' => 'Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'color' => 'violet', 'icon' => 'M6 18L18 6M6 6l12 12', 'bg' => 'bg-violet-50', 'text' => 'text-violet-700', 'filterStatus' => 'closed'],
+                                ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'icon' => 'M3 7h18M3 12h18M3 17h18', 'panel' => 'bg-blue-100 border-blue-200', 'iconWrap' => 'bg-white/80 text-blue-600', 'labelText' => 'text-blue-800', 'valueText' => 'text-blue-900', 'filterStatus' => 'all'],
+                                ['label' => 'In-Process', 'value' => (string) ($statusSummary['in_process'] ?? 0), 'icon' => 'M5 13l4 4L19 7', 'panel' => 'bg-amber-100 border-amber-200', 'iconWrap' => 'bg-white/80 text-amber-600', 'labelText' => 'text-amber-800', 'valueText' => 'text-amber-900', 'filterStatus' => 'in_process'],
+                                ['label' => 'Resolved', 'value' => (string) ($statusSummary['resolved'] ?? 0), 'icon' => 'M9 12.75L11.25 15 15 9.75', 'panel' => 'bg-emerald-100 border-emerald-200', 'iconWrap' => 'bg-white/80 text-emerald-600', 'labelText' => 'text-emerald-800', 'valueText' => 'text-emerald-900', 'filterStatus' => 'resolved'],
+                                ['label' => 'Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'icon' => 'M6 18L18 6M6 6l12 12', 'panel' => 'bg-violet-100 border-violet-200', 'iconWrap' => 'bg-white/80 text-violet-600', 'labelText' => 'text-violet-800', 'valueText' => 'text-violet-900', 'filterStatus' => 'closed'],
+                                ['label' => 'Reopened', 'value' => (string) ($statusSummary['reopened'] ?? 0), 'icon' => 'M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 11.8 1.2L20 14M4 10l2.7-2.2A7 7 0 0 1 18.5 9', 'panel' => 'bg-blue-500 border-blue-600', 'iconWrap' => 'bg-white/90 text-blue-600', 'labelText' => 'text-white', 'valueText' => 'text-white', 'filterStatus' => 'reopened'],
                             ];
                         @endphp
                         @foreach($statusCards as $card)
@@ -34,15 +35,30 @@
                                     @endif
                                 @endforeach
                                 <input type="hidden" name="status_id" value="{{ $card['filterStatus'] }}">
-                                <button type="submit" class="w-full rounded-[14px] border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <div class="flex h-10 w-10 items-center justify-center rounded-2xl {{ $card['bg'] }} {{ $card['text'] }}">
-                                            <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $card['icon'] }}"></path></svg>
-                                        </div>
-                                        <span class="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $active ? 'Open' : 'View' }}</span>
+                                <button type="submit" class="flex h-[180px] w-full flex-col items-center rounded-[14px] border {{ $card['panel'] }} p-3 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md {{ $active ? 'ring-2 ring-blue-500 ring-offset-1' : '' }}">
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-full border-4 border-white/50 {{ $card['iconWrap'] }} shadow-md">
+                                        <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                            @if($card['filterStatus'] === 'all')
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h8m-7 0v2h6V4m-8 2H6v14h12V6h-1M9 11h6M9 15h4"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1Z"></path>
+                                            @elseif($card['filterStatus'] === 'in_process')
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a7 7 0 1 1-6.3 10"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2M5 8H2m3 0 2-2"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.5 17.5 1.5 1.5m0-1.5-1.5 1.5"></path>
+                                            @elseif($card['filterStatus'] === 'resolved')
+                                                <circle cx="12" cy="12" r="8.5"></circle>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m8 12 2.7 2.7L16.5 9"></path>
+                                            @elseif($card['filterStatus'] === 'closed')
+                                                <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+                                                <path stroke-linecap="round" d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
+                                                <circle cx="12" cy="14" r=".5" fill="currentColor"></circle>
+                                            @else
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 9a7.5 7.5 0 0 1 13.2-2L20 9m-1-5v5h-5M19 15a7.5 7.5 0 0 1-13.2 2L4 15m1 5v-5h5"></path>
+                                            @endif
+                                        </svg>
                                     </div>
-                                    <p class="mt-3 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}</p>
-                                    <p class="mt-1 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                                    <p class="mt-3 min-h-[32px] text-[11px] font-bold uppercase tracking-[0.16em] {{ $card['labelText'] }}">{{ $card['label'] }}</p>
+                                    <p class="mt-auto text-3xl font-bold {{ $card['valueText'] }}">{{ $card['value'] }}</p>
                                 </button>
                             </form>
                         @endforeach
@@ -114,7 +130,7 @@
                         </div>
                     @else
                         <table class="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
-                            <thead class="sticky top-0 z-10 bg-slate-50 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                            <thead class="sticky top-0 z-10 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 text-[10px] uppercase tracking-[0.2em] text-white shadow-sm">
                                 <tr>
                                     <th class="px-3 py-3">Ticket ID</th>
                                     <th class="px-3 py-3">Issue Title</th>
@@ -125,6 +141,7 @@
                                     <th class="px-3 py-3">Vendors</th>
                                     <th class="px-3 py-3">Status</th>
                                     <th class="px-3 py-3">Priority</th>
+                                    <th class="px-3 py-3">Raised At</th>
                                     <th class="px-3 py-3">Updated On</th>
                                 </tr>
                             </thead>
@@ -187,6 +204,7 @@
                                         <td class="px-3 py-2.5">
                                             <span class="inline-flex rounded-full bg-red-100 px-2 py-1 text-[10px] font-semibold text-red-700">{{ $ticket['priority'] }}</span>
                                         </td>
+                                        <td class="px-3 py-2.5 whitespace-nowrap">{{ $ticket['raised_at'] }}</td>
                                         <td class="px-3 py-2.5">{{ $ticket['updated_on'] }}</td>
                                     </tr>
                                 @endforeach
@@ -1217,7 +1235,7 @@
                 return;
             }
 
-            const headers = ['Ticket ID', 'Issue Title', 'State', 'Project', 'Application', 'Module', 'Status', 'Priority', 'Updated On'];
+            const headers = ['Ticket ID', 'Issue Title', 'State', 'Project', 'Application', 'Module', 'Status', 'Priority', 'Raised At', 'Updated On'];
             const rows = issues.map(ticket => [
                 ticket.id,
                 ticket.title,
@@ -1227,6 +1245,7 @@
                 ticket.module,
                 ticket.status,
                 ticket.priority,
+                ticket.raised_at,
                 ticket.updated_on
             ]);
 

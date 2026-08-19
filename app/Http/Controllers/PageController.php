@@ -153,6 +153,18 @@ class PageController extends Controller
             'status_name' => (string) $row->status_name,
         ])->values()->all();
 
+        if ($isStateRole) {
+            $statusOptions = collect($statusOptions)
+                ->concat(collect($allStatusOptions)->filter(function ($row) use ($isStateAdmin, $statusNameLookup) {
+                    $name = $statusNameLookup($row['status_name'] ?? '');
+                    return str_contains($name, 'reopen')
+                        || ($isStateAdmin && (str_contains($name, 'approv') || str_contains($name, 'reject')));
+                }))
+                ->unique('status_id')
+                ->values()
+                ->all();
+        }
+
         $resolvedStatusIds = collect($allStatusOptions)
             ->filter(function ($row) use ($statusNameLookup) {
                 $name = $statusNameLookup($row['status_name'] ?? '');
@@ -180,6 +192,11 @@ class PageController extends Controller
             ->unique()
             ->values()
             ->all();
+
+        $reopenedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['reopened']);
+        $approvedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['approved']);
+        $rejectedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['rejected']);
+        $reopenWorkflowStatusIds = array_values(array_unique(array_merge($reopenedStatusIds, $approvedStatusIds)));
 
         $inProcessStatusIds = collect($statusOptions)
             ->filter(function ($row) use ($statusNameLookup) {
@@ -440,6 +457,14 @@ class PageController extends Controller
                               ->whereColumn('mva.issue_id', 'i.issue_id')
                               ->where('mva.vendor_id', $vendorId)
                               ->where('mva.is_active', 1);
+                        })
+                        ->orWhere(function ($reopenQuery) use ($vendorId, $reopenedStatusIds, $approvedStatusIds) {
+                            $reopenQuery->whereIn('i.status_id', array_values(array_unique(array_merge($reopenedStatusIds, $approvedStatusIds))))
+                                ->whereExists(function ($q) use ($vendorId) {
+                                    $q->from('map_issue_vendor_assignment as historical_assignment')
+                                        ->whereColumn('historical_assignment.issue_id', 'i.issue_id')
+                                        ->where('historical_assignment.vendor_id', $vendorId);
+                                });
                         });
                 });
             } else {
@@ -476,12 +501,24 @@ class PageController extends Controller
             'in_process' => (clone $issuesQuery)
                 ->whereNotIn('i.status_id', $resolvedStatusIds ?: [0])
                 ->whereNotIn('i.status_id', $closedStatusIds ?: [0])
+                ->whereNotIn('i.status_id', $reopenedStatusIds ?: [0])
+                ->whereNotIn('i.status_id', $approvedStatusIds ?: [0])
+                ->whereNotIn('i.status_id', $rejectedStatusIds ?: [0])
                 ->count(),
             'resolved' => (clone $issuesQuery)
                 ->whereIn('i.status_id', $resolvedStatusIds ?: [0])
                 ->count(),
             'closed' => (clone $issuesQuery)
                 ->whereIn('i.status_id', $closedStatusIds ?: [0])
+                ->count(),
+            'reopened' => (clone $issuesQuery)
+                ->whereIn('i.status_id', $reopenWorkflowStatusIds ?: [0])
+                ->count(),
+            'approved' => (clone $issuesQuery)
+                ->whereIn('i.status_id', $approvedStatusIds ?: [0])
+                ->count(),
+            'rejected' => (clone $issuesQuery)
+                ->whereIn('i.status_id', $rejectedStatusIds ?: [0])
                 ->count(),
         ];
 
@@ -503,6 +540,7 @@ class PageController extends Controller
                 })
                 ->where('i.raised_by_user_id', $user->user_id)
                 ->whereIn('i.state_id', $stateIds ?: [0])
+                ->whereIn('i.status_id', $closedStatusIds ?: [0])
                 ->count();
         }
 
@@ -523,6 +561,7 @@ class PageController extends Controller
                         ->where('changed_by_user_id', $user->user_id)
                         ->whereIn('new_status_id', $closedStatusIds ?: [0]);
                 })
+                    ->whereIn('i.status_id', $closedStatusIds ?: [0])
                 ->count();
         }
 
@@ -556,6 +595,7 @@ class PageController extends Controller
                             ->where('changed_by_user_id', $user->user_id)
                             ->whereIn('new_status_id', $closedStatusIds ?: [0]);
                     })
+                            ->whereIn('i.status_id', $closedStatusIds ?: [0])
                     ->where(function ($query) use ($vendorId) {
                         $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
                             ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
@@ -583,6 +623,15 @@ class PageController extends Controller
                 }
                 if (!empty($closedStatusIds)) {
                     $issuesQuery->whereNotIn('i.status_id', $closedStatusIds);
+                }
+                if (!empty($reopenedStatusIds)) {
+                    $issuesQuery->whereNotIn('i.status_id', $reopenedStatusIds);
+                }
+                if (!empty($approvedStatusIds)) {
+                    $issuesQuery->whereNotIn('i.status_id', $approvedStatusIds);
+                }
+                if (!empty($rejectedStatusIds)) {
+                    $issuesQuery->whereNotIn('i.status_id', $rejectedStatusIds);
                 }
             } elseif ($requestedStatusValue === 'resolved') {
                 if ($isStateIt) {
@@ -624,14 +673,15 @@ class PageController extends Controller
                             ->from('txn_issue_status_history')
                             ->where('changed_by_user_id', $user->user_id)
                             ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                    })->where('i.raised_by_user_id', $user->user_id);
+                    })->where('i.raised_by_user_id', $user->user_id)
+                        ->whereIn('i.status_id', $closedStatusIds ?: [0]);
                 } elseif ($isHoIt) {
                     $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
                         $query->select('issue_id')
                             ->from('txn_issue_status_history')
                             ->where('changed_by_user_id', $user->user_id)
                             ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                    });
+                            })->whereIn('i.status_id', $closedStatusIds ?: [0]);
                 } elseif ($isVendorIt) {
                     $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
                     if (! empty($vendorId)) {
@@ -640,7 +690,8 @@ class PageController extends Controller
                                 ->from('txn_issue_status_history')
                                 ->where('changed_by_user_id', $user->user_id)
                                 ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                        })->where(function ($query) use ($vendorId) {
+                        })->whereIn('i.status_id', $closedStatusIds ?: [0])
+                            ->where(function ($query) use ($vendorId) {
                             $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
                                 ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
                                 ->orWhereExists(function ($q) use ($vendorId) {
@@ -654,11 +705,20 @@ class PageController extends Controller
                 } else {
                     $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
                 }
+            } elseif ($requestedStatusValue === 'reopened') {
+                $issuesQuery->whereIn('i.status_id', $reopenWorkflowStatusIds ?: [0]);
+            } elseif ($requestedStatusValue === 'approved') {
+                $issuesQuery->whereIn('i.status_id', $approvedStatusIds ?: [0]);
+            } elseif ($requestedStatusValue === 'rejected') {
+                $issuesQuery->whereIn('i.status_id', $rejectedStatusIds ?: [0]);
             } elseif (is_numeric($requestedStatusValue)) {
                 $requestedStatusId = (int) $requestedStatusValue;
                 if (in_array($requestedStatusId, $inProcessStatusIds, true)) {
                     $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds ?: [0])
-                        ->whereNotIn('i.status_id', $closedStatusIds ?: [0]);
+                        ->whereNotIn('i.status_id', $closedStatusIds ?: [0])
+                        ->whereNotIn('i.status_id', $reopenedStatusIds ?: [0])
+                        ->whereNotIn('i.status_id', $approvedStatusIds ?: [0])
+                        ->whereNotIn('i.status_id', $rejectedStatusIds ?: [0]);
                 } elseif (in_array($requestedStatusId, $resolvedStatusIds, true)) {
                     $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
                 } elseif (in_array($requestedStatusId, $closedStatusIds, true)) {
@@ -676,6 +736,15 @@ class PageController extends Controller
             }
             if (!empty($closedStatusIds)) {
                 $issuesQuery->whereNotIn('i.status_id', $closedStatusIds);
+            }
+            if (!empty($reopenedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $reopenedStatusIds);
+            }
+            if (!empty($approvedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $approvedStatusIds);
+            }
+            if (!empty($rejectedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $rejectedStatusIds);
             }
         }
 
@@ -927,6 +996,7 @@ class PageController extends Controller
                 'current_vendor_id' => $isVendorRole && $vendorId ? (int) $vendorId : null,
                 'priority' => $issue->priority_name ?: 'Medium',
                 'priority_weight' => $priorityWeight,
+                'raised_at' => $issue->raised_at ? Carbon::parse($issue->raised_at)->format('Y-m-d H:i:s') : '—',
                 'updated_on' => $formattedDate,
                 'description' => $issue->issue_description ?: $fallbackDescription,
                 'occurred_date' => $issue->occurred_date,
@@ -969,6 +1039,45 @@ class PageController extends Controller
                 'search' => $request->input('search'),
             ],
         ]);
+    }
+
+    public function extractMatchingStatusIds(array $statusRows, array $keywords): array
+    {
+        $normalizedKeywords = array_values(array_filter(array_map(function ($keyword) {
+            return strtolower(trim((string) $keyword));
+        }, $keywords)));
+
+        if (empty($normalizedKeywords)) {
+            return [];
+        }
+
+        return collect($statusRows)
+            ->filter(function ($row) use ($normalizedKeywords) {
+                $statusName = strtolower(trim((string) ($row['status_name'] ?? '')));
+
+                foreach ($normalizedKeywords as $keyword) {
+                    if ($statusName === $keyword || str_contains($statusName, $keyword)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })
+            ->pluck('status_id')
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function requiresStateApprovalBeforeRoleAction(string $roleText, string $currentStatusName): bool
+    {
+        $normalizedRoleText = strtolower(trim($roleText));
+        $normalizedStatusName = strtolower(trim($currentStatusName));
+        $isStateAdmin = str_contains($normalizedRoleText, 'state admin');
+
+        return ! $isStateAdmin && str_contains($normalizedStatusName, 'reopen');
     }
 
     public function getVendorResolutionValidationMessage(array $vendorAssignments, int $resolvedStatusId = 3): string
@@ -1026,6 +1135,58 @@ class PageController extends Controller
             $statusKey = rtrim($statusLower, " .!?");
             $isResolvedStatus = str_contains($statusLower, 'resolved') || str_contains($statusLower, 'completed');
             $isClosedStatus = in_array($statusKey, ['close', 'closed'], true);
+
+            $user = auth()->user();
+            $roleIds = collect($user?->roles ?? collect())
+                ->pluck('role_id')
+                ->map(fn ($roleId) => (int) $roleId)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if (empty($roleIds) && ! empty($user?->user_id)) {
+                $roleIds = DB::table('map_user_role')
+                    ->where('user_id', $user->user_id)
+                    ->where('is_active', 1)
+                    ->pluck('role_id')
+                    ->map(fn ($roleId) => (int) $roleId)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+            $roleText = empty($roleIds)
+                ? ''
+                : strtolower(implode(' ', collect(
+                    DB::table('mst_role')->whereIn('role_id', $roleIds)->pluck('role_name')
+                )->all()));
+            $isStateRole = str_contains($roleText, 'state');
+            $isStateAdmin = str_contains($roleText, 'state admin');
+            $isReopenedStatus = str_contains($statusLower, 'reopen');
+            $isApprovedStatus = str_contains($statusLower, 'approv');
+            $isRejectedStatus = str_contains($statusLower, 'reject');
+
+            $currentIssue = DB::table('txn_issue')->where('issue_id', $issueId)->first();
+            $oldStatusId = (int) ($currentIssue->status_id ?? 0);
+            $oldStatusName = strtolower(trim((string) DB::table('mst_issue_status')->where('status_id', $oldStatusId)->value('status_name')));
+
+            if ($isReopenedStatus && (! $isStateRole || ! str_contains($oldStatusName, 'close'))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'status_name' => 'Only a State user can reopen a Closed ticket.',
+                ]);
+            }
+
+            if (($isApprovedStatus || $isRejectedStatus) && (! $isStateAdmin || ! str_contains($oldStatusName, 'reopen'))) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'status_name' => 'Only a State Admin can approve or reject a Reopened ticket.',
+                ]);
+            }
+
+            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'status_name' => 'This ticket was reopened by the State team and requires State Admin approval before further action.',
+                ]);
+            }
 
             if ($isResolvedStatus || $isClosedStatus) {
                 $activeVendorAssignments = DB::table('map_issue_vendor_assignment as m')
@@ -1106,12 +1267,6 @@ class PageController extends Controller
                     ->get(['vendor_id', 'is_active', 'vendor_status_id'])
                     ->all();
             }
-
-            // Fetch the current (old) status before updating
-            $currentIssue = DB::table('txn_issue')
-                ->where('issue_id', $issueId)
-                ->first();
-            $oldStatusId = (int) ($currentIssue->status_id ?? 0);
 
             DB::transaction(function () use ($issueId, $newStatusId, $oldStatusId, $statusName, $request, $vendorIds, $isVendorAssignmentStatus, $existingVendorAssignments) {
                 $remarks = trim((string) $request->input('remarks', 'Status updated')) ?: 'Status updated';
@@ -1444,7 +1599,7 @@ class PageController extends Controller
             ]);
 
             $message = $e instanceof \Illuminate\Validation\ValidationException
-                ? implode(' ', $e->errors()->all())
+                ? implode(' ', collect($e->errors())->flatten()->all())
                 : 'Unable to update the ticket. Please try again.';
 
             if ($request->expectsJson() || $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
