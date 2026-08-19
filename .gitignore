@@ -6,7 +6,6 @@
 # Dependencies
 /vendor/
 /node_modules/
-
 # Laravel runtime files
 /bootstrap/cache/*.php
 /storage/app/public/*
