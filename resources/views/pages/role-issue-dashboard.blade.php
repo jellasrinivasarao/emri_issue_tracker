@@ -629,8 +629,8 @@
         </script>
 
         <div class="relative min-h-0">
-                    <div x-show="drawerOpen" x-cloak class="fixed left-0 right-0 z-30 bg-slate-900/40 transition-opacity duration-200" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));"></div>
-                    <aside x-show="drawerOpen" x-cloak class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
+                    <div x-show="drawerOpen && selectedTicket" x-cloak class="fixed left-0 right-0 z-30 bg-slate-900/40 transition-opacity duration-200" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));"></div>
+                    <aside x-show="drawerOpen && selectedTicket" x-cloak class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-xs uppercase tracking-[0.32em] text-slate-500">Ticket Details</p>
