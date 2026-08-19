@@ -1,0 +1,50 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Laravel runtime files
+/bootstrap/cache/*.php
+/storage/app/public/*
+!/storage/app/public/.gitignore
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*.log
+
+# Local development files
+/public/hot
+.phpunit.result.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and OS files
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Local temporary/debug scripts and exports
+tmp_*
+temp_*
+check_*.php
+test_*.php
+*.tmp
+*.bak
+
+# Local database and environment backups
+env_bckp.txt
+*.sql.bak
+
+
