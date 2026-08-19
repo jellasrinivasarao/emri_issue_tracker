@@ -1,3 +1,5 @@
+@php($workingSchedule = $workingSchedule ?? null)
+
 {{-- Validation Errors --}}
 @if ($errors->any())
 
@@ -165,7 +167,7 @@
             </label>
 
             <input type="time" id="start_time" name="start_time"
-                value="{{ old('start_time', $workingSchedule->start_time ? \Carbon\Carbon::parse($workingSchedule->start_time)->format('H:i') : '') }}"
+                value="{{ old('start_time', $workingSchedule?->start_time ? \Carbon\Carbon::parse($workingSchedule->start_time)->format('H:i') : '') }}"
                 class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
             @error('start_time')
@@ -183,7 +185,7 @@
             </label>
 
             <input type="time" id="break_start" name="break_start"
-                value="{{ old('break_start', $workingSchedule->break_start ? \Carbon\Carbon::parse($workingSchedule->break_start)->format('H:i') : '') }}"
+                value="{{ old('break_start', $workingSchedule?->break_start ? \Carbon\Carbon::parse($workingSchedule->break_start)->format('H:i') : '') }}"
                 class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
             @error('break_start')
@@ -201,7 +203,7 @@
             </label>
 
             <input type="time" id="break_end" name="break_end"
-                value="{{ old('break_end', $workingSchedule->break_end ? \Carbon\Carbon::parse($workingSchedule->break_end)->format('H:i') : '') }}"
+                value="{{ old('break_end', $workingSchedule?->break_end ? \Carbon\Carbon::parse($workingSchedule->break_end)->format('H:i') : '') }}"
                 class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
             @error('break_end')
@@ -219,7 +221,7 @@
             </label>
 
             <input type="time" id="end_time" name="end_time"
-                value="{{ old('end_time', $workingSchedule->end_time ? \Carbon\Carbon::parse($workingSchedule->end_time)->format('H:i') : '') }}"
+                value="{{ old('end_time', $workingSchedule?->end_time ? \Carbon\Carbon::parse($workingSchedule->end_time)->format('H:i') : '') }}"
                 class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
             @error('end_time')
@@ -244,7 +246,7 @@
         </label>
 
         <input type="date" id="effective_from" name="effective_from"
-            value="{{ old('effective_from', optional($workingSchedule->effective_from)->format('Y-m-d')) }}"
+            value="{{ old('effective_from', optional($workingSchedule?->effective_from)->format('Y-m-d')) }}"
             class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
         @error('effective_from')
@@ -262,7 +264,7 @@
         </label>
 
         <input type="date" id="effective_to" name="effective_to"
-            value="{{ old('effective_to', optional($workingSchedule->effective_to)->format('Y-m-d')) }}"
+            value="{{ old('effective_to', optional($workingSchedule?->effective_to)->format('Y-m-d')) }}"
             class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
         @error('effective_to')
@@ -298,7 +300,7 @@
                 </label>
 
                 <input type="time" id="start_time" name="start_time"
-                    value="{{ old('start_time', $workingSchedule->start_time ? \Carbon\Carbon::parse($workingSchedule->start_time)->format('H:i') : '') }}"
+                    value="{{ old('start_time', $workingSchedule?->start_time ? \Carbon\Carbon::parse($workingSchedule->start_time)->format('H:i') : '') }}"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
                 @error('start_time')
@@ -315,7 +317,7 @@
                 </label>
 
                 <input type="time" id="break_start" name="break_start"
-                    value="{{ old('break_start', $workingSchedule->break_start ? \Carbon\Carbon::parse($workingSchedule->break_start)->format('H:i') : '') }}"
+                    value="{{ old('break_start', $workingSchedule?->break_start ? \Carbon\Carbon::parse($workingSchedule->break_start)->format('H:i') : '') }}"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
                 @error('break_start')
@@ -332,7 +334,7 @@
                 </label>
 
                 <input type="time" id="break_end" name="break_end"
-                    value="{{ old('break_end', $workingSchedule->break_end ? \Carbon\Carbon::parse($workingSchedule->break_end)->format('H:i') : '') }}"
+                    value="{{ old('break_end', $workingSchedule?->break_end ? \Carbon\Carbon::parse($workingSchedule->break_end)->format('H:i') : '') }}"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
                 @error('break_end')
@@ -349,7 +351,7 @@
                 </label>
 
                 <input type="time" id="end_time" name="end_time"
-                    value="{{ old('end_time', $workingSchedule->end_time ? \Carbon\Carbon::parse($workingSchedule->end_time)->format('H:i') : '') }}"
+                    value="{{ old('end_time', $workingSchedule?->end_time ? \Carbon\Carbon::parse($workingSchedule->end_time)->format('H:i') : '') }}"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100">
 
                 @error('end_time')

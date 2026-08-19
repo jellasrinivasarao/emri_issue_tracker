@@ -37,7 +37,7 @@ class MenuSeeder extends Seeder
             ['display_name' => 'Menu Master', 'route_name' => 'menu.master', 'uri' => '/menu-master', 'display_order' => 24],
             ['display_name' => 'Role–Menu Mapping', 'route_name' => 'role.menu.mapping', 'uri' => '/role-menu-mapping', 'display_order' => 25],
             ['display_name' => 'Role–Privilege Mapping', 'route_name' => 'role.privilege.mapping', 'uri' => '/role-privilege-mapping', 'display_order' => 26],
-            ['display_name' => 'Working Hours', 'route_name' => 'working.hours', 'uri' => '/working-hours', 'display_order' => 27],
+            ['display_name' => 'Working Hours', 'route_name' => 'working-schedules.index', 'uri' => '/working-schedules', 'display_order' => 27],
             ['display_name' => 'Holiday Calendar', 'route_name' => 'holiday.calendar', 'uri' => '/holiday-calendar', 'display_order' => 28],
             ['display_name' => 'SLA Configuration', 'route_name' => 'sla.configuration', 'uri' => '/sla-configuration', 'display_order' => 29],
             ['display_name' => 'Automatic Routing Configuration', 'route_name' => 'automatic.routing', 'uri' => '/automatic-routing', 'display_order' => 30],

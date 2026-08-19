@@ -268,6 +268,7 @@ class IssueController extends Controller
 
                 $statuses = \App\Models\IssueStatus::query()
                     ->where('is_active', 1)
+                    ->orderBy('display_order')
                     ->orderBy('status_name')
                     ->get();
 
@@ -707,10 +708,6 @@ class IssueController extends Controller
             
             $issue = $this->issueService->create($request->validated(),$request->file('attachment'));
 
-            if($issue){
-                 $routingService->route($issue);
-            }
-            
             /**
              *  To Enable SLA Config
              */
@@ -1142,6 +1139,75 @@ class IssueController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update Vendor Status
+    |--------------------------------------------------------------------------
+    | Vendor updates their own status for multi-vendor tickets
+    */
+
+    public function updateVendorStatus(Request $request, Issue $issue)
+    {
+        try {
+            $request->validate([
+                'vendor_id' => ['required', 'integer', 'exists:mst_vendor,vendor_id'],
+                'vendor_status_id' => ['required', 'integer', 'exists:mst_issue_status,status_id'],
+                'remarks' => ['nullable', 'string', 'max:2000'],
+            ]);
+
+            $authenticatedVendorId = (int) (auth()->user()->vendor_id ?? 0);
+            $requestedVendorId = (int) $request->input('vendor_id');
+            $vendorId = $authenticatedVendorId > 0 ? $authenticatedVendorId : $requestedVendorId;
+
+            // Verify vendor is assigned to this issue
+            $vendorAssignment = DB::table('map_issue_vendor_assignment')
+                ->where('issue_id', $issue->issue_id)
+                ->where('vendor_id', $vendorId)
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$vendorAssignment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vendor is not assigned to this issue.',
+                ], 422);
+            }
+
+            // Update vendor status
+            $result = $this->issueService->updateVendorStatus(
+                $issue,
+                $vendorId,
+                (int) $request->input('vendor_status_id'),
+                $request->input('remarks')
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Vendor status updated successfully.',
+                'data' => $result,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Vendor status update failed', [
+                'issue_id' => $issue->issue_id,
+                'vendor_id' => $vendorId ?? $request->input('vendor_id'),
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?? 'Failed to update vendor status.',
             ], 500);
         }
     }

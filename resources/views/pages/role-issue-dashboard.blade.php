@@ -102,42 +102,97 @@
                 </div>
 
                 <div class="mt-3 max-h-[230px] overflow-y-auto rounded-[12px] border border-slate-200">
-                    <table class="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
-                        <thead class="sticky top-0 z-10 bg-slate-50 text-[10px] uppercase tracking-[0.2em] text-slate-500">
-                            <tr>
-                                <th class="px-3 py-3">Ticket ID</th>
-                                <th class="px-3 py-3">Issue Title</th>
-                                <th class="px-3 py-3">State</th>
-                                <th class="px-3 py-3">Project</th>
-                                <th class="px-3 py-3">Application</th>
-                                <th class="px-3 py-3">Module</th>
-                                <th class="px-3 py-3">Status</th>
-                                <th class="px-3 py-3">Priority</th>
-                                <th class="px-3 py-3">Updated On</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-200">
-                            @foreach($issues as $ticket)
-                                <tr class="cursor-pointer hover:bg-slate-50" @click="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details'; window.refreshVendorOptions?.(@js($ticket));">
-                                    <td class="px-3 py-2.5 font-semibold text-slate-900">
-                                        <a href="#" @click.prevent="drawerOpen = true; selectedTicket = @js($ticket); selectedStatus = '{{ $ticket['status'] }}'; activeTab = 'details'; window.refreshVendorOptions?.(@js($ticket));" class="inline-block text-blue-600 hover:text-blue-800 underline decoration-blue-300 decoration-1 underline-offset-2">{{ $ticket['id'] }}</a>
-                                    </td>
-                                    <td class="px-3 py-2.5">{{ $ticket['title'] }}</td>
-                                    <td class="px-3 py-2.5">{{ $ticket['state'] }}</td>
-                                    <td class="px-3 py-2.5">{{ $ticket['project'] }}</td>
-                                    <td class="px-3 py-2.5">{{ $ticket['application'] }}</td>
-                                    <td class="px-3 py-2.5">{{ $ticket['module'] }}</td>
-                                    <td class="px-3 py-2.5">
-                                        <span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">{{ $ticket['status'] }}</span>
-                                    </td>
-                                    <td class="px-3 py-2.5">
-                                        <span class="inline-flex rounded-full bg-red-100 px-2 py-1 text-[10px] font-semibold text-red-700">{{ $ticket['priority'] }}</span>
-                                    </td>
-                                    <td class="px-3 py-2.5">{{ $ticket['updated_on'] }}</td>
+                    @if(count($issues) === 0)
+                        <div class="flex items-center justify-center py-16 text-slate-500">
+                            <div class="text-center">
+                                <svg class="mx-auto h-12 w-12 text-slate-400 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375M12 9.75v.75m0 0v.75m0-.75h.375m-.375 0H11.25"></path>
+                                </svg>
+                                <p class="text-sm font-semibold text-slate-600">No records available</p>
+                                <p class="mt-1 text-xs text-slate-500">Try adjusting your filters or check back later.</p>
+                            </div>
+                        </div>
+                    @else
+                        <table class="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
+                            <thead class="sticky top-0 z-10 bg-slate-50 text-[10px] uppercase tracking-[0.2em] text-slate-500">
+                                <tr>
+                                    <th class="px-3 py-3">Ticket ID</th>
+                                    <th class="px-3 py-3">Issue Title</th>
+                                    <th class="px-3 py-3">State</th>
+                                    <th class="px-3 py-3">Project</th>
+                                    <th class="px-3 py-3">Application</th>
+                                    <th class="px-3 py-3">Module</th>
+                                    <th class="px-3 py-3">Vendors</th>
+                                    <th class="px-3 py-3">Status</th>
+                                    <th class="px-3 py-3">Priority</th>
+                                    <th class="px-3 py-3">Updated On</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-200">
+                                @foreach($issues as $ticket)
+                                    <tr class="cursor-pointer hover:bg-slate-50" @click="const tick = @js($ticket); window.__EMRI_LOG_TICKET_BINDING?.(tick); drawerOpen = true; selectedTicket = tick; window.__EMRI_CURRENT_TICKET = tick; selectedStatus = ''; activeTab = 'details'; if (typeof window.refreshVendorOptions === 'function') { window.refreshVendorOptions(tick); }">
+                                        <td class="px-3 py-2.5 font-semibold text-slate-900">
+                                            <a href="#" @click.prevent="const tick = @js($ticket); window.__EMRI_LOG_TICKET_BINDING?.(tick); drawerOpen = true; selectedTicket = tick; window.__EMRI_CURRENT_TICKET = tick; selectedStatus = ''; activeTab = 'details'; if (typeof window.refreshVendorOptions === 'function') { window.refreshVendorOptions(tick); }" class="inline-block text-blue-600 hover:text-blue-800 underline decoration-blue-300 decoration-1 underline-offset-2">{{ $ticket['id'] }}</a>
+                                        </td>
+                                        <td class="px-3 py-2.5">{{ $ticket['title'] }}</td>
+                                        <td class="px-3 py-2.5">{{ $ticket['state'] }}</td>
+                                        <td class="px-3 py-2.5">{{ $ticket['project'] }}</td>
+                                        <td class="px-3 py-2.5">{{ $ticket['application'] }}</td>
+                                        <td class="px-3 py-2.5">{{ $ticket['module'] }}</td>
+                                        <td class="px-3 py-2.5">
+                                            @if(!empty($ticket['vendor_progress']['vendors']))
+                                                <div class="flex flex-col gap-1">
+                                                    @foreach($ticket['vendor_progress']['vendors'] as $vendor)
+                                                        <div class="flex items-center gap-1">
+                                                            <span class="text-[11px] font-medium text-slate-700">{{ $vendor['vendor_name'] }}</span>
+                                                            @if($vendor['is_active'])
+                                                                @if($vendor['is_resolved'])
+                                                                    <span class="inline-flex rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-semibold text-green-700">Resolved</span>
+                                                                @else
+                                                                    <span class="inline-flex rounded-full bg-yellow-100 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-700">{{ $vendor['status_name'] }}</span>
+                                                                @endif
+                                                            @else
+                                                                <span class="inline-flex rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-700">Rejected</span>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <span class="text-[11px] text-slate-400">—</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2.5">
+                                            @if(!empty($ticket['vendor_progress']['vendors']))
+                                                <div class="flex flex-col gap-1">
+                                                    @foreach($ticket['vendor_progress']['vendors'] as $vendor)
+                                                        <div class="flex items-center gap-1 text-[10px]">
+                                                            <span class="font-medium text-slate-600">{{ $vendor['vendor_name'] }}</span>
+                                                            <span class="text-slate-400">-</span>
+                                                            @if($vendor['is_active'])
+                                                                @if($vendor['is_resolved'])
+                                                                    <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700">Resolved</span>
+                                                                @else
+                                                                    <span class="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 font-semibold text-yellow-700">{{ $vendor['status_name'] }}</span>
+                                                                @endif
+                                                            @else
+                                                                <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Rejected</span>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">{{ $ticket['status'] }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2.5">
+                                            <span class="inline-flex rounded-full bg-red-100 px-2 py-1 text-[10px] font-semibold text-red-700">{{ $ticket['priority'] }}</span>
+                                        </td>
+                                        <td class="px-3 py-2.5">{{ $ticket['updated_on'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
                 </div>
 
                 <div class="mt-3 flex items-center justify-between text-[12px] text-slate-500">
@@ -147,6 +202,253 @@
         </div>
 
         <script>
+            window.__EMRI_VENDOR_DATA = window.__EMRI_VENDOR_DATA || {
+                vendorOptions: [],
+                vendorStateMappings: [],
+                currentStateId: null,
+                currentProjectId: null,
+                selectedVendorIds: []
+            };
+
+            window.__EMRI_LOG_TICKET_BINDING = function (ticket) {
+                const snapshot = ticket ? JSON.parse(JSON.stringify(ticket)) : null;
+                console.log('=== TICKET BINDING LOG ===', snapshot);
+                console.log('bound ticket diagnostic:', {
+                    id: ticket?.id ?? null,
+                    issue_id: ticket?.issue_id ?? null,
+                    title: ticket?.title ?? null,
+                    state_id: ticket?.state_id ?? null,
+                    project_id: ticket?.project_id ?? null,
+                    status: ticket?.status ?? null,
+                    application: ticket?.application ?? null,
+                    module: ticket?.module ?? null,
+                });
+                return ticket;
+            };
+
+            window.__EMRI_getAvailableVendorIds = function (stateId, projectId) {
+                const mappings = window.__EMRI_VENDOR_DATA.vendorStateMappings || [];
+                if (!stateId || !projectId) {
+                    return [];
+                }
+
+                const ids = mappings
+                    .filter((mapping) => String(mapping.state_id) === String(stateId) && String(mapping.project_id) === String(projectId))
+                    .map((mapping) => String(mapping.vendor_id));
+
+                return [...new Set(ids)];
+            };
+
+            window.__EMRI_renderVendorList = function (filter = '') {
+                console.log('=== WINDOW RENDER LIST CALLED ===', filter);
+                const container = document.getElementById('vendor-multi-select');
+                if (!container) {
+                    console.log('vendor list container not found yet');
+                    return;
+                }
+
+                const list = container.querySelector('[data-multi-select-list]');
+                const input = container.querySelector('[data-multi-select-input]');
+                if (!list) {
+                    console.log('vendor list element missing');
+                    return;
+                }
+
+                const stateId = window.__EMRI_VENDOR_DATA.currentStateId;
+                const projectId = window.__EMRI_VENDOR_DATA.currentProjectId;
+                const availableIds = window.__EMRI_getAvailableVendorIds(stateId, projectId);
+                const options = (window.__EMRI_VENDOR_DATA.vendorOptions || []).filter((vendor) => availableIds.includes(String(vendor.vendor_id)));
+                const selectedIds = (window.__EMRI_VENDOR_DATA.selectedVendorIds || []).map(String);
+                const query = String(filter || '').trim().toLowerCase();
+
+                list.innerHTML = '';
+
+                const filtered = options.filter((vendor) => {
+                    const label = String(vendor.vendor_name || '').toLowerCase();
+                    const isSelected = selectedIds.includes(String(vendor.vendor_id));
+                    return !isSelected && (query === '' || label.includes(query));
+                });
+
+                if (!filtered.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'px-3 py-2 text-sm text-slate-500';
+                    empty.textContent = 'No vendors mapped for this state/project.';
+                    list.appendChild(empty);
+                    list.classList.remove('hidden');
+                    return;
+                }
+
+                filtered.forEach((vendor) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
+                    button.dataset.vendorId = String(vendor.vendor_id);
+                    button.textContent = vendor.vendor_name || '';
+                    list.appendChild(button);
+                });
+
+                list.classList.remove('hidden');
+                if (input) input.focus();
+            };
+
+            window.__EMRI_renderVendorChips = function () {
+                const container = document.getElementById('vendor-multi-select');
+                if (!container) return;
+
+                const chipsContainer = container.querySelector('[data-multi-select-chips]');
+                const hiddenContainer = container.querySelector('[data-multi-select-hidden]');
+                if (!chipsContainer || !hiddenContainer) return;
+
+                chipsContainer.innerHTML = '';
+                hiddenContainer.innerHTML = '';
+
+                const selectedIds = window.__EMRI_VENDOR_DATA.selectedVendorIds || [];
+                selectedIds.forEach((vendorId) => {
+                    const vendor = (window.__EMRI_VENDOR_DATA.vendorOptions || []).find((option) => String(option.vendor_id) === String(vendorId));
+                    if (!vendor) return;
+
+                    const chip = document.createElement('span');
+                    chip.className = 'inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700';
+                    chip.textContent = vendor.vendor_name || '';
+
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'rounded-full bg-slate-200 px-1 text-slate-500 hover:bg-slate-300';
+                    removeButton.textContent = '×';
+                    removeButton.addEventListener('click', function () {
+                        window.__EMRI_VENDOR_DATA.selectedVendorIds = (window.__EMRI_VENDOR_DATA.selectedVendorIds || []).filter((id) => String(id) !== String(vendorId));
+                        window.__EMRI_renderVendorChips();
+                        window.__EMRI_renderVendorList('');
+                    });
+
+                    chip.appendChild(removeButton);
+                    chipsContainer.appendChild(chip);
+
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'vendor_ids[]';
+                    hiddenInput.value = String(vendorId);
+                    hiddenContainer.appendChild(hiddenInput);
+                });
+            };
+
+            window.__EMRI_vendorMultiSelectReady = function () {
+                const container = document.getElementById('vendor-multi-select');
+                if (!container) {
+                    return false;
+                }
+
+                return !!(container.querySelector('[data-multi-select-list]') && container.querySelector('[data-multi-select-input]') && container.querySelector('[data-multi-select-chips]'));
+            };
+
+            window.__EMRI_retryVendorRender = function (ticket, attempt = 0) {
+                const maxAttempts = 25;
+                const ready = window.__EMRI_vendorMultiSelectReady();
+
+                if (ready) {
+                    if (typeof window.initializeVendorMultiSelect === 'function') {
+                        window.initializeVendorMultiSelect();
+                    }
+                    if (typeof window.__EMRI_renderVendorChips === 'function') {
+                        window.__EMRI_renderVendorChips();
+                    }
+                    if (typeof window.__EMRI_renderVendorList === 'function') {
+                        window.__EMRI_renderVendorList('');
+                    }
+                    return true;
+                }
+
+                if (attempt >= maxAttempts) {
+                    console.warn('vendor multi-select did not render after retries');
+                    return false;
+                }
+
+                console.log('vendor-multi-select not rendered yet; retrying in 50ms', { attempt: attempt + 1, maxAttempts });
+                setTimeout(() => {
+                    window.__EMRI_retryVendorRender(ticket, attempt + 1);
+                }, 50);
+                return false;
+            };
+
+            window.refreshVendorOptions = function (ticket) {
+                console.log('=== REFRESH VENDOR OPTIONS CALLED ===', ticket);
+                const vendorData = window.__EMRI_VENDOR_DATA || {};
+
+                vendorData.currentStateId = (ticket && ticket.state_id !== undefined && ticket.state_id !== null) ? ticket.state_id : null;
+                vendorData.currentProjectId = (ticket && ticket.project_id !== undefined && ticket.project_id !== null) ? ticket.project_id : null;
+
+                const existingVendorRows = Array.isArray(ticket?.vendor_progress?.vendors) ? ticket.vendor_progress.vendors : [];
+                const activeVendorIds = existingVendorRows
+                    .filter((vendor) => vendor && vendor.is_active !== false)
+                    .map((vendor) => String(vendor.vendor_id ?? ''))
+                    .filter(Boolean);
+                vendorData.selectedVendorIds = [...new Set(activeVendorIds)];
+
+                console.log('global refreshVendorOptions: state_id=', vendorData.currentStateId, 'project_id=', vendorData.currentProjectId);
+                console.log('global vendor data counts:', {
+                    vendorOptions: (window.__EMRI_VENDOR_DATA.vendorOptions || []).length,
+                    mappings: (window.__EMRI_VENDOR_DATA.vendorStateMappings || []).length
+                });
+
+                const stateId = vendorData.currentStateId;
+                const projectId = vendorData.currentProjectId;
+                const vendorUrl = '{{ route('role.issue.vendor.options') }}?state_id=' + encodeURIComponent(stateId ?? '') + '&project_id=' + encodeURIComponent(projectId ?? '');
+
+                console.log('vendor query request URL:', vendorUrl);
+                fetch(vendorUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                })
+                .then((response) => response.json())
+                .then((payload) => {
+                    console.log('vendor query response payload:', payload);
+                    const vendorRows = Array.isArray(payload?.data) ? payload.data : [];
+                    const dedupedRows = vendorRows.filter((vendor, index, arr) => {
+                        const vendorId = String(vendor.vendor_id ?? '');
+                        return arr.findIndex((item) => String(item.vendor_id ?? '') === vendorId) === index;
+                    });
+                    window.__EMRI_VENDOR_DATA.vendorOptions = dedupedRows;
+                    window.__EMRI_VENDOR_DATA.vendorStateMappings = dedupedRows.map((vendor) => ({
+                        state_id: stateId,
+                        project_id: projectId,
+                        vendor_id: vendor.vendor_id,
+                    }));
+                    console.log('vendor data replaced from mapped query result:', {
+                        vendorOptions: window.__EMRI_VENDOR_DATA.vendorOptions.length,
+                        mappings: window.__EMRI_VENDOR_DATA.vendorStateMappings.length,
+                        rows: dedupedRows,
+                    });
+
+                    if (!window.__EMRI_vendorMultiSelectReady()) {
+                        window.__EMRI_retryVendorRender(ticket, 0);
+                        return;
+                    }
+
+                    const multiselectContainer = document.getElementById('vendor-multi-select');
+                    const list = multiselectContainer ? multiselectContainer.querySelector('[data-multi-select-list]') : null;
+                    const input = multiselectContainer ? multiselectContainer.querySelector('[data-multi-select-input]') : null;
+                    if (!multiselectContainer || !list || !input) {
+                        console.log('vendor list/input not ready yet; retrying after render loop');
+                        window.__EMRI_retryVendorRender(ticket, 0);
+                        return;
+                    }
+
+                    if (typeof window.initializeVendorMultiSelect === 'function') {
+                        window.initializeVendorMultiSelect();
+                    }
+                    window.__EMRI_renderVendorChips();
+                    window.__EMRI_renderVendorList('');
+                    list.classList.remove('hidden');
+                    input.focus();
+                })
+                .catch((error) => {
+                    console.error('vendor query fetch error:', error);
+                });
+            };
+
             window.refreshIssueDashboard = function refreshIssueDashboard() {
                 fetch('{{ route('role.issue.dashboard') }}', {
                     headers: {
@@ -171,6 +473,9 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const updateForm = document.getElementById('issueUpdateForm');
                 const flashBox = updateForm ? updateForm.querySelector('#drawerUpdateMessage') : null;
+                const statusOptions = @json(collect($statusOptions)->map(function ($status) {
+                    return ['status_id' => (int) $status['status_id'], 'status_name' => $status['status_name']];
+                })->all());
 
                 if (!updateForm || !flashBox) {
                     return;
@@ -185,6 +490,79 @@
                     }
 
                     const formData = new FormData(updateForm);
+                    const selectedStatusName = formData.get('status_name');
+                    const selectedVendorId = formData.get('vendor_id');
+                    const selectedVendorStatusId = formData.get('vendor_status_id');
+                    const isVendorAssignment = String(selectedStatusName || '').trim().toLowerCase() === 'vendor assignment' || String(selectedStatusName || '').trim().toLowerCase() === 'escalate to vendor';
+                    const vendorStatusId = selectedVendorStatusId || statusOptions.find((status) => String(status.status_name) === String(selectedStatusName))?.status_id;
+                    const vendorUpdateUrl = updateForm.dataset.vendorStatusUrl || (window.location.origin + '/issues/' + formData.get('issue_id') + '/vendor-status');
+
+                    if (!isVendorAssignment && selectedVendorId && vendorStatusId) {
+                        formData.set('vendor_status_id', String(vendorStatusId));
+                        formData.set('vendor_id', String(selectedVendorId));
+                        formData.delete('status_name');
+                        formData.delete('status_id');
+
+                        fetch(vendorUpdateUrl, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || formData.get('_token')
+                            },
+                            body: formData
+                        })
+                        .then(async (response) => {
+                            const contentType = response.headers.get('content-type') || '';
+                            let payload = {};
+
+                            if (contentType.includes('application/json')) {
+                                payload = await response.json();
+                            }
+
+                            if (!response.ok) {
+                                throw new Error(payload.message || 'Unable to update vendor status.');
+                            }
+
+                            const message = payload.message || 'Vendor status updated successfully.';
+                            flashBox.className = 'mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800';
+                            flashBox.innerHTML = message + ' <button type="button" data-close-banner class="ml-2 rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100">×</button>';
+                            flashBox.classList.remove('hidden');
+
+                            const closeBanner = flashBox.querySelector('[data-close-banner]');
+                            if (closeBanner) {
+                                closeBanner.addEventListener('click', function () {
+                                    flashBox.classList.add('hidden');
+                                    refreshIssueDashboard();
+                                });
+                            }
+
+                            updateForm.reset();
+                            refreshIssueDashboard();
+                        })
+                        .catch((error) => {
+                            const message = error.message || 'Unable to update vendor status.';
+                            flashBox.className = 'mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800';
+                            flashBox.innerHTML = message + ' <button type="button" data-close-banner class="ml-2 rounded-full bg-white px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100">×</button>';
+                            flashBox.classList.remove('hidden');
+
+                            const closeBanner = flashBox.querySelector('[data-close-banner]');
+                            if (closeBanner) {
+                                closeBanner.addEventListener('click', function () {
+                                    flashBox.classList.add('hidden');
+                                    refreshIssueDashboard();
+                                });
+                            }
+                        })
+                        .finally(() => {
+                            if (submitButton) {
+                                submitButton.disabled = false;
+                            }
+                        });
+
+                        return;
+                    }
 
                     fetch(updateForm.action, {
                         method: 'POST',
@@ -273,7 +651,7 @@
                                     <button @click="activeTab='details'" :class="['px-3 py-2 text-sm', activeTab==='details' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Details</button>
                                     <button @click="activeTab='history'" :class="['px-3 py-2 text-sm', activeTab==='history' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Status History</button>
                                     <button @click="activeTab='attachments'" :class="['px-3 py-2 text-sm', activeTab==='attachments' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Attachments</button>
-                                    <button @click="activeTab='preview'" :class="['px-3 py-2 text-sm', activeTab==='preview' ? 'text-blue-600 font-semibold border-b-2 border-blue-600' : 'text-slate-500']">Preview</button>
+                                    <button type="button" onclick="openTicketPreviewPopup()" class="px-3 py-2 text-sm text-slate-500 hover:text-blue-600">Preview</button>
                                 </nav>
                             </div>
 
@@ -315,30 +693,37 @@
                                             @csrf
                                             <input type="hidden" name="issue_id" x-bind:value="selectedTicket ? selectedTicket.issue_id : ''" />
                                             <input type="hidden" name="status_id" x-bind:value="selectedTicket ? selectedTicket.status_id : ''" />
+                                            <input type="hidden" name="vendor_id" x-bind:value="selectedTicket ? (selectedTicket.current_vendor_id || '') : ''" />
 
                                             <div id="drawerUpdateMessage" class="hidden mb-3 rounded-xl border px-4 py-3 text-sm font-semibold"></div>
 
                                             <div class="space-y-3">
                                                 <div>
                                                     <label class="block text-sm font-semibold text-slate-700">Status</label>
-                                                    <select name="status_name" x-model="selectedStatus" class="mt-2 w-full rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                    <select name="status_name" x-model="selectedStatus" @change="handleStatusChange()" class="mt-2 w-full rounded-[12px] border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                        <option value="">Select Status</option>
                                                         @foreach($statusOptions as $status)
                                                             <option value="{{ $status['status_name'] }}" {{ ($status['status_name'] ?? '') === ($ticketStatus ?? '') ? 'selected' : '' }}>{{ $status['status_name'] }}</option>
                                                         @endforeach
                                                     </select>
                                                 </div>
 
-                                                <div x-show="selectedStatus && ['escalate to vendor', 'vendor assignment'].includes(selectedStatus.toLowerCase())" x-cloak>
-                                                    <label class="block text-sm font-semibold text-slate-700">Vendor Assignment</label>
-                                                    <div id="vendor-multi-select" class="relative mt-2">
-                                                        <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100" data-multi-select>
-                                                            <div class="flex flex-wrap gap-2" data-multi-select-chips></div>
-                                                            <input type="text" class="min-w-[140px] flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" placeholder="Search vendors" data-multi-select-input autocomplete="off" />
+                                                <div x-show="shouldShowVendorPicker()" x-cloak class="space-y-2">
+                                                    <label class="block text-sm font-semibold text-slate-700">
+                                                        Vendor Assignment
+                                                    </label>
+
+                                                    <template x-if="isVendorAssignmentStatus()">
+                                                        <div id="vendor-multi-select" class="relative mt-2">
+                                                            <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100" data-multi-select>
+                                                                <div class="flex flex-wrap gap-2" data-multi-select-chips></div>
+                                                                <input type="text" class="min-w-[140px] flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" placeholder="Search vendors" data-multi-select-input autocomplete="off" />
+                                                            </div>
+                                                            <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
+                                                            <div data-multi-select-hidden class="hidden"></div>
                                                         </div>
-                                                        <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
-                                                        <div data-multi-select-hidden class="hidden"></div>
-                                                    </div>
-                                                    <p class="mt-1 text-[11px] text-slate-500">Search and select one or more vendors.</p>
+                                                        <p class="mt-1 text-[11px] text-slate-500">Search and select one or more vendors.</p>
+                                                    </template>
                                                 </div>
 
                                                 <div>
@@ -527,7 +912,136 @@
         </div>
     </div>
 
+    <div id="ticket-preview-popup" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-900/60 p-4" role="dialog" aria-modal="true" aria-labelledby="ticket-preview-popup-title">
+        <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <div>
+                    <p class="text-[11px] uppercase tracking-[0.24em] text-slate-500">Ticket Preview</p>
+                    <h2 id="ticket-preview-popup-title" class="mt-1 text-xl font-bold text-slate-900">Ticket</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="printTicketPreviewPopup(false)" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">Print</button>
+                    <button type="button" onclick="printTicketPreviewPopup(true)" class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Export PDF</button>
+                    <button type="button" onclick="closeTicketPreviewPopup()" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
+                </div>
+            </div>
+            <div id="ticket-preview-popup-content" class="overflow-y-auto p-6"></div>
+        </div>
+    </div>
+
     <script>
+        function openTicketPreviewPopup() {
+            const ticket = window.__EMRI_CURRENT_TICKET;
+            const popup = document.getElementById('ticket-preview-popup');
+            const content = document.getElementById('ticket-preview-popup-content');
+            const title = document.getElementById('ticket-preview-popup-title');
+
+            if (!ticket || !popup || !content || !title) return;
+
+            const escapeHtml = (value) => String(value ?? '—')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+            const vendors = ticket.vendor_progress?.vendors || [];
+            const attachments = ticket.attachments || [];
+            const history = ticket.history || [];
+            const isImageAttachment = (attachment) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(attachment.file_name || ''));
+
+            title.textContent = ticket.id || 'Ticket Preview';
+            content.innerHTML = `
+                <div class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-5">
+                    <h3 class="text-lg font-bold text-blue-900">Ticket Information</h3>
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        ${[['Ticket ID', ticket.id], ['Title / Subject', ticket.title], ['Issue Category', ticket.category], ['State', ticket.state], ['Project', ticket.project], ['Application', ticket.application], ['Module', ticket.module], ['Overall Status', ticket.status], ['Priority', ticket.priority], ['Updated On', ticket.updated_on]].map(([label, value]) => `
+                        <p class="break-words text-sm leading-6"><span class="font-semibold text-slate-500">${escapeHtml(label)}:</span> <span class="font-semibold text-slate-900">${escapeHtml(value)}</span></p>`).join('')}
+                    </div>
+                </div>
+                <div class="mt-5 rounded-xl border border-violet-200 bg-violet-50 p-5">
+                    <h3 class="text-lg font-bold text-violet-900">Description</h3>
+                    <p class="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">${escapeHtml(ticket.description || 'No description available.')}</p>
+                </div>
+                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-5">
+                    <h3 class="text-lg font-bold text-amber-900">Occurrence Details</h3>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                        <p class="break-words text-sm leading-6"><span class="font-semibold text-amber-800">Occurred On:</span> <span class="font-semibold text-slate-900">${escapeHtml(ticket.occurred_date || 'Not recorded')}</span></p>
+                        <p class="break-words text-sm leading-6"><span class="font-semibold text-amber-800">Time:</span> <span class="font-semibold text-slate-900">${escapeHtml(ticket.occurred_time || 'Not recorded')}</span></p>
+                        <p class="break-words text-sm leading-6"><span class="font-semibold text-amber-800">Affected Users:</span> <span class="font-semibold text-slate-900">${escapeHtml(ticket.affected_users || 'Not recorded')}</span></p>
+                    </div>
+                </div>
+                <div class="mt-5 rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-lg font-bold text-slate-900">Vendor Status</h3>
+                    <div class="mt-3 space-y-2">${vendors.length ? vendors.map((vendor) => `
+                        <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                            <span class="font-semibold text-slate-800">${escapeHtml(vendor.vendor_name)}</span>
+                            <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">${escapeHtml(vendor.status_name)}</span>
+                        </div>`).join('') : '<p class="text-sm text-slate-500">No vendor assignments.</p>'}</div>
+                </div>
+                <div class="mt-5 rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-lg font-bold text-slate-900">Attachments</h3>
+                    <div class="mt-3 space-y-4">${attachments.length ? attachments.map((attachment) => `
+                        <div class="text-sm">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="font-semibold text-slate-700">${escapeHtml(attachment.file_name)}</span>
+                                <a href="${escapeHtml(attachment.view_url || '#')}" target="_blank" rel="noopener noreferrer" class="font-semibold text-blue-600 hover:underline">View</a>
+                            </div>
+                            ${isImageAttachment(attachment) && attachment.inline_url ? `<img src="${escapeHtml(attachment.inline_url)}" alt="${escapeHtml(attachment.file_name)}" class="mt-3 max-h-72 max-w-full rounded-lg border border-slate-200 object-contain" />` : ''}
+                        </div>`).join('') : '<p class="text-sm text-slate-500">No attachments.</p>'}</div>
+                </div>
+                <div class="mt-5 rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-lg font-bold text-slate-900">Status History</h3>
+                    <div class="mt-3 space-y-3">${history.length ? history.map((row) => `<div class="border-l-2 border-blue-200 pl-3"><p class="text-sm font-semibold text-slate-800">${escapeHtml(row.status_name || row.action)}</p><p class="text-xs text-slate-500">${escapeHtml(row.changed_at)} · ${escapeHtml(row.changed_by)}</p><p class="mt-1 text-sm text-slate-600">${escapeHtml(row.comment || row.remarks || 'No remarks')}</p></div>`).join('') : '<p class="text-sm text-slate-500">No status history.</p>'}</div>
+                </div>`;
+
+            popup.classList.remove('hidden');
+            popup.classList.add('flex');
+        }
+
+        function closeTicketPreviewPopup() {
+            const popup = document.getElementById('ticket-preview-popup');
+            if (!popup) return;
+            popup.classList.add('hidden');
+            popup.classList.remove('flex');
+        }
+
+        function printTicketPreviewPopup(exportPdf = false) {
+            const ticket = window.__EMRI_CURRENT_TICKET;
+            const content = document.getElementById('ticket-preview-popup-content');
+            if (!ticket || !content) return;
+
+            const printWindow = window.open('', '_blank', 'width=1000,height=800');
+            if (!printWindow) {
+                alert('Your browser blocked the print popup. Please allow popups.');
+                return;
+            }
+
+            printWindow.document.write(`<!doctype html>
+                <html><head><title>${String(ticket.id || 'Ticket Preview')}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; color: #111827; margin: 32px; }
+                    h1 { font-size: 24px; margin: 0 0 20px; }
+                    h3 { font-size: 16px; margin: 0 0 12px; }
+                    .section { border: 1px solid #d1d5db; padding: 16px; margin-bottom: 16px; }
+                    .line { margin: 5px 0; line-height: 1.5; }
+                    .label { color: #6b7280; font-weight: 700; }
+                    .vendor { border-bottom: 1px solid #e5e7eb; padding: 7px 0; }
+                    .history { border-left: 3px solid #93c5fd; padding: 5px 0 5px 10px; margin: 8px 0; }
+                    a { color: #2563eb; }
+                    @media print { body { margin: 16px; } }
+                </style></head><body>
+                <h1>${String(ticket.id || 'Ticket Preview')}</h1>
+                ${content.innerHTML}
+                </body></html>`);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => printWindow.print(), 300);
+        }
+
+        document.addEventListener('click', function (event) {
+            if (event.target.id === 'ticket-preview-popup') closeTicketPreviewPopup();
+        });
+
         function printTicketPreviewSection() {
             const previewSection = document.getElementById('ticketPreviewSection');
             if (!previewSection) return;
@@ -569,209 +1083,171 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
-            const vendorOptions = @json($vendorOptions->map(function ($vendor) {
-                return ['vendor_id' => $vendor->vendor_id, 'vendor_name' => $vendor->vendor_name];
+            const vendorOptions = @json(collect($vendorOptions ?? [])->map(function ($vendor) {
+                return ['vendor_id' => $vendor->vendor_id ?? $vendor['vendor_id'], 'vendor_name' => $vendor->vendor_name ?? $vendor['vendor_name']];
             })->all());
-            const vendorStateMappings = @json($vendorStateMappings->map(function ($mapping) {
-                return ['state_id' => $mapping->state_id, 'project_id' => $mapping->project_id, 'vendor_id' => $mapping->vendor_id];
+            const vendorStateMappings = @json(collect($vendorStateMappings ?? [])->map(function ($mapping) {
+                return ['state_id' => $mapping->state_id ?? $mapping['state_id'], 'project_id' => $mapping->project_id ?? $mapping['project_id'], 'vendor_id' => $mapping->vendor_id ?? $mapping['vendor_id']];
             })->all());
-
-            const multiselectContainer = document.getElementById('vendor-multi-select');
-            if (!multiselectContainer) {
-                return;
-            }
-
-            const input = multiselectContainer.querySelector('[data-multi-select-input]');
-            const list = multiselectContainer.querySelector('[data-multi-select-list]');
-            const chipsContainer = multiselectContainer.querySelector('[data-multi-select-chips]');
-            const hiddenContainer = multiselectContainer.querySelector('[data-multi-select-hidden]');
-
-            let selectedVendorIds = [];
-
-            function formatVendorLabel(vendor) {
-                return vendor.vendor_name || '';
-            }
-
-            function findVendorById(id) {
-                return vendorOptions.find((option) => String(option.vendor_id) === String(id));
-            }
-
+            
+            // Define variables that will be used by refreshVendorOptions
             let currentStateId = null;
             let currentProjectId = null;
+            let selectedVendorIds = [];
 
-            function getAvailableVendorIds() {
-                if (!currentStateId || !currentProjectId) {
-                    return [];
-                }
-                return vendorStateMappings
-                    .filter((mapping) => String(mapping.state_id) === String(currentStateId) && String(mapping.project_id) === String(currentProjectId))
-                    .map((mapping) => String(mapping.vendor_id));
-            }
+            window.__EMRI_VENDOR_DATA.vendorOptions = vendorOptions;
+            window.__EMRI_VENDOR_DATA.vendorStateMappings = vendorStateMappings;
+            console.log('vendor data loaded into window.__EMRI_VENDOR_DATA', {
+                vendorOptions: vendorOptions.length,
+                vendorStateMappings: vendorStateMappings.length,
+                sampleOptions: vendorOptions.slice(0, 5),
+                sampleMapping: vendorStateMappings.slice(0, 5)
+            });
+            console.log('vendor filter state on load', {
+                currentStateId: window.__EMRI_VENDOR_DATA.currentStateId,
+                currentProjectId: window.__EMRI_VENDOR_DATA.currentProjectId,
+                availableIdsForCurrentTicket: window.__EMRI_getAvailableVendorIds ? window.__EMRI_getAvailableVendorIds(window.__EMRI_VENDOR_DATA.currentStateId, window.__EMRI_VENDOR_DATA.currentProjectId) : []
+            });
 
-            function getAvailableVendors() {
-                const availableIds = getAvailableVendorIds();
-                return vendorOptions.filter((vendor) => availableIds.includes(String(vendor.vendor_id)));
-            }
-
-            function renderList(filter = '') {
-                list.innerHTML = '';
-                const query = String(filter).trim().toLowerCase();
-
-                const filtered = getAvailableVendors().filter((option) => {
-                    const label = formatVendorLabel(option).toLowerCase();
-                    const isSelected = selectedVendorIds.includes(String(option.vendor_id));
-                    const matchesSearch = query === '' || label.includes(query);
-                    return !isSelected && matchesSearch;
-                });
-
-                if (filtered.length === 0) {
-                    const empty = document.createElement('div');
-                    empty.className = 'px-3 py-2 text-sm text-slate-500';
-                    empty.textContent = currentStateId && currentProjectId ? 'No vendors mapped for this state/project.' : 'Select a ticket first to load vendors.';
-                    list.appendChild(empty);
+            function initializeVendorMultiSelect() {
+                const multiselectContainer = document.getElementById('vendor-multi-select');
+                if (!multiselectContainer) {
+                    console.log('vendor-multi-select container not found on page load, will initialize when template renders');
                     return;
                 }
 
-                filtered.forEach((vendor) => {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = 'w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
-                    button.dataset.value = vendor.vendor_id;
-                    button.textContent = formatVendorLabel(vendor);
-                    list.appendChild(button);
+                const input = multiselectContainer.querySelector('[data-multi-select-input]');
+                const list = multiselectContainer.querySelector('[data-multi-select-list]');
+                const chipsContainer = multiselectContainer.querySelector('[data-multi-select-chips]');
+                const hiddenContainer = multiselectContainer.querySelector('[data-multi-select-hidden]');
+
+                if (!input || !list || !chipsContainer || !hiddenContainer) {
+                    return;
+                }
+
+                if (input.dataset.bound === 'true') {
+                    return;
+                }
+
+                input.dataset.bound = 'true';
+
+                input.addEventListener('input', function () {
+                    window.__EMRI_renderVendorList(this.value);
+                    list.classList.remove('hidden');
                 });
-            }
 
-            function renderChips() {
-                chipsContainer.innerHTML = '';
-                hiddenContainer.innerHTML = '';
+                input.addEventListener('focus', function () {
+                    window.__EMRI_renderVendorList(this.value);
+                    list.classList.remove('hidden');
+                });
 
-                selectedVendorIds.forEach((vendorId) => {
-                    const vendor = findVendorById(vendorId);
-                    if (!vendor) {
+                input.addEventListener('click', function () {
+                    window.__EMRI_renderVendorList(this.value);
+                    list.classList.remove('hidden');
+                });
+
+                list.addEventListener('click', function (event) {
+                    const button = event.target.closest('button[data-vendor-id]');
+                    if (!button) {
                         return;
                     }
 
-                    const chip = document.createElement('span');
-                    chip.className = 'inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700';
-                    chip.textContent = formatVendorLabel(vendor);
+                    const vendorId = String(button.dataset.vendorId || '');
+                    if (!vendorId) {
+                        return;
+                    }
 
-                    const removeButton = document.createElement('button');
-                    removeButton.type = 'button';
-                    removeButton.className = 'rounded-full bg-slate-200 px-1 text-slate-500 hover:bg-slate-300';
-                    removeButton.textContent = '×';
-                    removeButton.addEventListener('click', function (event) {
-                        event.stopPropagation();
-                        removeSelectedVendor(vendorId);
-                    });
+                    const selectedVendorIds = window.__EMRI_VENDOR_DATA.selectedVendorIds || [];
+                    if (!selectedVendorIds.includes(vendorId)) {
+                        window.__EMRI_VENDOR_DATA.selectedVendorIds = [...selectedVendorIds, vendorId];
+                        window.__EMRI_renderVendorChips();
+                        window.__EMRI_renderVendorList('');
+                    }
 
-                    chip.appendChild(removeButton);
-                    chipsContainer.appendChild(chip);
-
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'vendor_ids[]';
-                    hiddenInput.value = vendorId;
-                    hiddenContainer.appendChild(hiddenInput);
-                });
-            }
-
-            function addSelectedVendor(vendorId) {
-                vendorId = String(vendorId);
-                if (!selectedVendorIds.includes(vendorId)) {
-                    selectedVendorIds.push(vendorId);
-                    renderChips();
-                    renderList(input.value);
-                }
-            }
-
-            function removeSelectedVendor(vendorId) {
-                vendorId = String(vendorId);
-                selectedVendorIds = selectedVendorIds.filter((value) => value !== vendorId);
-                renderChips();
-                renderList(input.value);
-            }
-
-            input.addEventListener('input', function () {
-                renderList(this.value);
-                list.classList.remove('hidden');
-            });
-
-            input.addEventListener('focus', function () {
-                renderList(this.value);
-                list.classList.remove('hidden');
-            });
-
-            list.addEventListener('click', function (event) {
-                const button = event.target.closest('button[data-value]');
-                if (!button) {
-                    return;
-                }
-                addSelectedVendor(button.dataset.value);
-                input.value = '';
-                list.classList.add('hidden');
-            });
-
-            document.addEventListener('click', function (event) {
-                if (!multiselectContainer.contains(event.target)) {
+                    input.value = '';
                     list.classList.add('hidden');
-                }
-            });
-
-            window.refreshVendorOptions = function (ticket) {
-                currentStateId = ticket?.state_id || ticket?.state || null;
-                currentProjectId = ticket?.project_id || ticket?.project || null;
-                selectedVendorIds = [];
-                renderChips();
-                renderList(input.value);
-            };
-
-            renderList();
-            renderChips();
-
-            function exportIssueQueue(event) {
-                event.preventDefault();
-                
-                const issues = @js($issues);
-                if (!issues || issues.length === 0) {
-                    alert('No issues to export.');
-                    return;
-                }
-
-                // Create CSV content
-                const headers = ['Ticket ID', 'Issue Title', 'State', 'Project', 'Application', 'Module', 'Status', 'Priority', 'Updated On'];
-                const rows = issues.map(ticket => [
-                    ticket.id,
-                    ticket.title,
-                    ticket.state,
-                    ticket.project,
-                    ticket.application,
-                    ticket.module,
-                    ticket.status,
-                    ticket.priority,
-                    ticket.updated_on
-                ]);
-
-                let csv = headers.join(',') + '\n';
-                rows.forEach(row => {
-                    csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
                 });
 
-                // Create blob and download
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', 'issue_queue_' + new Date().getTime() + '.csv');
-                link.style.visibility = 'hidden';
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                input.addEventListener('keydown', function (event) {
+                    if (event.key !== 'Enter') {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const firstVisible = Array.from(list.querySelectorAll('button[data-vendor-id]')).find((button) => button.style.display !== 'none');
+                    if (!firstVisible) {
+                        return;
+                    }
+
+                    const vendorId = String(firstVisible.dataset.vendorId || '');
+                    if (!vendorId) {
+                        return;
+                    }
+
+                    const selectedVendorIds = window.__EMRI_VENDOR_DATA.selectedVendorIds || [];
+                    if (!selectedVendorIds.includes(vendorId)) {
+                        window.__EMRI_VENDOR_DATA.selectedVendorIds = [...selectedVendorIds, vendorId];
+                        window.__EMRI_renderVendorChips();
+                        window.__EMRI_renderVendorList('');
+                    }
+
+                    input.value = '';
+                    list.classList.add('hidden');
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!multiselectContainer.contains(event.target)) {
+                        list.classList.add('hidden');
+                    }
+                });
             }
 
-            window.exportIssueQueue = exportIssueQueue;
+            window.initializeVendorMultiSelect = initializeVendorMultiSelect;
+            initializeVendorMultiSelect();
         });
+
+        function exportIssueQueue(event) {
+            if (event) {
+                event.preventDefault();
+            }
+
+            const issues = @js($issues);
+            if (!issues || issues.length === 0) {
+                alert('No issues to export.');
+                return;
+            }
+
+            const headers = ['Ticket ID', 'Issue Title', 'State', 'Project', 'Application', 'Module', 'Status', 'Priority', 'Updated On'];
+            const rows = issues.map(ticket => [
+                ticket.id,
+                ticket.title,
+                ticket.state,
+                ticket.project,
+                ticket.application,
+                ticket.module,
+                ticket.status,
+                ticket.priority,
+                ticket.updated_on
+            ]);
+
+            let csv = headers.join(',') + '\n';
+            rows.forEach(row => {
+                csv += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'issue_queue_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.exportIssueQueue = exportIssueQueue;
     </script>
 </x-app-layout>

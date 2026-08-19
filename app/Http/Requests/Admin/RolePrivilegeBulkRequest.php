@@ -17,7 +17,7 @@ class RolePrivilegeBulkRequest extends FormRequest
             'role_id' => ['required', 'integer', 'exists:mst_role,role_id'],
             'permissions' => ['nullable', 'array'],
             'permissions.*' => ['array'],
-            'permissions.*.*' => ['in:0,1,\"0\",\"1\"'],
+            'permissions.*.*' => ['boolean'],
         ];
     }
 

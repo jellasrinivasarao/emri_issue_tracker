@@ -1,4 +1,4 @@
-give<?php
+<?php
 
 namespace Database\Seeders;
 
@@ -42,7 +42,7 @@ class RoleMenuSeeder extends Seeder
                 'menu.master',
                 'role.menu.mapping',
                 'role.privilege.mapping',
-                'working.hours',
+                'working-schedules.index',
                 'holiday.calendar',
                 'sla.configuration',
                 'automatic.routing',

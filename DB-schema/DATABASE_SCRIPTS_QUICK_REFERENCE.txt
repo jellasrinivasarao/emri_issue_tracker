@@ -1,0 +1,375 @@
+-- ============================================================================
+-- EMRI ISSUE TRACKER - DATABASE SCRIPTS QUICK REFERENCE GUIDE
+-- ============================================================================
+-- This is a quick lookup guide for database scripts
+-- DO NOT EXECUTE THIS FILE - It's for reference only
+-- ============================================================================
+
+-- ============================================================================
+-- SCRIPT EXECUTION ORDER
+-- ============================================================================
+
+EXECUTION ORDER:
+  1. user_organization_tables_structure.sql    (Users & Organizations)
+  2. master_tables_structure.sql               (Master Data & Mappings)
+  3. transaction_tables_structure.sql          (Transactions & Operations)
+
+WHY THIS ORDER?
+  - User & Organization tables are independent (can be created first)
+  - Master tables need Organizations as foreign key
+  - Transaction tables depend on Master tables
+  - Foreign key constraints will fail if run out of order
+
+
+-- ============================================================================
+-- SCRIPT 1: user_organization_tables_structure.sql
+-- ============================================================================
+
+TABLES CREATED: 9 tables
+
+ORGANIZATION TABLES:
+  ✓ mst_organisation_type          - Organization types
+  ✓ mst_organisation               - Organizations
+  ✓ mst_head_office                - Head office locations
+  ✓ mst_user                       - Users
+
+AUDIT & LOGGING TABLES:
+  ✓ txn_user_activity_log          - User activity tracking
+  ✓ txn_system_audit_log           - System audit trail
+
+CONFIGURATION TABLES:
+  ✓ mst_project_support_configuration - Support group per project
+  ✓ mst_issue_routing_rule         - Advanced routing rules
+
+FEATURES:
+  - Multi-organization support
+  - User management with password reset OTP
+  - Complete audit trail
+  - Activity logging
+  - Advanced routing rules
+
+
+-- ============================================================================
+-- SCRIPT 2: master_tables_structure.sql
+-- ============================================================================
+
+TABLES CREATED: 18 tables + sample data
+
+MASTER DATA TABLES (Core):
+  ✓ mst_state                      - States/Regions
+  ✓ mst_project                    - Projects
+  ✓ mst_application                - Applications
+  ✓ mst_module                     - Modules/Components
+  ✓ mst_service                    - Services
+  ✓ mst_vendor                     - Vendors
+  ✓ mst_issue_status               - Issue statuses (9 sample statuses)
+  ✓ mst_priority                   - Priorities (4 sample levels)
+  ✓ mst_issue_category             - Issue categories
+  ✓ mst_support_group              - Support groups
+  ✓ mst_role                       - Roles (6 sample roles)
+  ✓ mst_menu                       - Navigation menus
+  ✓ mst_privilege                  - Permissions/Privileges
+
+MAPPING TABLES (Relationships):
+  ✓ map_project_application        - Project ↔ Application
+  ✓ map_project_application_module - Project ↔ Application ↔ Module
+  ✓ map_project_service            - Project ↔ Service
+  ✓ map_project_state              - Project ↔ State
+  ✓ map_vendor_state               - Vendor ↔ State (with optional Project/Application)
+  ✓ map_role_privilege             - Role ↔ Menu ↔ Privilege
+  ✓ map_role_issue_status          - Role ↔ Issue Status (which statuses each role can use)
+  ✓ map_user_role                  - User ↔ Role
+  ✓ map_user_project               - User ↔ Project
+  ✓ map_user_support_group         - User ↔ Support Group
+  ✓ map_issue_vendor_assignment    - Issue ↔ Vendor (CRITICAL - Multi-Vendor Support)
+
+SAMPLE DATA INCLUDED:
+  ✓ Issue Statuses:
+    - New, Assigned, In Progress, Resolved, Closed
+    - Vendor Assignment, Escalate to Vendor, Rejected, Clarification
+  
+  ✓ Priorities:
+    - Critical, High, Medium, Low
+  
+  ✓ System Roles:
+    - HO Admin, HO IT
+    - Vendor Admin, Vendor IT
+    - State Admin, State IT
+
+KEY FEATURES:
+  - Multi-vendor issue assignment support
+  - Hierarchical menu structure
+  - Flexible role-based status management
+  - Project-application-module hierarchy
+
+
+-- ============================================================================
+-- SCRIPT 3: transaction_tables_structure.sql
+-- ============================================================================
+
+TABLES CREATED: 15 tables
+
+ISSUE TRANSACTION TABLES:
+  ✓ txn_issue                      - Main issue/ticket table
+  ✓ txn_issue_status_history       - Status change audit trail (with vendor_id for multi-vendor)
+  ✓ txn_issue_attachment           - Issue file attachments
+
+ROUTING & ASSIGNMENT:
+  ✓ mst_issue_routing              - Routing rules for auto-assignment
+  ✓ txn_issue_routing              - Routing transaction log
+
+SLA & CONFIGURATION:
+  ✓ mst_sla_policy                 - SLA definitions
+  ✓ mst_sla_configuration          - State/Project/Priority SLA mapping
+
+WORKING CALENDAR & SCHEDULES:
+  ✓ mst_working_calendar           - Calendar by state & year
+  ✓ txn_calendar_holiday           - Holiday definitions
+  ✓ mst_working_schedule           - Working hours per day
+
+MAIL & NOTIFICATIONS:
+  ✓ mst_mail_setting               - SMTP configurations
+  ✓ mst_mail_configuration         - Email routing
+  ✓ txn_mail_log                   - Email sending log
+
+FEATURES:
+  - Complete status change audit trail
+  - Vendor-specific status tracking (txn_issue_status_history.vendor_id)
+  - SLA configuration by priority
+  - Multiple working calendars per state
+  - Holiday management
+  - Email logging
+
+
+-- ============================================================================
+-- IMPORTANT: MULTI-VENDOR WORKFLOW TABLES
+-- ============================================================================
+
+CRITICAL TABLE: map_issue_vendor_assignment
+  └─ Location: master_tables_structure.sql
+  └─ Purpose: Links vendors to issues for multi-vendor support
+  
+FIELDS:
+  - issue_id           - Issue being assigned
+  - vendor_id          - Vendor being assigned
+  - vendor_status_id   - Vendor-specific status (from mst_issue_status)
+  - is_active          - 1=active vendor, 0=rejected vendor
+  - status_remarks     - Vendor-specific notes
+  - status_updated_by  - User who last updated vendor status
+  - status_updated_at  - When vendor status was last updated
+
+SUPPORTING TABLE: txn_issue_status_history
+  └─ Location: transaction_tables_structure.sql
+  └─ Fields:
+    - vendor_id        - NULL for main ticket, populated for vendor-specific changes
+    - new_status_id    - Status that was changed to
+    - comment          - Change notes/remarks
+
+WORKFLOW:
+  1. Issue created → vendors assigned via map_issue_vendor_assignment
+  2. Each vendor gets initial status (usually "New")
+  3. Vendor updates their status → txn_issue_status_history records change
+  4. When ALL vendors are Resolved → main ticket auto-resolves
+  5. If vendor Rejects → is_active = 0, not counted in completion
+
+
+-- ============================================================================
+-- FIELD NAMING CONVENTIONS
+-- ============================================================================
+
+PRIMARY KEYS:
+  mst_* tables         → {table_name}_id (e.g., state_id, vendor_id)
+  txn_* tables         → {table_name}_id (e.g., issue_id, history_id)
+  map_* tables         → {mapping_name}_id (e.g., vendor_state_id)
+
+FOREIGN KEYS:
+  Format               → fk_{mapping_table}_{referenced_table}
+  Example              → fk_map_issue_vendor_vendor
+  
+INDEXES:
+  Primary Key          → PRIMARY KEY
+  Unique Constraints   → uq_{field_names} (e.g., uq_vendor_code_org)
+  Regular Indexes      → idx_{field_name} (e.g., idx_is_active)
+
+COMMON FIELDS:
+  is_active            → 1=active, 0=inactive (soft delete)
+  created_at           → Timestamp when record created
+  updated_at           → Timestamp when record last modified
+
+
+-- ============================================================================
+-- SAMPLE DATA INSERTIONS
+-- ============================================================================
+
+ISSUE STATUSES (sample):
+  Status 1: New             → For newly created issues
+  Status 2: Assigned        → Issue assigned to someone
+  Status 3: In Progress     → Work is ongoing
+  Status 4: Resolved        → Work completed (all vendors resolved)
+  Status 5: Closed          → Issue closed
+  Status 6: Vendor Assignment → Assigning to vendors
+  Status 7: Escalate to Vendor → Escalating to vendors
+  Status 8: Rejected        → Issue rejected
+  Status 9: Clarification   → Waiting for clarification
+
+PRIORITIES (sample):
+  Priority 1: Critical      → Level 1 (Highest)
+  Priority 2: High          → Level 2
+  Priority 3: Medium        → Level 3
+  Priority 4: Low           → Level 4 (Lowest)
+
+ROLES (sample):
+  HO Admin              → Head Office Administrator
+  HO IT                 → Head Office IT Support
+  Vendor Admin          → Vendor Administrator
+  Vendor IT             → Vendor IT Support
+  State Admin           → State Administrator
+  State IT              → State IT Support
+
+
+-- ============================================================================
+-- QUICK LOOKUP: TABLE TO MASTER PAGE MAPPING
+-- ============================================================================
+
+MASTER PAGE                           PRIMARY TABLE              RELATED MAPPINGS
+─────────────────────────────────────────────────────────────────────────────────
+State Master                          mst_state                  map_project_state
+                                                                 map_vendor_state
+
+Project Master                        mst_project                map_project_application
+                                                                 map_project_service
+                                                                 map_project_state
+
+Application Master                    mst_application            map_project_application
+                                                                 map_project_application_module
+
+Module Master                         mst_module                 map_project_application_module
+
+Service Master                        mst_service                map_project_service
+
+Vendor Master                         mst_vendor                 map_vendor_state
+                                                                 map_issue_vendor_assignment
+
+Issue Status Master                   mst_issue_status           map_role_issue_status
+                                                                 txn_issue_status_history
+
+Priority Master                       mst_priority               mst_sla_policy
+                                                                 mst_sla_configuration
+
+Issue Category Master                 mst_issue_category         mst_sla_policy
+
+Support Group Master                  mst_support_group          map_user_support_group
+                                                                 mst_project_support_config
+
+Role Master                           mst_role                   map_role_privilege
+                                                                 map_role_issue_status
+                                                                 map_user_role
+
+Menu Master                           mst_menu                   map_role_privilege
+
+Privilege Master                      mst_privilege              map_role_privilege
+
+User Master                           mst_user                   map_user_role
+                                                                 map_user_project
+                                                                 map_user_support_group
+
+
+-- ============================================================================
+-- VERIFICATION QUERIES
+-- ============================================================================
+
+-- Check total tables created
+SELECT COUNT(*) as total_tables FROM INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_SCHEMA = 'emri_issue_tracker';
+-- Expected: 42 tables (13 master + 11 mapping + 15 transaction + 3 org)
+
+-- List all tables
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_SCHEMA = 'emri_issue_tracker' ORDER BY TABLE_NAME;
+
+-- Check issue statuses
+SELECT status_id, status_name, status_category FROM mst_issue_status 
+WHERE is_active = 1 ORDER BY display_order;
+
+-- Check available roles
+SELECT role_id, role_name FROM mst_role WHERE is_active = 1;
+
+-- Check sample vendors assigned to states
+SELECT v.vendor_name, s.state_name FROM map_vendor_state mvs
+LEFT JOIN mst_vendor v ON mvs.vendor_id = v.vendor_id
+LEFT JOIN mst_state s ON mvs.state_id = s.state_id
+LIMIT 5;
+
+-- Check role permissions (sample)
+SELECT r.role_name, m.display_name FROM map_role_privilege mrp
+LEFT JOIN mst_role r ON mrp.role_id = r.role_id
+LEFT JOIN mst_menu m ON mrp.menu_id = m.menu_id
+WHERE r.is_active = 1 AND mrp.is_allowed = 1 LIMIT 10;
+
+
+-- ============================================================================
+-- COMMON OPERATION WORKFLOWS
+-- ============================================================================
+
+WORKFLOW 1: Create New Project
+  1. Insert into mst_project
+  2. Insert into map_project_state (link to states)
+  3. Insert into map_project_application (link to applications)
+  4. Insert into map_project_service (link to services)
+  5. Insert into mst_sla_configuration (define SLA)
+
+WORKFLOW 2: Assign Vendors to Project
+  1. Ensure vendors exist in mst_vendor
+  2. Link vendors to states via map_vendor_state
+  3. Optionally link to specific projects/applications
+
+WORKFLOW 3: Create New Issue
+  1. Insert into txn_issue (with state_id, project_id, etc.)
+  2. Insert into map_issue_vendor_assignment (for each vendor)
+  3. Insert into txn_issue_status_history (initial status)
+
+WORKFLOW 4: Update Vendor Status
+  1. Update map_issue_vendor_assignment.vendor_status_id
+  2. Update map_issue_vendor_assignment.status_updated_at
+  3. Insert into txn_issue_status_history (with vendor_id)
+  4. Check if ALL vendors resolved → Update main txn_issue.status_id
+
+WORKFLOW 5: Grant Role Permission
+  1. Ensure role exists in mst_role
+  2. Ensure menu exists in mst_menu
+  3. Insert into map_role_privilege (role_id, menu_id, privilege_id)
+  4. Set is_allowed = 1 to grant permission
+
+
+-- ============================================================================
+-- IMPORTANT NOTES
+-- ============================================================================
+
+🔴 CRITICAL:
+  - Always run scripts in recommended order
+  - Scripts use foreign keys - dependencies matter
+  - map_issue_vendor_assignment is essential for multi-vendor feature
+  - txn_issue_status_history.vendor_id enables vendor-specific tracking
+
+⚠️ WARNINGS:
+  - Do NOT run scripts in parallel
+  - Do NOT skip any script
+  - Do NOT modify table structures without understanding dependencies
+  - Always backup before running in production
+
+✅ RECOMMENDATIONS:
+  - Use Laravel migrations (preferred method)
+  - Maintain separate dev/staging/prod databases
+  - Archive old data regularly (txn_issue older than 2 years)
+  - Run regular backups
+
+📋 FILES PROVIDED:
+  ✓ master_tables_structure.sql              - 18 tables
+  ✓ transaction_tables_structure.sql         - 15 tables
+  ✓ user_organization_tables_structure.sql   - 9 tables
+  ✓ README_DATABASE_SCRIPTS.md               - Detailed documentation
+  ✓ DATABASE_SCRIPTS_QUICK_REFERENCE.txt    - This file
+
+-- ============================================================================
+-- END OF QUICK REFERENCE GUIDE
+-- ============================================================================

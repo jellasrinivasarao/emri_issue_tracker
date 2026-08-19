@@ -14,6 +14,13 @@
                         </div>
                     </div>
                 @endif
+                @if($errors->any())
+                    <div class="px-5 py-4" id="permission-validation-errors">
+                        <div class="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                            {{ $errors->first() }}
+                        </div>
+                    </div>
+                @endif
                 <div class="px-5 py-4">
                     <div class="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>

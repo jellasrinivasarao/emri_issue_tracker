@@ -107,7 +107,7 @@
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
                 'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
                 'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping','mail.configuration'],
-                'Operational Configuration' => ['working-schedules', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
+                'Operational Configuration' => ['working-schedules.index', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
                 'Audit & Governance' => ['active.inactive.status', 'change.history', 'user.activity.log', 'system.audit.logs'],
             ];
 
@@ -284,7 +284,6 @@
                             @else
                                 @yield('content')
                             @endif
-                            @stack('scripts')
                         </div>
                     </main>
                     </div>

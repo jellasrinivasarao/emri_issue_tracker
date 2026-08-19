@@ -67,6 +67,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('menu.access:role.issue.dashboard')
         ->name('role.issue.dashboard');
 
+    Route::get('/role-issue-dashboard/vendor-options', [PageController::class, 'vendorOptionsByStateProject'])
+        ->middleware(['auth', 'menu.access:role.issue.dashboard'])
+        ->name('role.issue.vendor.options');
+
     Route::post('/role-issue-dashboard/update', [PageController::class, 'updateIssueStatus'])
         ->middleware(['auth', 'menu.access:role.issue.dashboard'])
         ->name('role.issue.update');
@@ -99,6 +103,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ajax/modules', [IssueController::class, 'modulesByApplication'])
         ->middleware('auth')
         ->name('issues.ajax.modules');
+
+    // Vendor status update endpoint (multi-vendor workflow)
+    Route::post('/issues/{issue}/vendor-status', [IssueController::class, 'updateVendorStatus'])
+        ->middleware('auth')
+        ->name('issues.vendor.status.update');
 
     Route::get('/reports', [PageController::class, 'reports'])
         ->middleware('menu.access:reports')
@@ -381,19 +390,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:role.privilege.mapping'])
         ->name('role.privilege.mapping.toggle');
 
-    //Route::get('/working-hours', [AdminConfigController::class, 'workingHours'])->middleware('menu.access:working.hours')->name('working.hours');
+    Route::get('/working-hours', [WorkingHoursController::class, 'index'])
+        ->middleware(['auth', 'menu.access:working-schedules.index'])
+        ->name('working.hours');
 
     // Working calendar CRUD endpoints
     // Route::post('/working-calendars', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'store'])
-    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->middleware(['auth','menu.access:working-schedules.index'])
     //     ->name('working.calendars.store');
 
     // Route::put('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'update'])
-    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->middleware(['auth','menu.access:working-schedules.index'])
     //     ->name('working.calendars.update');
 
     // Route::delete('/working-calendars/{calendar}', [\App\Http\Controllers\Admin\WorkingCalendarController::class, 'destroy'])
-    //     ->middleware(['auth','menu.access:working.hours'])
+    //     ->middleware(['auth','menu.access:working-schedules.index'])
     //     ->name('working.calendars.destroy');
 
 
@@ -401,50 +412,52 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/working-calendars', [WorkingCalendarController::class, 'index'])
-        ->middleware('menu.access:working.hours')
+        ->middleware('menu.access:working-schedules.index')
         ->name('working.calendars');
 
     Route::post('/working-calendars', [WorkingCalendarController::class, 'store'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.store');
 
     Route::put('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'update'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.update');
 
     Route::post('/working-calendars/{calendar_id}/toggle', [WorkingCalendarController::class, 'toggle'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.toggle');
 
     Route::delete('/working-calendars/{calendar_id}', [WorkingCalendarController::class, 'destroy'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.destroy');
 
     Route::get('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'index'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.schedules');
 
     Route::post('/working-calendars/{calendar_id}/schedules', [WorkingScheduleController::class, 'store'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.schedules.store');
 
     Route::put('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'update'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.schedules.update');
 
     Route::post('/working-calendars/{calendar_id}/schedules/{schedule_id}/toggle', [WorkingScheduleController::class, 'toggle'])
-        ->middleware(['auth','menu.access:working.hours'])
+        ->middleware(['auth','menu.access:working-schedules.index'])
         ->name('working.calendars.schedules.toggle');
 
     Route::delete('/working-calendars/{calendar_id}/schedules/{schedule_id}', [WorkingScheduleController::class, 'destroy'])
         ->middleware(['auth','menu.access:working.hours'])
         ->name('working.calendars.schedules.destroy');
 
-    Route::resource('working-schedules', WorkingHoursController::class);
+    Route::resource('working-schedules', WorkingHoursController::class)
+        ->middleware(['auth', 'menu.access:working-schedules.index']);
 
     Route::patch('working-schedules/{working_schedule}/toggle-status',
         [WorkingHoursController::class, 'toggleStatus']
-    )->name('working-schedules.toggle-status');
+    )->middleware(['auth', 'menu.access:working-schedules.index'])
+        ->name('working-schedules.toggle-status');
 
 
     #Route::resource('sla-configurations',SlaConfigurationController::class);

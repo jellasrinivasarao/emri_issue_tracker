@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Interfaces\IssueRepositoryInterface;
 use App\Models\Issue;
 use App\Models\IssueAttachment;
-use App\Models\ProjectSupportConfiguration;
 use App\Models\WorkingCalendar;
 use App\Models\WorkingSchedule;
 use App\Services\WorkingCalendarEngine;
@@ -211,14 +210,12 @@ class IssueService
 
     protected function prepareCreateData(array $data): array
     {
-        $supportConfigId = $this->resolveSupportConfigurationId($data['project_id'] ?? null);
-        $routingData = $this->resolveRoutingMetadata($data, $supportConfigId);
+        $routingData = $this->resolveRoutingMetadata($data);
 
         return [
             'issue_number' => $this->generateTicketNumber(),
             'state_id' => $data['state_id'] ?? null,
             'project_id' => $data['project_id'] ?? null,
-            'support_config_id' => $supportConfigId,
             'application_id' => $data['application_id'] ?? null,
             'module_id' => $data['module_id'] ?? null,
             'issue_category_id' => $data['issue_category_id'] ?? null,
@@ -227,6 +224,9 @@ class IssueService
             'issue_description' => trim((string) ($data['description'] ?? '')),
             'status_id' => $data['status_id'] ?? 1,
             'raised_by_user_id' => Auth::id(),
+            'occurred_date' => $data['occurred_date'] ?? null,
+            'occurred_time' => $data['occurred_time'] ?? null,
+            'affected_users' => $data['affected_users'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
             'ho_intervention_required' => $routingData['ho_intervention_required'],
@@ -240,7 +240,7 @@ class IssueService
         ];
     }
 
-    protected function resolveRoutingMetadata(array $data, ?int $supportConfigId): array
+    protected function resolveRoutingMetadata(array $data): array
     {
         Log::info('═══════════════════════════════════════════════════════════════');
         Log::info('RESOLVING ROUTING METADATA - Spec-Based Routing Logic');
@@ -250,7 +250,6 @@ class IssueService
             'project_id' => $data['project_id'] ?? null,
             'state_id' => $data['state_id'] ?? null,
             'application_id' => $data['application_id'] ?? null,
-            'support_config_id' => $supportConfigId,
             'occurred_date' => $data['occurred_date'] ?? null,
             'occurred_time' => $data['occurred_time'] ?? null,
         ]);
@@ -268,7 +267,6 @@ class IssueService
             'project_id' => $projectId,
             'state_id' => $stateId,
             'application_id' => $applicationId,
-            'support_config_id' => $supportConfigId,
         ]);
 
         // Determine the datetime for checks
@@ -497,11 +495,13 @@ class IssueService
     private function routeHOWorkingScheduleCheck(?int $projectId, ?int $stateId, ?int $applicationId, $dateTime): array
     {
         Log::info('[S2-STEP 2.1] Getting day of week from ticket datetime');
-        $dayOfWeek = strtoupper($dateTime->format('l')); // MONDAY, TUESDAY, etc.
+        $dayOfWeekNumber = (int) $dateTime->format('N'); // 1 = Monday, 7 = Sunday
+        $dayOfWeek = strtoupper($dateTime->format('l'));
         $currentTime = $dateTime->format('H:i:s');
 
         Log::info('[S2-STEP 2.1 RESULT]', [
             'day_of_week' => $dayOfWeek,
+            'day_of_week_number' => $dayOfWeekNumber,
             'current_time' => $currentTime
         ]);
 
@@ -516,8 +516,17 @@ class IssueService
         ]);
 
         $schedule = DB::table('mst_working_schedule')
-            ->where('day_of_week', $dayOfWeek)
+            ->where('day_of_week', $dayOfWeekNumber)
             ->where('is_active', 1)
+            ->where(function ($query) use ($dateTime) {
+                $query->whereNull('effective_from')
+                    ->orWhereDate('effective_from', '<=', $dateTime->toDateString());
+            })
+            ->where(function ($query) use ($dateTime) {
+                $query->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', $dateTime->toDateString());
+            })
+            ->orderBy('sequence_no')
             ->first();
 
         if (!$schedule) {
@@ -762,103 +771,11 @@ class IssueService
         return $vendorIds;
     }
 
-    protected function resolveHoInterventionRequired(?int $supportConfigId): bool
-    {
-        Log::info('[resolveHoInterventionRequired] Checking if HO Intervention is required...');
-        
-        if (! $supportConfigId) {
-            Log::info('[resolveHoInterventionRequired] No support_config_id provided', [
-                'result' => false,
-                'interpretation' => 'HO Intervention NOT required'
-            ]);
-            return false;
-        }
-
-        Log::info('[TABLE: mst_support_configuration] Querying configuration for HO check...', [
-            'support_config_id' => $supportConfigId,
-            'conditions' => ['is_active' => 1]
-        ]);
-        
-        $configuration = ProjectSupportConfiguration::query()
-            ->with('slaConfiguration.workingCalendar')
-            ->where('support_config_id', $supportConfigId)
-            ->where('is_active', 1)
-            ->first();
-
-        $hasConfig = !!$configuration;
-        $hasSLA = $hasConfig && !!$configuration->slaConfiguration;
-        $hasCalendar = $hasSLA && !!$configuration->slaConfiguration->workingCalendar;
-        $isCalendarActive = $hasCalendar && !!$configuration->slaConfiguration->workingCalendar->is_active;
-        
-        Log::info('[resolveHoInterventionRequired] Configuration check results:', [
-            'config_found' => $hasConfig,
-            'sla_found' => $hasSLA,
-            'calendar_found' => $hasCalendar,
-            'calendar_is_active' => $isCalendarActive,
-            'result' => $isCalendarActive,
-            'interpretation' => $isCalendarActive ? 'HO Intervention REQUIRED' : 'HO Intervention NOT required'
-        ]);
-
-        return (bool) $isCalendarActive;
-    }
-
-    protected function resolveHoWorkingHours(?int $supportConfigId): bool
-    {
-        if (! $supportConfigId) {
-            return false;
-        }
-
-        $configuration = ProjectSupportConfiguration::query()
-            ->with('slaConfiguration.workingCalendar')
-            ->where('support_config_id', $supportConfigId)
-            ->where('is_active', 1)
-            ->first();
-
-        if (! $configuration || ! $configuration->slaConfiguration || ! $configuration->slaConfiguration->workingCalendar) {
-            return false;
-        }
-
-        $calendar = $configuration->slaConfiguration->workingCalendar;
-
-        if (! $calendar->is_active) {
-            return false;
-        }
-
-        $result = app(WorkingCalendarEngine::class)
-            ->check($calendar);
-
-        return $result['is_working'] ?? false;
-    }
-
     protected function formatVendorIds(array $ids): ?string
     {
         $ids = array_filter(array_map('intval', $ids), fn ($id) => $id > 0);
 
         return empty($ids) ? null : implode(',', array_unique($ids));
-    }
-
-    protected function resolveSupportConfigurationId(?int $projectId): ?int
-    {
-        if (! $projectId) {
-            return null;
-        }
-
-        $query = ProjectSupportConfiguration::query()
-            ->where('project_id', $projectId)
-            ->where('is_active', 1);
-
-        if (Schema::hasColumn('mst_project_support_configuration', 'auto_routing_enabled')) {
-            $configuration = (clone $query)
-                ->where('auto_routing_enabled', 1)
-                ->orderByDesc('support_config_id')
-                ->first();
-
-            if ($configuration) {
-                return $configuration->support_config_id;
-            }
-        }
-
-        return $query->orderByDesc('support_config_id')->first()?->support_config_id;
     }
 
     /**
@@ -1060,9 +977,13 @@ class IssueService
         $this->createStatusHistory($issue, $issue->status_id, 'Initial status');
         Log::info('[STEP 4.3 COMPLETE] Initial status history created');
 
-        Log::info('[STEP 4.4] Sending assignment notification...');
+        Log::info('[STEP 4.4] Assigning vendors during creation...');
+        $this->assignVendorsDuringCreation($issue);
+        Log::info('[STEP 4.4 COMPLETE] Vendors assigned');
+
+        Log::info('[STEP 4.5] Sending assignment notification...');
         $this->sendAssignmentNotification($issue);
-        Log::info('[STEP 4.4 COMPLETE] Notification sent');
+        Log::info('[STEP 4.5 COMPLETE] Notification sent');
     }
 
     /**
@@ -1093,6 +1014,174 @@ class IssueService
             'Assigned',
             'Assigned to '.$engineer->user_name
         );
+    }
+
+    /**
+     * Assign Vendors During Issue Creation
+     * Extracts vendors from routing metadata and inserts them into map_issue_vendor_assignment
+     */
+    protected function assignVendorsDuringCreation(Issue $issue): void
+    {
+        Log::info('═══════════════════════════════════════════════════════════════');
+        Log::info('[VENDOR ASSIGNMENT] Starting vendor assignment during creation');
+        Log::info('═══════════════════════════════════════════════════════════════');
+
+        if ((int) ($issue->ho_working_hours ?? 0) === 1) {
+            Log::info('[VENDOR ASSIGNMENT] HO is working; no vendor assignment required');
+            return;
+        }
+
+        // Extract vendor IDs from first_level_vendor_ids and second_level_vendor_ids
+        $vendorIds = [];
+        
+        foreach (['first_level_vendor_ids', 'second_level_vendor_ids'] as $vendorField) {
+            $vendorStr = trim((string) ($issue->{$vendorField} ?? ''));
+            if (empty($vendorStr)) {
+                continue;
+            }
+
+            $ids = array_map('trim', explode(',', $vendorStr));
+            foreach ($ids as $id) {
+                $vendorId = (int) $id;
+                if ($vendorId > 0 && !in_array($vendorId, $vendorIds)) {
+                    $vendorIds[] = $vendorId;
+                }
+            }
+        }
+
+        Log::info('[VENDOR ASSIGNMENT] Extracted vendor IDs', [
+            'vendor_ids' => $vendorIds,
+            'count' => count($vendorIds)
+        ]);
+
+        if (empty($vendorIds)) {
+            Log::info('[VENDOR ASSIGNMENT] No vendors to assign - skipping vendor assignment');
+            return;
+        }
+
+        // Get initial vendor status ID using Role -> Status mapping
+        $initialVendorStatusId = $this->getInitialVendorStatusId();
+        
+        Log::info('[VENDOR ASSIGNMENT] Initial vendor status ID determined', [
+            'status_id' => $initialVendorStatusId
+        ]);
+
+        if (!$initialVendorStatusId) {
+            Log::warning('[VENDOR ASSIGNMENT] Could not determine initial vendor status - skipping vendor assignment');
+            return;
+        }
+
+        // Insert each vendor into map_issue_vendor_assignment
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+        Log::channel('insert_log')->info('[INSERT] Starting map_issue_vendor_assignment INSERT operation');
+        Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+
+        foreach ($vendorIds as $vendorId) {
+            try {
+                // Check if assignment already exists (shouldn't on creation, but be safe)
+                $exists = DB::table('map_issue_vendor_assignment')
+                    ->where('issue_id', $issue->issue_id)
+                    ->where('vendor_id', $vendorId)
+                    ->exists();
+
+                if ($exists) {
+                    Log::info('[VENDOR ASSIGNMENT] Vendor assignment already exists - skipping', [
+                        'issue_id' => $issue->issue_id,
+                        'vendor_id' => $vendorId
+                    ]);
+                    continue;
+                }
+
+                Log::channel('insert_log')->info('[TABLE: map_issue_vendor_assignment] Preparing INSERT statement', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'vendor_status_id' => $initialVendorStatusId,
+                    'is_active' => 1,
+                    'created_by' => Auth::id(),
+                    'created_at' => now()
+                ]);
+
+                DB::table('map_issue_vendor_assignment')->insert([
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'vendor_status_id' => $initialVendorStatusId,
+                    'is_active' => 1,
+                    'created_by' => Auth::id(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                Log::channel('insert_log')->info('✓ [TABLE: map_issue_vendor_assignment] INSERT Successful', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'status_id' => $initialVendorStatusId
+                ]);
+
+                Log::info('[VENDOR ASSIGNMENT] Vendor assigned successfully', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'status_id' => $initialVendorStatusId
+                ]);
+
+            } catch (\Throwable $e) {
+                Log::error('[VENDOR ASSIGNMENT] Failed to assign vendor', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'error' => $e->getMessage(),
+                    'line' => $e->getLine()
+                ]);
+
+                Log::channel('insert_log')->error('✗ [TABLE: map_issue_vendor_assignment] INSERT Failed', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Get Initial Vendor Status ID
+     * When a vendor is first assigned, status should be "New" (status_id = 1)
+     * This ensures vendors always start with "New" status, not "Rejected"
+     */
+    protected function getInitialVendorStatusId(): ?int
+    {
+        Log::info('[INITIAL VENDOR STATUS] Using "New" status for vendor assignment');
+
+        $newStatus = DB::table('mst_issue_status')
+            ->where(function ($query) {
+                $query->where('status_name', 'New')
+                    ->orWhereRaw('LOWER(status_name) = ?', ['new']);
+            })
+            ->where(function ($query) {
+                $query->where('is_active', 1)->orWhereNull('is_active');
+            })
+            ->first(['status_id', 'status_name']);
+
+        if (!$newStatus) {
+            $newStatus = DB::table('mst_issue_status')
+                ->where('is_active', 1)
+                ->orderBy('status_id')
+                ->first(['status_id', 'status_name']);
+
+            if (!$newStatus) {
+                Log::warning('[INITIAL VENDOR STATUS] No active issue status found');
+                return null;
+            }
+
+            Log::info('[INITIAL VENDOR STATUS] "New" status not found; using first active status', [
+                'status_id' => $newStatus->status_id,
+                'status_name' => $newStatus->status_name,
+            ]);
+        }
+
+        Log::info('[INITIAL VENDOR STATUS] Using "New" status for initial vendor assignment', [
+            'status_id' => $newStatus->status_id,
+            'status_name' => $newStatus->status_name
+        ]);
+
+        return (int) $newStatus->status_id;
     }
 
     /**
@@ -1311,7 +1400,8 @@ class IssueService
     protected function createStatusHistory(
         Issue $issue,
         ?int $statusId,
-        ?string $comment = null
+        ?string $comment = null,
+        ?int $vendorId = null
     ): void {
         Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
         Log::channel('insert_log')->info('[INSERT] Starting txn_issue_status_history INSERT operation');
@@ -1320,6 +1410,7 @@ class IssueService
         Log::channel('insert_log')->info('[TABLE: txn_issue_status_history] Preparing INSERT statement', [
             'issue_id' => $issue->issue_id,
             'new_status_id' => $statusId,
+            'vendor_id' => $vendorId,
             'changed_by_user_id' => Auth::id(),
             'comment' => $comment ?? 'Status updated',
             'changed_at' => now()
@@ -1328,17 +1419,30 @@ class IssueService
         Log::channel('insert_log')->info('[TABLE: txn_issue_status_history] Executing INSERT query');
         
         try {
-            DB::table('txn_issue_status_history')->insert([
+            $data = [
                 'issue_id' => $issue->issue_id,
                 'new_status_id' => $statusId,
                 'changed_by_user_id' => Auth::id(),
                 'comment' => $comment ?? 'Status updated',
                 'changed_at' => now(),
-            ]);
+            ];
+
+            // Preserve vendor context using the existing schema.
+            if ($vendorId !== null && Schema::hasColumn('txn_issue_status_history', 'vendor_id')) {
+                $data['vendor_id'] = $vendorId;
+            } elseif ($vendorId !== null) {
+                $vendorName = DB::table('mst_vendor')
+                    ->where('vendor_id', $vendorId)
+                    ->value('vendor_name');
+                $data['comment'] = trim(($vendorName ? $vendorName . ' - ' : '') . ($data['comment'] ?? 'Vendor status updated'));
+            }
+
+            DB::table('txn_issue_status_history')->insert($data);
             
             Log::channel('insert_log')->info('✓ [TABLE: txn_issue_status_history] INSERT Successful', [
                 'issue_id' => $issue->issue_id,
                 'status_id' => $statusId,
+                'vendor_id' => $vendorId,
                 'changed_by' => Auth::id()
             ]);
         } catch (\Throwable $e) {
@@ -1687,12 +1791,15 @@ class IssueService
     }
 
     /**
-     * Close Issue
+     * Close Issue - With Vendor Resolution Validation
      */
     public function close(
         Issue $issue,
         ?string $remarks = null
     ): Issue {
+
+        // Validate vendor resolution requirements before closing
+        $this->validateVendorResolutionBeforeClose($issue);
 
         return $this->changeStatus(
             $issue,
@@ -1759,6 +1866,295 @@ class IssueService
 
         }
 
+    }
+
+    /**
+     * Validate Vendor Resolution Before Close
+     * Ensures all active vendors have resolved status before allowing close
+     */
+    public function validateVendorResolutionBeforeClose(Issue $issue): void
+    {
+        Log::info('[VENDOR VALIDATION] Checking vendor resolution for close', [
+            'issue_id' => $issue->issue_id
+        ]);
+
+        $vendorProgress = $this->getVendorProgress($issue);
+
+        if (!$vendorProgress) {
+            Log::info('[VENDOR VALIDATION] No active vendors - close allowed');
+            return;
+        }
+
+        if ($vendorProgress['active_count'] === 0) {
+            Log::info('[VENDOR VALIDATION] No active vendors - close allowed');
+            return;
+        }
+
+        if ($vendorProgress['active_count'] !== $vendorProgress['resolved_count']) {
+            Log::warning('[VENDOR VALIDATION] Not all vendors resolved - close blocked', [
+                'active' => $vendorProgress['active_count'],
+                'resolved' => $vendorProgress['resolved_count']
+            ]);
+
+            $pendingList = $this->getPendingVendorsList($issue);
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'vendor_resolution' => $this->formatPendingVendorsMessage($pendingList),
+            ]);
+        }
+
+        Log::info('[VENDOR VALIDATION] All vendors resolved - close allowed');
+    }
+
+    /**
+     * Update Vendor Status
+     * Updates vendor assignment status and tracks in history
+     */
+    public function updateVendorStatus(
+        Issue $issue,
+        int $vendorId,
+        int $newVendorStatusId,
+        ?string $remarks = null
+    ): array {
+        Log::info('[VENDOR STATUS UPDATE] Starting vendor status update', [
+            'issue_id' => $issue->issue_id,
+            'vendor_id' => $vendorId,
+            'new_status_id' => $newVendorStatusId
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            // Get vendor and new status names for logging
+            $vendor = DB::table('mst_vendor')
+                ->where('vendor_id', $vendorId)
+                ->first(['vendor_name']);
+
+            $statusRow = DB::table('mst_issue_status')
+                ->where('status_id', $newVendorStatusId)
+                ->first(['status_name', 'status_id']);
+
+            $isResolved = (int) $newVendorStatusId === 3;  // 3 = Resolved status
+
+            Log::info('[VENDOR STATUS UPDATE] Status details', [
+                'vendor_name' => $vendor->vendor_name ?? 'Unknown',
+                'status_name' => $statusRow->status_name ?? 'Unknown',
+                'is_resolved' => $isResolved
+            ]);
+
+            // Check if this is a Reject status
+            $isReject = str_contains(strtolower($statusRow->status_name ?? ''), 'reject');
+            
+            Log::info('[VENDOR STATUS UPDATE] Determining is_active flag', [
+                'is_reject' => $isReject,
+                'is_active' => !$isReject ? 1 : 0
+            ]);
+
+            // Update map_issue_vendor_assignment
+            Log::channel('insert_log')->info('═══════════════════════════════════════════════════════════════');
+            Log::channel('insert_log')->info('[UPDATE] Starting vendor status UPDATE operation', [
+                'table' => 'map_issue_vendor_assignment',
+                'issue_id' => $issue->issue_id,
+                'vendor_id' => $vendorId
+            ]);
+
+            DB::table('map_issue_vendor_assignment')
+                ->where('issue_id', $issue->issue_id)
+                ->where('vendor_id', $vendorId)
+                ->update([
+                    'vendor_status_id' => $newVendorStatusId,
+                    'status_updated_by' => Auth::id(),
+                    'status_updated_at' => now(),
+                    'status_remarks' => $remarks,
+                    'is_active' => $isReject ? 0 : 1,
+                    'updated_at' => now(),
+                ]);
+
+            Log::channel('insert_log')->info('✓ [UPDATE] Vendor status updated successfully', [
+                'vendor_id' => $vendorId,
+                'new_status_id' => $newVendorStatusId
+            ]);
+
+            // Insert into txn_issue_status_history with vendor_id
+            Log::info('[VENDOR STATUS UPDATE] Creating status history entry with vendor_id');
+            $this->createStatusHistory(
+                $issue,
+                $newVendorStatusId,
+                ($remarks ?? ''),
+                $vendorId
+            );
+
+            // Check if all active vendors are now resolved
+            Log::info('[VENDOR STATUS UPDATE] Checking if all active vendors are resolved');
+            $vendorProgress = $this->getVendorProgress($issue);
+            
+            if ($vendorProgress && 
+                $vendorProgress['active_count'] > 0 && 
+                $vendorProgress['active_count'] === $vendorProgress['resolved_count']) {
+                
+                Log::info('[VENDOR STATUS UPDATE] All active vendors resolved - updating main ticket status', [
+                    'issue_id' => $issue->issue_id,
+                    'active_count' => $vendorProgress['active_count'],
+                    'resolved_count' => $vendorProgress['resolved_count']
+                ]);
+                
+                // Get Resolved status ID (typically 3)
+                $resolvedStatus = DB::table('mst_issue_status')
+                    ->where('status_name', 'Resolved')
+                    ->first(['status_id']);
+                
+                if ($resolvedStatus) {
+                    DB::table('txn_issue')
+                        ->where('issue_id', $issue->issue_id)
+                        ->update([
+                            'status_id' => $resolvedStatus->status_id,
+                            'updated_at' => now(),
+                        ]);
+                    
+                    // Record the overall status change in history
+                    Log::info('[VENDOR STATUS UPDATE] Recording overall ticket resolution in history');
+                    $this->createStatusHistory(
+                        $issue,
+                        $resolvedStatus->status_id,
+                        'All active vendors resolved',
+                        null  // No vendor_id for overall status
+                    );
+                    
+                    Log::info('[VENDOR STATUS UPDATE] Main ticket status updated to Resolved', [
+                        'issue_id' => $issue->issue_id,
+                        'status_id' => $resolvedStatus->status_id
+                    ]);
+                }
+            } elseif ($vendorProgress && $vendorProgress['active_count'] > 0) {
+                $resolvedStatusId = DB::table('mst_issue_status')
+                    ->whereRaw('LOWER(status_name) = ?', ['resolved'])
+                    ->value('status_id');
+
+                if ($resolvedStatusId && (int) $issue->status_id === (int) $resolvedStatusId) {
+                    $inProgressStatusId = DB::table('mst_issue_status')
+                        ->whereRaw('LOWER(status_name) = ?', ['in progress'])
+                        ->value('status_id');
+
+                    if ($inProgressStatusId) {
+                        DB::table('txn_issue')
+                            ->where('issue_id', $issue->issue_id)
+                            ->update([
+                                'status_id' => $inProgressStatusId,
+                                'updated_at' => now(),
+                            ]);
+                    }
+                }
+            } else {
+                Log::info('[VENDOR STATUS UPDATE] Not all active vendors resolved yet', [
+                    'issue_id' => $issue->issue_id,
+                    'active_count' => $vendorProgress['active_count'] ?? 0,
+                    'resolved_count' => $vendorProgress['resolved_count'] ?? 0
+                ]);
+            }
+
+            DB::commit();
+
+            Log::info('[VENDOR STATUS UPDATE] Vendor status update completed successfully', [
+                'issue_id' => $issue->issue_id,
+                'vendor_id' => $vendorId,
+                'status_id' => $newVendorStatusId
+            ]);
+
+            return [
+                'success' => true,
+                'issue_id' => $issue->issue_id,
+                'vendor_id' => $vendorId,
+                'status_id' => $newVendorStatusId,
+            ];
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            Log::error('[VENDOR STATUS UPDATE] Failed to update vendor status', [
+                'issue_id' => $issue->issue_id,
+                'vendor_id' => $vendorId,
+                'error' => $e->getMessage(),
+                'line' => $e->getLine()
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Get Vendor Progress
+     * Returns count of active vendors and resolved vendors
+     * Resolved = vendor_status_id = 3 (Resolved status)
+     */
+    public function getVendorProgress(Issue $issue): ?array
+    {
+        $vendorAssignments = DB::table('map_issue_vendor_assignment as m')
+            ->join('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+            ->where('m.issue_id', $issue->issue_id)
+            ->where('m.is_active', 1)
+            ->get(['m.vendor_id', 'm.vendor_status_id', 's.status_name']);
+
+        if ($vendorAssignments->isEmpty()) {
+            return null;
+        }
+
+        $activeCount = $vendorAssignments->count();
+        $resolvedCount = $vendorAssignments->filter(function ($row) {
+            return (int) $row->vendor_status_id === 3;  // 3 = Resolved status
+        })->count();
+
+        Log::info('[VENDOR PROGRESS] Calculated vendor progress', [
+            'issue_id' => $issue->issue_id,
+            'active_count' => $activeCount,
+            'resolved_count' => $resolvedCount
+        ]);
+
+        return [
+            'active_count' => $activeCount,
+            'resolved_count' => $resolvedCount,
+            'assignments' => $vendorAssignments,
+        ];
+    }
+
+    /**
+     * Get Pending Vendors List
+     * Returns list of vendors that have not resolved the issue
+     * Unresolved = vendor_status_id != 3 (not Resolved status)
+     */
+    public function getPendingVendorsList(Issue $issue): array
+    {
+        $pendingVendors = DB::table('map_issue_vendor_assignment as m')
+            ->join('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+            ->join('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+            ->where('m.issue_id', $issue->issue_id)
+            ->where('m.is_active', 1)
+            ->where('m.vendor_status_id', '!=', 3)  // Not Resolved (3 = Resolved)
+            ->get(['v.vendor_name', 's.status_name', 'm.vendor_id'])
+            ->map(function ($row) {
+                return [
+                    'vendor_id' => (int) $row->vendor_id,
+                    'vendor_name' => $row->vendor_name,
+                    'status' => $row->status_name,
+                ];
+            })
+            ->all();
+
+        return $pendingVendors;
+    }
+
+    /**
+     * Format Pending Vendors Message for Error Display
+     */
+    private function formatPendingVendorsMessage(array $pendingList): string
+    {
+        if (empty($pendingList)) {
+            return 'Unable to close ticket.';
+        }
+
+        $message = "Ticket cannot be closed. The following vendors have not resolved the issue:\n";
+        foreach ($pendingList as $vendor) {
+            $message .= "- " . $vendor['vendor_name'] . " - " . $vendor['status'] . "\n";
+        }
+        return trim($message);
     }
 
     /**

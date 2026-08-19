@@ -31,9 +31,7 @@ class ProjectApplicationModuleMappingController extends Controller
                 'm.updated_by',
                 'm.update_at'
             )
-            ->orderBy('p.project_name')
-            ->orderBy('a.application_name')
-            ->orderBy('mod.module_name')
+            ->orderBy('m.mapping_id')
             ->get();
 
         $projects = DB::table('mst_project')

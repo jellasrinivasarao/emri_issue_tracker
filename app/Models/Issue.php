@@ -34,7 +34,6 @@ class Issue extends Model
         'service_id',
         'project_id',
         'state_id',
-        'support_config_id',
         'application_id',
         'module_id',
         'issue_category_id',
@@ -46,6 +45,9 @@ class Issue extends Model
 
         'raised_by_user_id',
         'raised_at',
+        'occurred_date',
+        'occurred_time',
+        'affected_users',
         'occurred_at',
 
         'current_owner_organisation_id',
@@ -96,7 +98,6 @@ class Issue extends Model
         'service_id' => 'integer',
         'project_id' => 'integer',
         'state_id' => 'integer',
-        'support_config_id' => 'integer',
         'application_id' => 'integer',
         'module_id' => 'integer',
         'issue_category_id' => 'integer',
@@ -128,6 +129,8 @@ class Issue extends Model
         'is_active' => 'boolean',
 
         'occurred_at' => 'datetime',
+        'occurred_date' => 'date',
+        'occurred_time' => 'datetime:H:i',
         'raised_at' => 'datetime',
         'resolved_at' => 'datetime',
         'closed_at' => 'datetime',
@@ -221,15 +224,6 @@ class Issue extends Model
             User::class,
             'raised_by_user_id',
             'user_id'
-        );
-    }
-
-    public function configuration(): BelongsTo
-    {
-        return $this->belongsTo(
-            ProjectSupportConfiguration::class,
-            'support_config_id',
-            'support_config_id'
         );
     }
 

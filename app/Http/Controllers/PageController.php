@@ -18,6 +18,47 @@ class PageController extends Controller
         return view('role-dashboard');
     }
 
+    public function vendorOptionsByStateProject(Request $request)
+    {
+        $stateId = $request->query('state_id');
+        $projectId = $request->query('project_id');
+
+        $query = DB::table('map_vendor_state as m')
+            ->join('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+            ->select('v.vendor_id', 'v.vendor_name')
+            ->where('m.is_active', 1)
+            ->where(function ($q) {
+                $q->where('v.is_active', 1)->orWhereNull('v.is_active');
+            })
+            ->groupBy('v.vendor_id', 'v.vendor_name');
+
+        if ($stateId !== null && $stateId !== '') {
+            $query->where('m.state_id', (int) $stateId);
+        }
+
+        if ($projectId !== null && $projectId !== '') {
+            $query->where('m.project_id', (int) $projectId);
+        }
+
+        $rows = $query->orderBy('v.vendor_name')->get();
+
+        Log::info('vendor options by state/project query', [
+            'state_id' => $stateId,
+            'project_id' => $projectId,
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+            'result_count' => $rows->count(),
+            'result' => $rows->values()->all(),
+        ]);
+
+        return response()->json([
+            'state_id' => $stateId,
+            'project_id' => $projectId,
+            'data' => $rows,
+            'count' => $rows->count(),
+        ]);
+    }
+
     public function roleIssueDashboard(Request $request): View
     {
         $user = auth()->user();
@@ -297,6 +338,17 @@ class PageController extends Controller
             ->distinct()
             ->get();
 
+        Log::info('role dashboard vendor data query', [
+            'vendor_count' => $vendorOptions->count(),
+            'vendor_sample' => $vendorOptions->take(5)->values()->all(),
+            'mapping_count' => $vendorStateMappings->count(),
+            'mapping_sample' => $vendorStateMappings->take(5)->values()->all(),
+            'vendor_sql' => $vendorQuery->toSql(),
+            'vendor_bindings' => $vendorQuery->getBindings(),
+            'mapping_sql' => DB::table('map_vendor_state as m')->select('m.state_id', 'm.project_id', 'm.vendor_id')->where('m.is_active', 1)->distinct()->toSql(),
+            'mapping_bindings' => DB::table('map_vendor_state as m')->select('m.state_id', 'm.project_id', 'm.vendor_id')->where('m.is_active', 1)->distinct()->getBindings(),
+        ]);
+
         $issuesQuery = DB::table('txn_issue as i')
             ->leftJoin('mst_issue_status as s', 'i.status_id', '=', 's.status_id')
             ->leftJoin('mst_priority as p', 'i.priority_id', '=', 'p.priority_id')
@@ -304,11 +356,17 @@ class PageController extends Controller
             ->leftJoin('mst_project as pr', 'i.project_id', '=', 'pr.project_id')
             ->leftJoin('mst_application as a', 'i.application_id', '=', 'a.application_id')
             ->leftJoin('mst_module as m', 'i.module_id', '=', 'm.module_id')
+            ->leftJoin('mst_issue_category as ic', 'i.issue_category_id', '=', 'ic.issue_category_id')
             ->select(
                 'i.issue_id',
                 'i.issue_number',
                 'i.issue_title',
                 'i.issue_description',
+                'i.occurred_date',
+                'i.occurred_time',
+                'i.affected_users',
+                'i.issue_category_id',
+                'ic.category_name',
                 'i.state_id',
                 'st.state_name',
                 'i.project_id',
@@ -623,6 +681,32 @@ class PageController extends Controller
 
         $issues = $issuesQuery->get();
 
+        Log::info('role issue dashboard query executed', [
+            'user_id' => $user?->user_id,
+            'role_names' => $roleNames,
+            'sql' => $issuesQuery->toSql(),
+            'bindings' => $issuesQuery->getBindings(),
+            'issue_count' => $issues->count(),
+            'first_issue_snapshot' => $issues->first() ? [
+                'issue_id' => $issues->first()->issue_id,
+                'issue_number' => $issues->first()->issue_number,
+                'state_id' => $issues->first()->state_id,
+                'project_id' => $issues->first()->project_id,
+                'status_id' => $issues->first()->status_id,
+                'issue_title' => $issues->first()->issue_title,
+            ] : null,
+            'issue_rows_sample' => $issues->take(3)->map(function ($issue) {
+                return [
+                    'issue_id' => $issue->issue_id,
+                    'issue_number' => $issue->issue_number,
+                    'state_id' => $issue->state_id,
+                    'project_id' => $issue->project_id,
+                    'status_id' => $issue->status_id,
+                    'status_name' => $issue->status_name,
+                ];
+            })->all(),
+        ]);
+
         $priorityOrder = [
             'critical' => 1,
             'high' => 2,
@@ -630,7 +714,7 @@ class PageController extends Controller
             'low' => 4,
         ];
 
-        $issueRows = $issues->map(function ($issue) use ($priorityOrder) {
+        $issueRows = $issues->map(function ($issue) use ($priorityOrder, $vendorId, $isVendorRole) {
             $fallbackTitle = 'Issue #' . ($issue->issue_number ?: $issue->issue_id);
             $fallbackDescription = 'Issue details are available in the system.';
             $dateValue = $issue->updated_at ?: $issue->raised_at;
@@ -765,10 +849,66 @@ class PageController extends Controller
                         'file_name' => $row->original_file_name ?: ($row->stored_file_name ?: 'Attachment'),
                         'path' => $row->file_path ?: '',
                         'view_url' => route('attachment.preview', ['id' => $row->attachment_id]),
+                        'inline_url' => route('attachment.view', ['id' => $row->attachment_id]),
                         'download_url' => route('attachment.download', ['id' => $row->attachment_id]),
                         'created_at' => $row->uploaded_at ? Carbon::parse($row->uploaded_at)->format('d M y h:i A') : '—',
                     ];
                 })->values()->all();
+            }
+
+            // Calculate vendor progress if vendors are assigned
+            $vendorProgress = [];
+            if (Schema::hasTable('map_issue_vendor_assignment')) {
+                $vendorAssignments = DB::table('map_issue_vendor_assignment as m')
+                    ->join('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+                    ->leftJoin('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+                    ->where('m.issue_id', $issue->issue_id)
+                    ->get([
+                        'm.vendor_id',
+                        'm.is_active',
+                        'm.vendor_status_id',
+                        's.status_name',
+                        'v.vendor_name'
+                    ]);
+
+                if (!$vendorAssignments->isEmpty()) {
+                    $activeVendors = $vendorAssignments->filter(function ($row) {
+                        return (bool) $row->is_active;
+                    });
+
+                    $activeCount = $activeVendors->count();
+                    $resolvedCount = $activeVendors->filter(function ($row) {
+                        return (int) $row->vendor_status_id === 3;  // 3 = Resolved status
+                    })->count();
+
+                    // Get rejected vendors
+                    $rejectedVendors = $vendorAssignments->filter(function ($row) {
+                        return !(bool) $row->is_active;
+                    })->map(function ($row) {
+                        return $row->vendor_name;
+                    })->all();
+
+                    // Format vendor list with names and statuses
+                    $vendorsList = $vendorAssignments->map(function ($row) {
+                        return [
+                            'vendor_id' => $row->vendor_id,
+                            'vendor_name' => $row->vendor_name ?? 'Unknown',
+                            'status_name' => $row->status_name,
+                            'is_active' => (bool) $row->is_active,
+                            'is_resolved' => (int) $row->vendor_status_id === 3,
+                        ];
+                    })->all();
+
+                    $vendorProgress = [
+                        'active_count' => $activeCount,
+                        'resolved_count' => $resolvedCount,
+                        'total_count' => $vendorAssignments->count(),
+                        'rejected_vendors' => $rejectedVendors,
+                        'vendors' => $vendorsList,
+                        'display' => $activeCount > 0 ? "{$resolvedCount} / {$activeCount} Resolved" : null,
+                        'status_text' => $activeCount > 0 && $activeCount !== $resolvedCount ? 'Vendor Work Pending' : ($activeCount > 0 ? 'Ready to Close' : null),
+                    ];
+                }
             }
 
             return [
@@ -781,20 +921,31 @@ class PageController extends Controller
                 'project_id' => (int) ($issue->project_id ?? 0),
                 'application' => $issue->application_name ?: '—',
                 'module' => $issue->module_name ?: '—',
+                'category' => $issue->category_name ?: '—',
                 'status' => $issue->status_name ?: 'Open',
                 'status_id' => (int) ($issue->status_id ?? 0),
+                'current_vendor_id' => $isVendorRole && $vendorId ? (int) $vendorId : null,
                 'priority' => $issue->priority_name ?: 'Medium',
                 'priority_weight' => $priorityWeight,
                 'updated_on' => $formattedDate,
                 'description' => $issue->issue_description ?: $fallbackDescription,
+                'occurred_date' => $issue->occurred_date,
+                'occurred_time' => $issue->occurred_time,
+                'affected_users' => $issue->affected_users,
                 'history' => $history,
                 'attachments' => $attachments,
+                'vendor_progress' => $vendorProgress,
             ];
         })->values();
 
         $issueRows = $issueRows->sortBy(function ($row) {
             return $row['priority_weight'];
         })->values();
+
+        Log::info('role issue dashboard bound rows', [
+            'row_count' => $issueRows->count(),
+            'sample_rows' => $issueRows->take(3)->values()->all(),
+        ]);
 
         return view('pages.role-issue-dashboard', [
             'issues' => $issueRows,
@@ -818,6 +969,30 @@ class PageController extends Controller
                 'search' => $request->input('search'),
             ],
         ]);
+    }
+
+    public function getVendorResolutionValidationMessage(array $vendorAssignments, int $resolvedStatusId = 3): string
+    {
+        $pending = collect($vendorAssignments)
+            ->filter(fn ($row) => ! empty($row['is_active']) && ((int) ($row['vendor_status_id'] ?? 0) !== $resolvedStatusId))
+            ->map(function ($row) {
+                $vendorName = trim((string) ($row['vendor_name'] ?? 'Unknown Vendor'));
+                $statusName = trim((string) ($row['status_name'] ?? 'In Progress'));
+
+                if ($vendorName === '') {
+                    $vendorName = 'Unknown Vendor';
+                }
+
+                return '- ' . $vendorName . ' - ' . $statusName;
+            })
+            ->values()
+            ->all();
+
+        if (empty($pending)) {
+            return 'Ticket can be resolved.';
+        }
+
+        return 'Ticket cannot be resolved while active vendors are pending. ' . implode("\n", $pending);
     }
 
     public function updateIssueStatus(Request $request)
@@ -847,10 +1022,89 @@ class PageController extends Controller
 
             $newStatusId = (int) ($statusRow->status_id ?? 0);
             $vendorIds = [];
+            $statusLower = strtolower(trim((string) $statusName));
+            $statusKey = rtrim($statusLower, " .!?");
+            $isResolvedStatus = str_contains($statusLower, 'resolved') || str_contains($statusLower, 'completed');
+            $isClosedStatus = in_array($statusKey, ['close', 'closed'], true);
 
-            if ($statusName === 'Vendor Assignment' || str_contains(strtolower($statusName), 'vendor')) {
+            if ($isResolvedStatus || $isClosedStatus) {
+                $activeVendorAssignments = DB::table('map_issue_vendor_assignment as m')
+                    ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+                    ->leftJoin('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+                    ->where('m.issue_id', $issueId)
+                    ->where('m.is_active', 1)
+                    ->get([
+                        'm.vendor_id',
+                        'm.vendor_status_id',
+                        's.status_name',
+                        'v.vendor_name',
+                        'm.is_active',
+                    ])
+                    ->map(fn ($row) => [
+                        'vendor_name' => $row->vendor_name ?? 'Unknown Vendor',
+                        'status_name' => $row->status_name ?? 'In Progress',
+                        'is_active' => (int) ($row->is_active ?? 0),
+                        'vendor_status_id' => (int) ($row->vendor_status_id ?? 0),
+                    ])
+                    ->all();
+
+                $resolvedStatusId = DB::table('mst_issue_status')
+                    ->where(function ($query) {
+                        $query->where('status_name', 'Resolved')->orWhereRaw('LOWER(status_name) = ?', ['resolved']);
+                    })
+                    ->value('status_id');
+
+                $resolvedStatusId = (int) ($resolvedStatusId ?? 3);
+                $pendingMessage = $this->getVendorResolutionValidationMessage($activeVendorAssignments, $resolvedStatusId);
+
+                if (! empty($activeVendorAssignments) && ! collect($activeVendorAssignments)->every(fn ($row) => (int) ($row['vendor_status_id'] ?? 0) === $resolvedStatusId)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'vendor_resolution' => $isClosedStatus
+                            ? 'Ticket cannot be closed until all assigned vendors are resolved. ' . $pendingMessage
+                            : $pendingMessage,
+                    ]);
+                }
+            }
+
+            // ONLY process vendor assignment for these EXACT statuses:
+            // 1. "Vendor Assignment"
+            // 2. "Escalate to Vendor"
+            $statusLower = strtolower(trim((string) $statusName));
+            $isVendorAssignmentStatus = (
+                $statusLower === 'vendor assignment' ||
+                $statusLower === 'escalate to vendor'
+            );
+
+            if ($isVendorAssignmentStatus) {
                 $vendorIds = $request->input('vendor_ids', []);
                 $vendorIds = is_array($vendorIds) ? array_values(array_filter(array_map('intval', $vendorIds))) : [];
+            }
+
+            // A clarification response from HO/State IT targets the vendor
+            // currently waiting for clarification, without changing others.
+            if ($statusKey === 'clarification provided' && empty($vendorIds)) {
+                $clarificationRequiredId = DB::table('mst_issue_status')
+                    ->whereRaw('LOWER(status_name) = ?', ['clarification required'])
+                    ->value('status_id');
+
+                if ($clarificationRequiredId) {
+                    $vendorIds = DB::table('map_issue_vendor_assignment')
+                        ->where('issue_id', $issueId)
+                        ->where('is_active', 1)
+                        ->where('vendor_status_id', $clarificationRequiredId)
+                        ->pluck('vendor_id')
+                        ->map(fn ($id) => (int) $id)
+                        ->values()
+                        ->all();
+                }
+            }
+
+            $existingVendorAssignments = [];
+            if ($isVendorAssignmentStatus) {
+                $existingVendorAssignments = DB::table('map_issue_vendor_assignment')
+                    ->where('issue_id', $issueId)
+                    ->get(['vendor_id', 'is_active', 'vendor_status_id'])
+                    ->all();
             }
 
             // Fetch the current (old) status before updating
@@ -859,7 +1113,228 @@ class PageController extends Controller
                 ->first();
             $oldStatusId = (int) ($currentIssue->status_id ?? 0);
 
-            DB::transaction(function () use ($issueId, $newStatusId, $oldStatusId, $statusName, $request, $vendorIds) {
+            DB::transaction(function () use ($issueId, $newStatusId, $oldStatusId, $statusName, $request, $vendorIds, $isVendorAssignmentStatus, $existingVendorAssignments) {
+                $remarks = trim((string) $request->input('remarks', 'Status updated')) ?: 'Status updated';
+
+                if ($isVendorAssignmentStatus) {
+                    $selectedVendorSet = array_fill_keys($vendorIds, true);
+                    $initialVendorStatusId = $this->getInitialVendorStatusId();
+
+                    foreach ($existingVendorAssignments as $assignment) {
+                        $assignmentVendorId = (int) ($assignment->vendor_id ?? 0);
+                        if ($assignmentVendorId <= 0) {
+                            continue;
+                        }
+
+                        if (! isset($selectedVendorSet[$assignmentVendorId])) {
+                            DB::table('map_issue_vendor_assignment')
+                                ->where('issue_id', $issueId)
+                                ->where('vendor_id', $assignmentVendorId)
+                                ->update([
+                                    'is_active' => 0,
+                                    'status_updated_by' => auth()->id(),
+                                    'status_updated_at' => now(),
+                                    'status_remarks' => 'Vendor deselected from assignment',
+                                    'updated_at' => now(),
+                                ]);
+                            continue;
+                        }
+
+                        if ((int) ($assignment->is_active ?? 0) !== 1) {
+                            DB::table('map_issue_vendor_assignment')
+                                ->where('issue_id', $issueId)
+                                ->where('vendor_id', $assignmentVendorId)
+                                ->update([
+                                    'is_active' => 1,
+                                    'vendor_status_id' => $initialVendorStatusId ?? (int) ($assignment->vendor_status_id ?? $newStatusId),
+                                    'status_updated_by' => auth()->id(),
+                                    'status_updated_at' => now(),
+                                    'status_remarks' => 'Vendor reactivated for assignment',
+                                    'updated_at' => now(),
+                                ]);
+                        }
+                    }
+
+                    foreach ($vendorIds as $vendorId) {
+                        $exists = DB::table('map_issue_vendor_assignment')
+                            ->where('issue_id', $issueId)
+                            ->where('vendor_id', $vendorId)
+                            ->first();
+
+                        if ($exists) {
+                            continue;
+                        }
+
+                        DB::table('map_issue_vendor_assignment')->insert([
+                            'issue_id' => $issueId,
+                            'vendor_id' => $vendorId,
+                            'vendor_status_id' => $initialVendorStatusId ?? $newStatusId,
+                            'is_active' => 1,
+                            'created_by' => auth()->id(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    $vendorNames = DB::table('mst_vendor')
+                        ->whereIn('vendor_id', $vendorIds)
+                        ->pluck('vendor_name')
+                        ->map(fn ($name) => (string) $name)
+                        ->all();
+
+                    $historyComment = ! empty($vendorNames)
+                        ? 'Vendor assignment: ' . implode(', ', $vendorNames)
+                        : 'Vendor assignment updated';
+
+                    DB::table('txn_issue_status_history')->insert([
+                        'issue_id' => $issueId,
+                        'old_status_id' => $oldStatusId,
+                        'new_status_id' => $newStatusId,
+                        'changed_by_user_id' => auth()->id(),
+                        'comment' => $historyComment,
+                        'changed_at' => now(),
+                    ]);
+
+                    DB::table('txn_issue')
+                        ->where('issue_id', $issueId)
+                        ->update([
+                            'status_id' => $newStatusId,
+                            'updated_at' => now(),
+                        ]);
+
+                    return;
+                }
+
+                if (! empty($vendorIds) && ! $isVendorAssignmentStatus) {
+                    foreach ($vendorIds as $vendorId) {
+                        $assignment = DB::table('map_issue_vendor_assignment')
+                            ->where('issue_id', $issueId)
+                            ->where('vendor_id', (int) $vendorId)
+                            ->first();
+
+                        if (! $assignment) {
+                            continue;
+                        }
+
+                        $statusLower = strtolower(trim((string) $statusName));
+                        $isReject = str_contains($statusLower, 'reject');
+
+                        DB::table('map_issue_vendor_assignment')
+                            ->where('issue_id', $issueId)
+                            ->where('vendor_id', (int) $vendorId)
+                            ->update([
+                                'vendor_status_id' => $newStatusId,
+                                'status_updated_by' => auth()->id(),
+                                'status_updated_at' => now(),
+                                'status_remarks' => $remarks,
+                                'is_active' => $isReject ? 0 : 1,
+                                'updated_at' => now(),
+                            ]);
+
+                        $historyData = [
+                            'issue_id' => $issueId,
+                            'old_status_id' => $oldStatusId,
+                            'new_status_id' => $newStatusId,
+                            'changed_by_user_id' => auth()->id(),
+                            'comment' => $remarks,
+                            'changed_at' => now(),
+                        ];
+
+                        if (Schema::hasColumn('txn_issue_status_history', 'vendor_id')) {
+                            $historyData['vendor_id'] = (int) $vendorId;
+                        } else {
+                            $vendorName = DB::table('mst_vendor')
+                                ->where('vendor_id', (int) $vendorId)
+                                ->value('vendor_name');
+                            $historyData['comment'] = trim(($vendorName ? $vendorName . ' - ' : '') . $remarks);
+                        }
+
+                        DB::table('txn_issue_status_history')->insert($historyData);
+                    }
+
+                    $assignedVendorCount = DB::table('map_issue_vendor_assignment')
+                        ->where('issue_id', $issueId)
+                        ->where('is_active', 1)
+                        ->count();
+
+                    if ($assignedVendorCount > 0) {
+                        $resolvedVendorCount = DB::table('map_issue_vendor_assignment')
+                            ->where('issue_id', $issueId)
+                            ->where('is_active', 1)
+                            ->where('vendor_status_id', 3)
+                            ->count();
+
+                        if ($assignedVendorCount === $resolvedVendorCount) {
+                            $resolvedStatusRow = DB::table('mst_issue_status')
+                                ->where(function ($query) {
+                                    $query->where('status_name', 'Resolved')
+                                        ->orWhereRaw("LOWER(status_name) = 'resolved'");
+                                })
+                                ->first(['status_id']);
+
+                            if ($resolvedStatusRow) {
+                                DB::table('txn_issue')
+                                    ->where('issue_id', $issueId)
+                                    ->update([
+                                        'status_id' => (int) $resolvedStatusRow->status_id,
+                                        'updated_at' => now(),
+                                    ]);
+
+                                DB::table('txn_issue_status_history')->insert([
+                                    'issue_id' => $issueId,
+                                    'old_status_id' => $oldStatusId,
+                                    'new_status_id' => (int) $resolvedStatusRow->status_id,
+                                    'changed_by_user_id' => auth()->id(),
+                                    'comment' => 'All active vendors resolved',
+                                    'changed_at' => now(),
+                                ]);
+                            }
+                        } else {
+                            $resolvedStatusId = DB::table('mst_issue_status')
+                                ->whereRaw('LOWER(status_name) = ?', ['resolved'])
+                                ->value('status_id');
+
+                            if ($resolvedStatusId && $oldStatusId === (int) $resolvedStatusId) {
+                                $inProgressStatusId = DB::table('mst_issue_status')
+                                    ->whereRaw('LOWER(status_name) = ?', ['in progress'])
+                                    ->value('status_id');
+
+                                if ($inProgressStatusId) {
+                                    DB::table('txn_issue')
+                                        ->where('issue_id', $issueId)
+                                        ->update([
+                                            'status_id' => $inProgressStatusId,
+                                            'updated_at' => now(),
+                                        ]);
+                                }
+                            }
+                        }
+                    }
+
+                    if ($request->hasFile('attachments')) {
+                        foreach ($request->file('attachments') as $file) {
+                            if (! $file || ! $file->isValid()) {
+                                continue;
+                            }
+
+                            $originalName = $file->getClientOriginalName();
+                            $storedName = $file->hashName();
+                            $folder = 'issue_attachments/' . $issueId;
+                            $relativePath = $file->storeAs($folder, $storedName, 'public');
+
+                            DB::table('txn_issue_attachment')->insert([
+                                'issue_id' => $issueId,
+                                'original_file_name' => $originalName,
+                                'stored_file_name' => $storedName,
+                                'file_path' => $relativePath,
+                                'uploaded_at' => now(),
+                            ]);
+                        }
+                    }
+
+                    return;
+                }
+
                 DB::table('txn_issue')
                     ->where('issue_id', $issueId)
                     ->update([
@@ -870,33 +1345,46 @@ class PageController extends Controller
                 $historyComment = trim((string) $request->input('remarks', 'Status updated')) ?: 'Status updated';
 
                 if (! empty($vendorIds)) {
-                    DB::table('map_issue_vendor_assignment')
-                        ->where('issue_id', $issueId)
-                        ->update(['is_active' => 0]);
+                    $initialVendorStatusId = $this->getInitialVendorStatusId();
 
                     foreach ($vendorIds as $vendorId) {
                         $exists = DB::table('map_issue_vendor_assignment')
                             ->where('issue_id', $issueId)
                             ->where('vendor_id', $vendorId)
-                            ->exists();
+                            ->first();
 
                         if (! $exists) {
                             DB::table('map_issue_vendor_assignment')->insert([
                                 'issue_id' => $issueId,
                                 'vendor_id' => $vendorId,
+                                'vendor_status_id' => $initialVendorStatusId,
                                 'is_active' => 1,
                                 'created_by' => auth()->id(),
                                 'created_at' => now(),
                                 'updated_at' => now(),
                             ]);
                         } else {
-                            DB::table('map_issue_vendor_assignment')
-                                ->where('issue_id', $issueId)
-                                ->where('vendor_id', $vendorId)
-                                ->update([
-                                    'is_active' => 1,
-                                    'updated_at' => now(),
-                                ]);
+                            if ($exists->is_active === 0) {
+                                DB::table('map_issue_vendor_assignment')
+                                    ->where('issue_id', $issueId)
+                                    ->where('vendor_id', $vendorId)
+                                    ->update([
+                                        'vendor_status_id' => $initialVendorStatusId,
+                                        'is_active' => 1,
+                                        'status_updated_by' => auth()->id(),
+                                        'status_updated_at' => now(),
+                                        'status_remarks' => 'Vendor reassigned - status reset',
+                                        'updated_at' => now(),
+                                    ]);
+                            } else {
+                                DB::table('map_issue_vendor_assignment')
+                                    ->where('issue_id', $issueId)
+                                    ->where('vendor_id', $vendorId)
+                                    ->update([
+                                        'is_active' => 1,
+                                        'updated_at' => now(),
+                                    ]);
+                            }
                         }
                     }
 
@@ -955,15 +1443,73 @@ class PageController extends Controller
                 'message' => $e->getMessage(),
             ]);
 
+            $message = $e instanceof \Illuminate\Validation\ValidationException
+                ? implode(' ', $e->errors()->all())
+                : 'Unable to update the ticket. Please try again.';
+
             if ($request->expectsJson() || $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unable to update the ticket. Please try again.'
+                    'message' => $message,
                 ], 422);
             }
 
-            return redirect()->back()->withInput()->with('error', 'Unable to update the ticket. Please try again.');
+            return redirect()->back()->withInput()->with('error', $message);
         }
+    }
+
+    /**
+     * Get Initial Vendor Status ID
+     * Helper method for vendor assignment
+     */
+    private function getInitialVendorStatusId(): ?int
+    {
+        $newStatus = DB::table('mst_issue_status')
+            ->where(function ($query) {
+                $query->where('status_name', 'New')
+                    ->orWhereRaw('LOWER(status_name) = ?', ['new']);
+            })
+            ->where(function ($query) {
+                $query->where('is_active', 1)->orWhereNull('is_active');
+            })
+            ->first(['status_id', 'status_name']);
+
+        if ($newStatus) {
+            return (int) $newStatus->status_id;
+        }
+
+        $roleQuery = DB::table('mst_role')
+            ->where(function ($query) {
+                $query->where('role_name', 'Vendor')
+                    ->orWhere('role_name', 'Vendor IT')
+                    ->orWhere('role_name', 'Vendor Admin');
+            });
+
+        if (Schema::hasColumn('mst_role', 'is_active')) {
+            $roleQuery->where(function ($query) {
+                $query->where('is_active', 1)->orWhereNull('is_active');
+            });
+        }
+
+        $vendorRole = $roleQuery->first();
+
+        if (!$vendorRole) {
+            return null;
+        }
+
+        $initialStatus = DB::table('map_role_issue_status as m')
+            ->join('mst_issue_status as s', 'm.status_id', '=', 's.status_id')
+            ->where('m.role_id', $vendorRole->role_id)
+            ->where('m.is_allowed', 1)
+            ->where(function ($query) {
+                $query->where('s.is_active', 1)->orWhereNull('s.is_active');
+            })
+            ->whereRaw('LOWER(s.status_name) NOT LIKE ?', ['%reject%'])
+            ->orderBy('m.display_order')
+            ->orderBy('s.display_order')
+            ->first(['m.status_id']);
+
+        return $initialStatus ? (int) $initialStatus->status_id : null;
     }
 
     public function issues(): View
