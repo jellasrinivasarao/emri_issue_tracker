@@ -142,6 +142,10 @@ class PageController extends Controller
 
         // Always get resolved/closed status IDs from ALL statuses (not just role-allowed)
         // This ensures filtering works regardless of role status restrictions
+        $reopenedStatusIds = [];
+        $approvedStatusIds = [];
+        $rejectedStatusIds = [];
+
         $allStatusRows = DB::table('mst_issue_status as s')
             ->where(function ($query) {
                 $query->where('s.is_active', 1)->orWhereNull('s.is_active');
@@ -449,7 +453,12 @@ class PageController extends Controller
             $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? ($user->vendor_id ?? null) : null;
 
             if (! empty($vendorId)) {
-                $issuesQuery->where(function ($query) use ($vendorId) {
+                $vendorReopenStatusIds = array_values(array_unique(array_merge(
+                    $reopenedStatusIds ?? [],
+                    $approvedStatusIds ?? []
+                )));
+
+                $issuesQuery->where(function ($query) use ($vendorId, $vendorReopenStatusIds) {
                     $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
                         ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
                         ->orWhereExists(function ($q) use ($vendorId) {
@@ -458,8 +467,8 @@ class PageController extends Controller
                               ->where('mva.vendor_id', $vendorId)
                               ->where('mva.is_active', 1);
                         })
-                        ->orWhere(function ($reopenQuery) use ($vendorId, $reopenedStatusIds, $approvedStatusIds) {
-                            $reopenQuery->whereIn('i.status_id', array_values(array_unique(array_merge($reopenedStatusIds, $approvedStatusIds))))
+                        ->orWhere(function ($reopenQuery) use ($vendorId, $vendorReopenStatusIds) {
+                            $reopenQuery->whereIn('i.status_id', $vendorReopenStatusIds)
                                 ->whereExists(function ($q) use ($vendorId) {
                                     $q->from('map_issue_vendor_assignment as historical_assignment')
                                         ->whereColumn('historical_assignment.issue_id', 'i.issue_id')

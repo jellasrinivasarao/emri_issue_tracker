@@ -179,27 +179,7 @@
                                             @endif
                                         </td>
                                         <td class="px-3 py-2.5">
-                                            @if(!empty($ticket['vendor_progress']['vendors']))
-                                                <div class="flex flex-col gap-1">
-                                                    @foreach($ticket['vendor_progress']['vendors'] as $vendor)
-                                                        <div class="flex items-center gap-1 text-[10px]">
-                                                            <span class="font-medium text-slate-600">{{ $vendor['vendor_name'] }}</span>
-                                                            <span class="text-slate-400">-</span>
-                                                            @if($vendor['is_active'])
-                                                                @if($vendor['is_resolved'])
-                                                                    <span class="inline-flex rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700">Resolved</span>
-                                                                @else
-                                                                    <span class="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 font-semibold text-yellow-700">{{ $vendor['status_name'] }}</span>
-                                                                @endif
-                                                            @else
-                                                                <span class="inline-flex rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Rejected</span>
-                                                            @endif
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">{{ $ticket['status'] }}</span>
-                                            @endif
+                                            <span class="inline-flex rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold text-emerald-700">{{ $ticket['status'] ?? 'Open' }}</span>
                                         </td>
                                         <td class="px-3 py-2.5">
                                             <span class="inline-flex rounded-full bg-red-100 px-2 py-1 text-[10px] font-semibold text-red-700">{{ $ticket['priority'] }}</span>
