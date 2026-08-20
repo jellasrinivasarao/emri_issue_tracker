@@ -493,7 +493,8 @@
                     const selectedVendorStatusId = formData.get('vendor_status_id');
                     const isVendorAssignment = String(selectedStatusName || '').trim().toLowerCase() === 'vendor assignment' || String(selectedStatusName || '').trim().toLowerCase() === 'escalate to vendor';
                     const vendorStatusId = selectedVendorStatusId || statusOptions.find((status) => String(status.status_name) === String(selectedStatusName))?.status_id;
-                    const vendorUpdateUrl = updateForm.dataset.vendorStatusUrl || (window.location.origin + '/issues/' + formData.get('issue_id') + '/vendor-status');
+                    const vendorUpdateBase = updateForm.dataset.vendorStatusBase || '{{ url('/issues') }}';
+                    const vendorUpdateUrl = updateForm.dataset.vendorStatusUrl || (vendorUpdateBase + '/' + formData.get('issue_id') + '/vendor-status');
 
                     if (!isVendorAssignment && selectedVendorId && vendorStatusId) {
                         formData.set('vendor_status_id', String(vendorStatusId));
@@ -687,7 +688,7 @@
                                     </div>
 
                                     <div x-show="showUpdate" x-cloak class="rounded-[14px] border border-slate-200 bg-white p-4">
-                                        <form id="issueUpdateForm" method="POST" action="{{ route('role.issue.update') }}" enctype="multipart/form-data">
+                                        <form id="issueUpdateForm" method="POST" action="{{ route('role.issue.update') }}" data-vendor-status-base="{{ url('/issues') }}" enctype="multipart/form-data">
                                             @csrf
                                             <input type="hidden" name="issue_id" x-bind:value="selectedTicket ? selectedTicket.issue_id : ''" />
                                             <input type="hidden" name="status_id" x-bind:value="selectedTicket ? selectedTicket.status_id : ''" />
