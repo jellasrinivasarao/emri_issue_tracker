@@ -1145,6 +1145,8 @@ class PageController extends Controller
 
             $isPendingStateApproval = str_contains($oldStatusName, 'state admin approval')
                 || str_contains($oldStatusName, 'pending approval');
+            $isPendingReopenApproval = str_contains($oldStatusName, 'reopen')
+                || $isPendingStateApproval;
 
             if (($isApprovedStatus || $isRejectedStatus) && (! $isStateAdmin || (! str_contains($oldStatusName, 'reopen') && ! $isPendingStateApproval))) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
@@ -1152,13 +1154,17 @@ class PageController extends Controller
                 ]);
             }
 
+            if ($isPendingReopenApproval && ! $isStateAdmin) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'status_name' => 'State IT Admin approval is required before State IT or any other user can update this reopened ticket.',
+                ]);
+            }
+
             $isClarificationResponse = $isClarificationAction
                 && str_contains($statusLower, 'provided');
-            $hoClarificationForStateTicket = $isHoRole && $raisedByStateTeam && $isClarificationAction;
-
-            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName) && ! $hoClarificationForStateTicket) {
+            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'status_name' => 'This ticket was reopened by the State team and requires State Admin approval before further action.',
+                    'status_name' => 'This ticket was reopened by the State team and requires State IT Admin approval before further action.',
                 ]);
             }
 
@@ -1242,7 +1248,7 @@ class PageController extends Controller
                     }
 
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'status_name' => implode(' and ', $routeOwners) . ' must perform the action first. State IT/Admin must wait until Clarification Required, Resolved/Completed, or Rejected is received from every routed vendor before acting.',
+                        'status_name' => implode(' and ', $routeOwners) . ' must perform the action first. State IT Admin must wait until every routed vendor returns Clarification Required, Resolved/Completed, or Rejected before acting.',
                     ]);
                 }
             }

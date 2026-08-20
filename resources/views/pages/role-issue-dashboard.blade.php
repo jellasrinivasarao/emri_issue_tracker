@@ -468,6 +468,19 @@
                 });
             };
 
+            window.closeIssueDrawer = function closeIssueDrawer() {
+                const updateForm = document.getElementById('issueUpdateForm');
+                const flashBox = updateForm?.querySelector('#drawerUpdateMessage');
+
+                if (flashBox) {
+                    flashBox.className = 'hidden mb-3 rounded-xl border px-4 py-3 text-sm font-semibold';
+                    flashBox.innerHTML = '';
+                }
+
+                updateForm?.reset();
+                window.refreshIssueDashboard();
+            };
+
             document.addEventListener('DOMContentLoaded', function () {
                 const updateForm = document.getElementById('issueUpdateForm');
                 const flashBox = updateForm ? updateForm.querySelector('#drawerUpdateMessage') : null;
@@ -639,7 +652,7 @@
                                     <span class="rounded-full bg-red-100 px-3 py-1 text-red-700" x-text="selectedTicket ? selectedTicket.priority : '—'">—</span>
                                 </div>
                             </div>
-                            <button @click="drawerOpen = false; refreshIssueDashboard();" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200">
+                            <button @click="drawerOpen = false; closeIssueDrawer();" class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 hover:bg-slate-200">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
@@ -900,7 +913,7 @@
 
                                 <div class="sticky bottom-0 left-0 z-20 mt-4 rounded-[18px] border border-slate-200 bg-white p-4 shadow-xl">
                                     <div class="flex justify-end">
-                                        <button @click="drawerOpen = false" class="rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
+                                                        <button @click="drawerOpen = false; closeIssueDrawer();" class="rounded-[10px] border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
                                     </div>
                                 </div>
                             </div>

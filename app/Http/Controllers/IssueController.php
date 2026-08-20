@@ -1176,7 +1176,7 @@ class IssueController extends Controller
             if ($isPendingStateApproval) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Vendor action is blocked until State Admin approves this reopened ticket.',
+                    'message' => 'Vendor action is blocked until State IT Admin approves this reopened ticket.',
                 ], 422);
             }
 
