@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Providers\RouteServiceProvider;
+use App\Http\Middleware\EnsureSingleUserSession;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
+use Illuminate\Validation\ValidationException;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -30,6 +32,26 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = $request->user();
+        $activeSessionKey = EnsureSingleUserSession::cacheKey((int) $user->getAuthIdentifier());
+        $activeSession = Cache::get($activeSessionKey);
+
+        if ($activeSession && ($activeSession['session_id'] ?? null) !== $request->session()->getId() && ! $request->boolean('force_login')) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            $request->session()->flash('single_session_conflict', true);
+
+            throw ValidationException::withMessages([
+                'login_id' => 'This user is already logged in on another device. Log out the previous session or continue with the button below.',
+            ]);
+        }
+
+        Cache::put(
+            $activeSessionKey,
+            ['session_id' => $request->session()->getId()],
+            now()->addMinutes((int) config('session.lifetime', 120))
+        );
+
         $hasIssueDashboardAccess = $user->menus->contains(function ($menu) {
             return strtolower((string) ($menu->route_name ?? '')) === 'role.issue.dashboard';
         });
@@ -53,6 +75,12 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $userId = Auth::id();
+
+        if ($userId) {
+            Cache::forget(EnsureSingleUserSession::cacheKey((int) $userId));
+        }
+
         Auth::guard('web')->logout();
 
         // Level 3: Clear all session variables and cookies

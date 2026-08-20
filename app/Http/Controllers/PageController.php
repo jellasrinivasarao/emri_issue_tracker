@@ -197,7 +197,12 @@ class PageController extends Controller
             ->values()
             ->all();
 
-        $reopenedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['reopened']);
+        $reopenedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, [
+            'reopened',
+            're-open',
+            'reopen',
+            're opened',
+        ]);
         $approvedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['approved']);
         $rejectedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['rejected']);
         $reopenWorkflowStatusIds = array_values(array_unique(array_merge($reopenedStatusIds, $approvedStatusIds)));
@@ -620,22 +625,7 @@ class PageController extends Controller
                 $issuesQuery->where('i.status_id', (int) $requestedStatusValue);
             }
         } elseif (empty($requestedStatusValue) && ! $request->has('status_id')) {
-            // Default view: show only in-progress (non-resolved, non-closed) issues
-            if (!empty($resolvedStatusIds)) {
-                $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds);
-            }
-            if (!empty($closedStatusIds)) {
-                $issuesQuery->whereNotIn('i.status_id', $closedStatusIds);
-            }
-            if (!empty($reopenedStatusIds)) {
-                $issuesQuery->whereNotIn('i.status_id', $reopenedStatusIds);
-            }
-            if (!empty($approvedStatusIds)) {
-                $issuesQuery->whereNotIn('i.status_id', $approvedStatusIds);
-            }
-            if (!empty($rejectedStatusIds)) {
-                $issuesQuery->whereNotIn('i.status_id', $rejectedStatusIds);
-            }
+            // Default view shows all issues; status cards apply explicit filters.
         }
 
         $issues = $issuesQuery->get();
@@ -976,7 +966,19 @@ class PageController extends Controller
     public function getVendorResolutionValidationMessage(array $vendorAssignments, int $resolvedStatusId = 3): string
     {
         $pending = collect($vendorAssignments)
-            ->filter(fn ($row) => ! empty($row['is_active']) && ((int) ($row['vendor_status_id'] ?? 0) !== $resolvedStatusId))
+            ->filter(function ($row) use ($resolvedStatusId) {
+                if (empty($row['is_active'])) {
+                    return false;
+                }
+
+                $statusName = strtolower(trim((string) ($row['status_name'] ?? '')));
+                $isTerminal = (int) ($row['vendor_status_id'] ?? 0) === $resolvedStatusId
+                    || str_contains($statusName, 'resolved')
+                    || str_contains($statusName, 'completed')
+                    || str_contains($statusName, 'reject');
+
+                return ! $isTerminal;
+            })
             ->map(function ($row) {
                 $vendorName = trim((string) ($row['vendor_name'] ?? 'Unknown Vendor'));
                 $statusName = trim((string) ($row['status_name'] ?? 'In Progress'));
@@ -1063,9 +1065,15 @@ class PageController extends Controller
             $oldStatusId = (int) ($currentIssue->status_id ?? 0);
             $oldStatusName = strtolower(trim((string) DB::table('mst_issue_status')->where('status_id', $oldStatusId)->value('status_name')));
 
-            if ($isReopenedStatus && (! $isStateRole || ! str_contains($oldStatusName, 'close'))) {
+            $isResolvedOrClosedStatus = str_contains($oldStatusName, 'resolved')
+                || str_contains($oldStatusName, 'completed')
+                || str_contains($oldStatusName, 'close')
+                || str_contains($oldStatusName, 'cancelled')
+                || str_contains($oldStatusName, 'canceled');
+
+            if ($isReopenedStatus && (! $isStateRole || ! $isResolvedOrClosedStatus)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'status_name' => 'Only a State user can reopen a Closed ticket.',
+                    'status_name' => 'Only a State user can reopen a Resolved or Closed ticket.',
                 ]);
             }
 
@@ -1183,7 +1191,16 @@ class PageController extends Controller
                 $resolvedStatusId = (int) ($resolvedStatusId ?? 3);
                 $pendingMessage = $this->getVendorResolutionValidationMessage($activeVendorAssignments, $resolvedStatusId);
 
-                if (! empty($activeVendorAssignments) && ! collect($activeVendorAssignments)->every(fn ($row) => (int) ($row['vendor_status_id'] ?? 0) === $resolvedStatusId)) {
+                $allVendorsTerminal = collect($activeVendorAssignments)->every(function ($row) use ($resolvedStatusId) {
+                    $statusName = strtolower(trim((string) ($row['status_name'] ?? '')));
+
+                    return (int) ($row['vendor_status_id'] ?? 0) === $resolvedStatusId
+                        || str_contains($statusName, 'resolved')
+                        || str_contains($statusName, 'completed')
+                        || str_contains($statusName, 'reject');
+                });
+
+                if (! empty($activeVendorAssignments) && ! $allVendorsTerminal) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'vendor_resolution' => $isClosedStatus
                             ? 'Ticket cannot be closed until all assigned vendors are resolved. ' . $pendingMessage

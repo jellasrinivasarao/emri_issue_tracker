@@ -38,6 +38,12 @@
             </div>
 
             <button type="submit" class="mt-2 w-full rounded-[28px] bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/10 transition duration-200 hover:bg-slate-800">Sign In</button>
+
+            @if (session('single_session_conflict'))
+                <button type="submit" name="force_login" value="1" class="w-full rounded-[28px] border border-rose-300 bg-rose-50 px-5 py-3 text-sm font-semibold text-rose-700 transition duration-200 hover:bg-rose-100">
+                    Logout Previous Session and Sign In
+                </button>
+            @endif
         </form>
 
         <div class="mt-6 text-center text-sm text-slate-500">© 2026 EMRI Green Health Services. All rights reserved.</div>
