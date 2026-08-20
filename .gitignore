@@ -22,6 +22,7 @@
 
 # Local development files
 /public/hot
+/public/*
 .phpunit.result.cache
 npm-debug.log*
 yarn-debug.log*
