@@ -553,72 +553,6 @@ class PageController extends Controller
                 ->count();
         }
 
-        if ($isHoIt) {
-            $statusSummary['resolved'] = DB::table('txn_issue as i')
-                ->whereIn('i.issue_id', function ($query) use ($user, $resolvedStatusIds) {
-                    $query->select('issue_id')
-                        ->from('txn_issue_status_history')
-                        ->where('changed_by_user_id', $user->user_id)
-                        ->whereIn('new_status_id', $resolvedStatusIds ?: [0]);
-                })
-                ->count();
-            
-            $statusSummary['closed'] = DB::table('txn_issue as i')
-                ->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
-                    $query->select('issue_id')
-                        ->from('txn_issue_status_history')
-                        ->where('changed_by_user_id', $user->user_id)
-                        ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                })
-                    ->whereIn('i.status_id', $closedStatusIds ?: [0])
-                ->count();
-        }
-
-        if ($isVendorIt) {
-            $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
-            
-            if (! empty($vendorId)) {
-                $statusSummary['resolved'] = DB::table('txn_issue as i')
-                    ->whereIn('i.issue_id', function ($query) use ($user, $resolvedStatusIds) {
-                        $query->select('issue_id')
-                            ->from('txn_issue_status_history')
-                            ->where('changed_by_user_id', $user->user_id)
-                            ->whereIn('new_status_id', $resolvedStatusIds ?: [0]);
-                    })
-                    ->where(function ($query) use ($vendorId) {
-                        $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
-                            ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
-                            ->orWhereExists(function ($q) use ($vendorId) {
-                                $q->from('map_issue_vendor_assignment as mva')
-                                  ->whereColumn('mva.issue_id', 'i.issue_id')
-                                  ->where('mva.vendor_id', $vendorId)
-                                  ->where('mva.is_active', 1);
-                            });
-                    })
-                    ->count();
-                
-                $statusSummary['closed'] = DB::table('txn_issue as i')
-                    ->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
-                        $query->select('issue_id')
-                            ->from('txn_issue_status_history')
-                            ->where('changed_by_user_id', $user->user_id)
-                            ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                    })
-                            ->whereIn('i.status_id', $closedStatusIds ?: [0])
-                    ->where(function ($query) use ($vendorId) {
-                        $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
-                            ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
-                            ->orWhereExists(function ($q) use ($vendorId) {
-                                $q->from('map_issue_vendor_assignment as mva')
-                                  ->whereColumn('mva.issue_id', 'i.issue_id')
-                                  ->where('mva.vendor_id', $vendorId)
-                                  ->where('mva.is_active', 1);
-                            });
-                    })
-                    ->count();
-            }
-        }
-
         $requestedStatusValue = trim((string) $request->input('status_id', ''));
         if ($request->has('status_id') && $requestedStatusValue !== '') {
             $requestedStatusValue = strtolower($requestedStatusValue);
@@ -646,32 +580,6 @@ class PageController extends Controller
                 if ($isStateIt) {
                     $issuesQuery->where('i.raised_by_user_id', $user->user_id)
                         ->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
-                } elseif ($isHoIt) {
-                    $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $resolvedStatusIds) {
-                        $query->select('issue_id')
-                            ->from('txn_issue_status_history')
-                            ->where('changed_by_user_id', $user->user_id)
-                            ->whereIn('new_status_id', $resolvedStatusIds ?: [0]);
-                    });
-                } elseif ($isVendorIt) {
-                    $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
-                    if (! empty($vendorId)) {
-                        $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $resolvedStatusIds) {
-                            $query->select('issue_id')
-                                ->from('txn_issue_status_history')
-                                ->where('changed_by_user_id', $user->user_id)
-                                ->whereIn('new_status_id', $resolvedStatusIds ?: [0]);
-                        })->where(function ($query) use ($vendorId) {
-                            $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
-                                ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
-                                ->orWhereExists(function ($q) use ($vendorId) {
-                                    $q->from('map_issue_vendor_assignment as mva')
-                                      ->whereColumn('mva.issue_id', 'i.issue_id')
-                                      ->where('mva.vendor_id', $vendorId)
-                                      ->where('mva.is_active', 1);
-                                });
-                        });
-                    }
                 } else {
                     $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
                 }
@@ -684,33 +592,6 @@ class PageController extends Controller
                             ->whereIn('new_status_id', $closedStatusIds ?: [0]);
                     })->where('i.raised_by_user_id', $user->user_id)
                         ->whereIn('i.status_id', $closedStatusIds ?: [0]);
-                } elseif ($isHoIt) {
-                    $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
-                        $query->select('issue_id')
-                            ->from('txn_issue_status_history')
-                            ->where('changed_by_user_id', $user->user_id)
-                            ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                            })->whereIn('i.status_id', $closedStatusIds ?: [0]);
-                } elseif ($isVendorIt) {
-                    $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
-                    if (! empty($vendorId)) {
-                        $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
-                            $query->select('issue_id')
-                                ->from('txn_issue_status_history')
-                                ->where('changed_by_user_id', $user->user_id)
-                                ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                        })->whereIn('i.status_id', $closedStatusIds ?: [0])
-                            ->where(function ($query) use ($vendorId) {
-                            $query->whereRaw('FIND_IN_SET(?, COALESCE(i.first_level_vendor_ids, "")) > 0', [$vendorId])
-                                ->orWhereRaw('FIND_IN_SET(?, COALESCE(i.second_level_vendor_ids, "")) > 0', [$vendorId])
-                                ->orWhereExists(function ($q) use ($vendorId) {
-                                    $q->from('map_issue_vendor_assignment as mva')
-                                      ->whereColumn('mva.issue_id', 'i.issue_id')
-                                      ->where('mva.vendor_id', $vendorId)
-                                      ->where('mva.is_active', 1);
-                                });
-                        });
-                    }
                 } else {
                     $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
                 }
