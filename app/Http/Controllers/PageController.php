@@ -162,6 +162,7 @@ class PageController extends Controller
                 ->concat(collect($allStatusOptions)->filter(function ($row) use ($isStateAdmin, $statusNameLookup) {
                     $name = $statusNameLookup($row['status_name'] ?? '');
                     return str_contains($name, 'reopen')
+                        || str_contains($name, 'clarification provided')
                         || ($isStateAdmin && (str_contains($name, 'approv') || str_contains($name, 'reject')));
                 }))
                 ->unique('status_id')
@@ -205,7 +206,16 @@ class PageController extends Controller
         ]);
         $approvedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['approved']);
         $rejectedStatusIds = $this->extractMatchingStatusIds($allStatusOptions, ['rejected']);
-        $reopenWorkflowStatusIds = array_values(array_unique(array_merge($reopenedStatusIds, $approvedStatusIds)));
+        $stateApprovalStatusIds = $this->extractMatchingStatusIds($allStatusOptions, [
+            'state admin approval required',
+            'state admin approval',
+            'pending approval',
+        ]);
+        $reopenWorkflowStatusIds = array_values(array_unique(array_merge(
+            $reopenedStatusIds,
+            $approvedStatusIds,
+            $stateApprovalStatusIds
+        )));
 
         $inProcessStatusIds = collect($statusOptions)
             ->filter(function ($row) use ($statusNameLookup) {
@@ -460,7 +470,8 @@ class PageController extends Controller
             if (! empty($vendorId)) {
                 $vendorReopenStatusIds = array_values(array_unique(array_merge(
                     $reopenedStatusIds ?? [],
-                    $approvedStatusIds ?? []
+                    $approvedStatusIds ?? [],
+                    $stateApprovalStatusIds ?? []
                 )));
 
                 $issuesQuery->where(function ($query) use ($vendorId, $vendorReopenStatusIds) {
@@ -670,6 +681,13 @@ class PageController extends Controller
             $formattedDate = $dateValue ? Carbon::parse($dateValue)->format('Y-m-d H:i:s') : '—';
             $priorityName = strtolower((string) ($issue->priority_name ?: 'medium'));
             $priorityWeight = $priorityOrder[$priorityName] ?? 99;
+            $displayStatus = (string) ($issue->status_name ?: 'Open');
+            $normalizedDisplayStatus = strtolower(trim($displayStatus));
+            if (str_contains($normalizedDisplayStatus, 'reopen')
+                && ! str_contains($normalizedDisplayStatus, 'approv')
+            ) {
+                $displayStatus = 'Reopen - State Admin Approval Required';
+            }
 
             $history = [];
 
@@ -874,7 +892,7 @@ class PageController extends Controller
                 'application' => $issue->application_name ?: '—',
                 'module' => $issue->module_name ?: '—',
                 'category' => $issue->category_name ?: '—',
-                'status' => $issue->status_name ?: 'Open',
+                'status' => $displayStatus,
                 'status_id' => (int) ($issue->status_id ?? 0),
                 'current_vendor_id' => $isVendorRole && $vendorId ? (int) $vendorId : null,
                 'priority' => $issue->priority_name ?: 'Medium',
@@ -960,7 +978,10 @@ class PageController extends Controller
         $normalizedStatusName = strtolower(trim($currentStatusName));
         $isStateAdmin = str_contains($normalizedRoleText, 'state admin');
 
-        return ! $isStateAdmin && str_contains($normalizedStatusName, 'reopen');
+        return ! $isStateAdmin
+            && (str_contains($normalizedStatusName, 'reopen')
+                || str_contains($normalizedStatusName, 'state admin approval')
+                || str_contains($normalizedStatusName, 'pending approval'));
     }
 
     public function getVendorResolutionValidationMessage(array $vendorAssignments, int $resolvedStatusId = 3): string
@@ -1057,13 +1078,44 @@ class PageController extends Controller
                 )->all()));
             $isStateRole = str_contains($roleText, 'state');
             $isStateAdmin = str_contains($roleText, 'state admin');
+            $isHoRole = str_contains($roleText, 'ho it')
+                || str_contains($roleText, 'ho admin')
+                || str_contains($roleText, 'head office');
             $isReopenedStatus = str_contains($statusLower, 'reopen');
             $isApprovedStatus = str_contains($statusLower, 'approv');
             $isRejectedStatus = str_contains($statusLower, 'reject');
+            $isClarificationAction = str_contains($statusLower, 'clarification');
 
             $currentIssue = DB::table('txn_issue')->where('issue_id', $issueId)->first();
             $oldStatusId = (int) ($currentIssue->status_id ?? 0);
             $oldStatusName = strtolower(trim((string) DB::table('mst_issue_status')->where('status_id', $oldStatusId)->value('status_name')));
+            $stateApprovalStatusIds = $this->extractMatchingStatusIds(
+                DB::table('mst_issue_status')
+                    ->where(function ($query) {
+                        $query->where('is_active', 1)->orWhereNull('is_active');
+                    })
+                    ->get(['status_id', 'status_name'])
+                    ->map(fn ($row) => [
+                        'status_id' => (int) $row->status_id,
+                        'status_name' => (string) $row->status_name,
+                    ])
+                    ->all(),
+                ['state admin approval required', 'state admin approval', 'pending approval']
+            );
+
+            $creatorRoleText = '';
+            if (! empty($currentIssue->raised_by_user_id)) {
+                $creatorRoleText = strtolower(implode(' ', DB::table('map_user_role as mur')
+                    ->join('mst_role as mr', 'mr.role_id', '=', 'mur.role_id')
+                    ->where('mur.user_id', $currentIssue->raised_by_user_id)
+                    ->where(function ($query) {
+                        $query->where('mur.is_active', 1)->orWhereNull('mur.is_active');
+                    })
+                    ->pluck('mr.role_name')
+                    ->all()));
+            }
+            $raisedByStateTeam = str_contains($creatorRoleText, 'state it')
+                || str_contains($creatorRoleText, 'state admin');
 
             $isResolvedOrClosedStatus = str_contains($oldStatusName, 'resolved')
                 || str_contains($oldStatusName, 'completed')
@@ -1071,22 +1123,128 @@ class PageController extends Controller
                 || str_contains($oldStatusName, 'cancelled')
                 || str_contains($oldStatusName, 'canceled');
 
+            if ($isReopenedStatus && $isStateRole && $isResolvedOrClosedStatus && ! empty($stateApprovalStatusIds)) {
+                $approvalStatusRow = DB::table('mst_issue_status')
+                    ->whereIn('status_id', $stateApprovalStatusIds)
+                    ->orderBy('status_id')
+                    ->first(['status_id', 'status_name']);
+
+                if ($approvalStatusRow) {
+                    $newStatusId = (int) $approvalStatusRow->status_id;
+                    $statusName = (string) $approvalStatusRow->status_name;
+                    $statusLower = strtolower(trim($statusName));
+                    $statusKey = rtrim($statusLower, " .!?");
+                }
+            }
+
             if ($isReopenedStatus && (! $isStateRole || ! $isResolvedOrClosedStatus)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'status_name' => 'Only a State user can reopen a Resolved or Closed ticket.',
                 ]);
             }
 
-            if (($isApprovedStatus || $isRejectedStatus) && (! $isStateAdmin || ! str_contains($oldStatusName, 'reopen'))) {
+            $isPendingStateApproval = str_contains($oldStatusName, 'state admin approval')
+                || str_contains($oldStatusName, 'pending approval');
+
+            if (($isApprovedStatus || $isRejectedStatus) && (! $isStateAdmin || (! str_contains($oldStatusName, 'reopen') && ! $isPendingStateApproval))) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'status_name' => 'Only a State Admin can approve or reject a Reopened ticket.',
                 ]);
             }
 
-            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName)) {
+            $isClarificationResponse = $isClarificationAction
+                && str_contains($statusLower, 'provided');
+            $hoClarificationForStateTicket = $isHoRole && $raisedByStateTeam && $isClarificationAction;
+
+            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName) && ! $hoClarificationForStateTicket) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'status_name' => 'This ticket was reopened by the State team and requires State Admin approval before further action.',
                 ]);
+            }
+
+            $isStateItOrAdmin = str_contains($roleText, 'state it') || str_contains($roleText, 'state admin');
+            if ($isStateItOrAdmin) {
+                $vendorAssignments = DB::table('map_issue_vendor_assignment as m')
+                    ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+                    ->leftJoin('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+                    ->where('m.issue_id', $issueId)
+                    ->get(['m.vendor_id', 'm.is_active', 'v.vendor_name', 's.status_name']);
+
+                $isReturnedVendorStatus = function ($statusName): bool {
+                    $statusName = strtolower(trim((string) $statusName));
+                    return str_contains($statusName, 'resolved')
+                        || str_contains($statusName, 'completed')
+                        || str_contains($statusName, 'reject');
+                };
+
+                $hasPendingClarification = str_contains($oldStatusName, 'clarification required')
+                    || $vendorAssignments->contains(function ($assignment) {
+                        return (int) ($assignment->is_active ?? 0) === 1
+                            && str_contains(
+                            strtolower(trim((string) ($assignment->status_name ?? ''))),
+                            'clarification required'
+                        );
+                    });
+
+                $routedVendorIds = collect([
+                    ...array_filter(array_map('intval', explode(',', (string) ($currentIssue->first_level_vendor_ids ?? '')))),
+                    ...array_filter(array_map('intval', explode(',', (string) ($currentIssue->second_level_vendor_ids ?? '')))),
+                ])->filter()->unique()->values();
+                $assignedVendorIds = $vendorAssignments->pluck('vendor_id')->map(fn ($id) => (int) $id)->filter();
+                $allVendorIds = $routedVendorIds->merge($assignedVendorIds)->unique()->values();
+                $vendorNames = $vendorAssignments->mapWithKeys(fn ($row) => [(int) $row->vendor_id => $row->vendor_name ?: ('Vendor #' . $row->vendor_id)]);
+
+                if ($routedVendorIds->diff($assignedVendorIds)->isNotEmpty()) {
+                    $vendorNames = $vendorNames->union(
+                        DB::table('mst_vendor')->whereIn('vendor_id', $routedVendorIds)->pluck('vendor_name', 'vendor_id')
+                    );
+                }
+
+                $allVendorsReturnedAction = $allVendorIds->isNotEmpty()
+                    && $allVendorIds->every(function ($vendorId) use ($vendorAssignments, $isReturnedVendorStatus) {
+                        $assignment = $vendorAssignments->firstWhere('vendor_id', $vendorId);
+                        return $assignment && $isReturnedVendorStatus($assignment->status_name);
+                    });
+
+                $pendingVendorNames = $allVendorIds
+                    ->filter(function ($vendorId) use ($vendorAssignments, $isReturnedVendorStatus) {
+                        $assignment = $vendorAssignments->firstWhere('vendor_id', $vendorId);
+                        return ! $assignment || ! $isReturnedVendorStatus($assignment->status_name);
+                    })
+                    ->map(fn ($vendorId) => $vendorNames[$vendorId] ?? ('Vendor #' . $vendorId))
+                    ->values();
+
+                $hasHoHandoff = (int) ($currentIssue->ho_intervention_required ?? 0) === 1
+                    || (int) ($currentIssue->ho_working_hours ?? 0) === 1;
+                $hasVendorHandoff = $allVendorIds->isNotEmpty();
+                $hoReturnedAction = str_contains($oldStatusName, 'resolved')
+                    || str_contains($oldStatusName, 'completed')
+                    || str_contains($oldStatusName, 'reject');
+                $handoffCompleted = $allVendorsReturnedAction
+                    || ($hasHoHandoff && $hoReturnedAction);
+
+                if ($hasPendingClarification && ! $isClarificationResponse) {
+                    $clarificationOwner = $hasHoHandoff ? 'HO team' : 'Vendor';
+
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => $clarificationOwner . ' has requested clarification. State team can only provide clarification.',
+                    ]);
+                }
+
+                if (($hasHoHandoff || $hasVendorHandoff)
+                    && (! $handoffCompleted
+                        || ($isClarificationResponse && ! $hasPendingClarification))
+                    && ! ($isClarificationResponse && $hasPendingClarification)
+                ) {
+                    $routeOwners = $hasHoHandoff ? ['HO IT'] : [];
+                    if ($hasVendorHandoff) {
+                        $routeOwners[] = 'Vendor(s): ' . $pendingVendorNames->implode(', ');
+                    }
+
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => implode(' and ', $routeOwners) . ' must perform the action first. State IT/Admin must wait until Clarification Required, Resolved/Completed, or Rejected is received from every routed vendor before acting.',
+                    ]);
+                }
             }
 
             if ($isClosedStatus && $isStateRole) {
@@ -1190,6 +1348,21 @@ class PageController extends Controller
 
                 $resolvedStatusId = (int) ($resolvedStatusId ?? 3);
                 $pendingMessage = $this->getVendorResolutionValidationMessage($activeVendorAssignments, $resolvedStatusId);
+
+                $clarificationPending = collect($activeVendorAssignments)
+                    ->filter(function ($row) {
+                        return str_contains(strtolower(trim((string) ($row['status_name'] ?? ''))), 'clarification required');
+                    })
+                    ->map(fn ($row) => trim((string) ($row['vendor_name'] ?? 'Unknown Vendor')))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($clarificationPending->isNotEmpty()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'vendor_resolution' => 'Cannot ' . ($isClosedStatus ? 'close' : 'resolve') . ' this ticket while Clarification Required is pending from: ' . $clarificationPending->implode(', ') . '. Provide the clarification response first.',
+                    ]);
+                }
 
                 $allVendorsTerminal = collect($activeVendorAssignments)->every(function ($row) use ($resolvedStatusId) {
                     $statusName = strtolower(trim((string) ($row['status_name'] ?? '')));

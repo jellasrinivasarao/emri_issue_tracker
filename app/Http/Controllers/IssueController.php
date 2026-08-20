@@ -1164,6 +1164,22 @@ class IssueController extends Controller
             $requestedVendorId = (int) $request->input('vendor_id');
             $vendorId = $authenticatedVendorId > 0 ? $authenticatedVendorId : $requestedVendorId;
 
+            $currentStatusName = strtolower(trim((string) DB::table('mst_issue_status')
+                ->where('status_id', $issue->status_id)
+                ->value('status_name')));
+            $isPendingStateApproval = (str_contains($currentStatusName, 'reopen')
+                    || str_contains($currentStatusName, 're-open')
+                    || str_contains($currentStatusName, 'pending approval')
+                    || str_contains($currentStatusName, 'state admin approval'))
+                && ! str_contains($currentStatusName, 'approved');
+
+            if ($isPendingStateApproval) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vendor action is blocked until State Admin approves this reopened ticket.',
+                ], 422);
+            }
+
             // Verify vendor is assigned to this issue
             $vendorAssignment = DB::table('map_issue_vendor_assignment')
                 ->where('issue_id', $issue->issue_id)
