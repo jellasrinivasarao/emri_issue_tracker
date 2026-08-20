@@ -18,6 +18,9 @@ class MailConfiguration extends Model
     protected $fillable = [
         'state_id',
         'state_name',
+        'project_id',
+        'application_id',
+        'application_ids',
         'to_emails',
         'cc_emails',
         'is_active',
@@ -28,6 +31,9 @@ class MailConfiguration extends Model
     protected $casts = [
         'mail_configuration_id' => 'integer',
         'state_id' => 'integer',
+        'project_id' => 'integer',
+        'application_id' => 'integer',
+        'application_ids' => 'array',
         'to_emails' => 'array',
         'cc_emails' => 'array',
         'is_active' => 'boolean',
@@ -35,9 +41,32 @@ class MailConfiguration extends Model
         'updated_at' => 'datetime',
     ];
 
+    public function updateTimestamps(): static
+    {
+        if (! $this->exists) {
+            if (! $this->isDirty($this->getCreatedAtColumn())) {
+                $this->setCreatedAt($this->freshTimestamp());
+            }
+
+            return $this;
+        }
+
+        return parent::updateTimestamps();
+    }
+
     public function state(): BelongsTo
     {
         return $this->belongsTo(State::class, 'state_id', 'state_id');
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class, 'project_id', 'project_id');
+    }
+
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Application::class, 'application_id', 'application_id');
     }
 
     public function createdBy(): BelongsTo

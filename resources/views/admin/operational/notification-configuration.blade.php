@@ -37,6 +37,8 @@
                             <thead class="bg-purple-100 sticky top-0 z-10">
                                 <tr>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">State</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Project</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Application</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">To Mail IDs</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">CC Mail IDs</th>
                                     <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Status</th>
@@ -45,10 +47,20 @@
                             </thead>
                             <tbody id="mail-configuration-table-body" class="divide-y divide-slate-200 bg-white">
                                 @forelse($mailConfigurations ?? [] as $configuration)
+                                    @php
+                                        $toEmails = is_array($configuration->to_emails)
+                                            ? $configuration->to_emails
+                                            : (json_decode((string) $configuration->to_emails, true) ?: []);
+                                        $ccEmails = is_array($configuration->cc_emails)
+                                            ? $configuration->cc_emails
+                                            : (json_decode((string) $configuration->cc_emails, true) ?: []);
+                                    @endphp
                                     <tr>
                                         <td class="px-5 py-4 text-sm font-semibold text-slate-900">{{ $configuration->state_name ?? 'All States' }}</td>
-                                        <td class="px-5 py-4 text-sm text-slate-600">{{ implode(', ', json_decode($configuration->to_emails, true) ?: []) }}</td>
-                                        <td class="px-5 py-4 text-sm text-slate-600">{{ implode(', ', json_decode($configuration->cc_emails, true) ?: []) ?: '-' }}</td>
+                                        <td class="px-5 py-4 text-sm font-semibold text-slate-900">{{ $configuration->project?->project_name ?? 'All Projects' }}</td>
+                                        <td class="px-5 py-4 text-sm font-semibold text-slate-900">{{ $configuration->application?->application_name ?? 'All Applications' }}</td>
+                                        <td class="px-5 py-4 text-sm text-slate-600">{{ implode(', ', $toEmails) }}</td>
+                                        <td class="px-5 py-4 text-sm text-slate-600">{{ implode(', ', $ccEmails) ?: '-' }}</td>
                                         <td class="px-5 py-4 text-sm">
                                             <span class="rounded-full {{ $configuration->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }} px-2.5 py-1 text-xs font-semibold">
                                                 {{ $configuration->is_active ? 'Active' : 'Inactive' }}
@@ -70,19 +82,12 @@
                                                         <button type="submit" class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">Activate</button>
                                                     </form>
                                                 @endif
-                                                @if(data_get($permissions, 'delete'))
-                                                    <form method="POST" action="{{ url('/mail-configuration') }}/{{ $configuration->mail_configuration_id }}" class="inline" onsubmit="return confirm('Delete configuration?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Delete</button>
-                                                    </form>
-                                                @endif
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr class="empty-row">
-                                        <td colspan="5" class="px-5 py-6 text-center text-sm text-slate-500">No mail configuration has been added yet.</td>
+                                        <td colspan="7" class="px-5 py-6 text-center text-sm text-slate-500">No mail configuration has been added yet.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -101,6 +106,9 @@
         <div class="mx-auto w-full max-w-3xl overflow-hidden rounded-[32px] bg-white shadow-[0_30px_90px_-30px_rgba(15,23,42,0.35)]">
             <form id="mail-configuration-form" method="POST" action="{{ route('notification.configuration.store') }}" class="flex flex-col">
                 @csrf
+                <input type="hidden" id="state_id_input" name="state_id" value="" />
+                <input type="hidden" id="project_id_input" name="project_id" value="" />
+                <input type="hidden" id="application_id_input" name="application_id" value="" />
                 <input type="hidden" id="state_name_input" name="state_name" value="" />
                 <input type="hidden" id="to_emails_input" name="to_emails" value="" />
                 <input type="hidden" id="cc_emails_input" name="cc_emails" value="" />
@@ -126,11 +134,25 @@
                                     <option value="all">All States</option>
                                 @endif
                                 @foreach($states as $state)
-                                    <option value="{{ $state->state_name }}">{{ $state->state_name }}</option>
+                                    <option value="{{ $state->state_id }}" data-state-name="{{ $state->state_name }}">{{ $state->state_name }}</option>
                                 @endforeach
                             </select>
                             <p class="mt-2 text-xs text-slate-500">Choose the state that this rule applies to.</p>
                         </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">Project</label>
+                        <select id="project-select" disabled class="w-full rounded-3xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400">
+                            <option value="">Select project</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-slate-700">Application</label>
+                        <select id="application-select" disabled class="w-full rounded-3xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400">
+                            <option value="">Select application</option>
+                        </select>
                     </div>
 
                     <div class="space-y-2">
@@ -179,6 +201,11 @@
 
         function clearMailConfigForm() {
             document.getElementById('state-select').value = '';
+            document.getElementById('state_id_input').value = '';
+            document.getElementById('project_id_input').value = '';
+            document.getElementById('application_id_input').value = '';
+            resetDependentSelect('project-select', 'Select project');
+            resetDependentSelect('application-select', 'Select application');
             document.getElementById('from-email-input').value = '';
             document.getElementById('cc-email-input').value = '';
             fromEmails.length = 0;
@@ -186,6 +213,40 @@
             renderEmailChips('from');
             renderEmailChips('cc');
             hideMailFormError();
+        }
+
+        function resetDependentSelect(id, placeholder) {
+            const select = document.getElementById(id);
+            select.innerHTML = `<option value="">${placeholder}</option>`;
+            select.disabled = true;
+        }
+
+        function fillDependentSelect(id, rows, valueKey, labelKey, placeholder) {
+            const select = document.getElementById(id);
+            select.innerHTML = `<option value="">${placeholder}</option>`;
+            rows.forEach(row => {
+                const option = document.createElement('option');
+                option.value = row[valueKey];
+                option.textContent = row[labelKey];
+                select.appendChild(option);
+            });
+            select.disabled = rows.length === 0;
+            select.classList.toggle('bg-slate-100', rows.length === 0);
+        }
+
+        async function loadProjects(stateId) {
+            resetDependentSelect('project-select', 'Select project');
+            resetDependentSelect('application-select', 'Select application');
+            if (!stateId) return;
+            const response = await fetch(`{{ route('notification.configuration.projects') }}?state_id=${encodeURIComponent(stateId)}`, { headers: { 'Accept': 'application/json' } });
+            fillDependentSelect('project-select', await response.json(), 'project_id', 'project_name', 'Select project');
+        }
+
+        async function loadApplications(projectId) {
+            resetDependentSelect('application-select', 'Select application');
+            if (!projectId) return;
+            const response = await fetch(`{{ route('notification.configuration.applications') }}?project_id=${encodeURIComponent(projectId)}`, { headers: { 'Accept': 'application/json' } });
+            fillDependentSelect('application-select', await response.json(), 'application_id', 'application_name', 'Select application');
         }
 
         function handleEmailInput(event, type) {
@@ -256,7 +317,8 @@
 
         function saveMailConfiguration() {
             const stateValue = document.getElementById('state-select').value;
-            const stateLabel = stateValue === 'all' ? 'All States' : stateValue;
+            const stateOption = document.getElementById('state-select').selectedOptions[0];
+            const stateLabel = stateValue === 'all' ? 'All States' : (stateOption?.dataset.stateName || stateOption?.textContent || '');
 
             if (!stateValue) {
                 showMailFormError('Please select a state.');
@@ -268,37 +330,26 @@
                 return;
             }
 
-            const tableBody = document.getElementById('mail-configuration-table-body');
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-6 py-4 text-sm font-semibold text-slate-900">${stateLabel}</td>
-                <td class="px-6 py-4 text-sm text-slate-600">${fromEmails.join(', ')}</td>
-                <td class="px-6 py-4 text-sm text-slate-600">${ccEmails.join(', ') || '-'}</td>
-                <td class="px-6 py-4 text-sm">
-                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Active</span>
-                </td>
-                <td class="px-6 py-4 text-sm text-slate-700">
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Edit</button>
-                        <button type="button" class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">Delete</button>
-                    </div>
-                </td>
-            `;
-
-            const emptyRow = tableBody.querySelector('.empty-row');
-            if (emptyRow) {
-                emptyRow.remove();
-            }
-
-            tableBody.appendChild(row);
-            closeMailConfigurationModal();
+            document.getElementById('state_name_input').value = stateLabel;
+            document.getElementById('state_id_input').value = stateValue === 'all' ? '' : stateValue;
+            document.getElementById('project_id_input').value = document.getElementById('project-select').value;
+            document.getElementById('application_id_input').value = document.getElementById('application-select').value;
+            document.getElementById('to_emails_input').value = fromEmails.join(',');
+            document.getElementById('cc_emails_input').value = ccEmails.join(',');
+            document.getElementById('mail-configuration-form').submit();
         }
 
         function editMailConfiguration(data) {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
             openMailConfigurationModal();
             // prefill form - implementation left minimal for now
-            document.getElementById('state-select').value = parsed.state_name || '';
+            document.getElementById('state-select').value = parsed.state_id || '';
+            loadProjects(parsed.state_id || '').then(() => {
+                document.getElementById('project-select').value = parsed.project_id || '';
+                return loadApplications(parsed.project_id || '');
+            }).then(() => {
+                document.getElementById('application-select').value = parsed.application_id || '';
+            });
         }
 
         function filterMailConfigurations() {
@@ -333,6 +384,18 @@
             if (searchInput) {
                 searchInput.addEventListener('input', filterMailConfigurations);
             }
+
+            document.getElementById('state-select')?.addEventListener('change', function () {
+                document.getElementById('state_id_input').value = this.value === 'all' ? '' : this.value;
+                loadProjects(this.value);
+            });
+            document.getElementById('project-select')?.addEventListener('change', function () {
+                document.getElementById('project_id_input').value = this.value;
+                loadApplications(this.value);
+            });
+            document.getElementById('application-select')?.addEventListener('change', function () {
+                document.getElementById('application_id_input').value = this.value;
+            });
         });
     </script>
 </x-app-layout>

@@ -1677,9 +1677,15 @@ class PageController extends Controller
             ->where('is_active', 1)
             ->orderBy('state_name');
 
-        $configurationQuery = MailConfiguration::query()->orderByDesc('mail_configuration_id');
+        $configurationQuery = MailConfiguration::query()
+            ->with(['project:project_id,project_name', 'application:application_id,application_name'])
+            ->orderByDesc('mail_configuration_id');
 
-        if ($user?->hasRole('Vendor Admin') && ! empty($user->vendor_id)) {
+        $isCentralAdmin = $user?->hasRole('Central Admin');
+
+        if ($isCentralAdmin) {
+            $states = $statesQuery->get();
+        } elseif ($user?->hasRole('Vendor Admin') && ! empty($user->vendor_id)) {
             $states = DB::table('map_vendor_state as m')
                 ->join('mst_state as s', 'm.state_id', '=', 's.state_id')
                 ->where('m.vendor_id', $user->vendor_id)
@@ -1689,16 +1695,16 @@ class PageController extends Controller
                 ->get(['s.state_id', 's.state_name']);
 
             $stateIds = $states->pluck('state_id')->all();
-            if (! empty($stateIds)) {
-                $configurationQuery->whereIn('state_id', $stateIds);
-            }
-        } elseif ($user?->hasRole('State Admin') && ! empty($user->state_id)) {
+        } elseif (($user?->hasRole('State Admin') || $user?->hasRole('State IT')) && ! empty($user->state_id)) {
             $stateIds = explode(',', (string) $user->state_id);
             $stateIds = array_filter(array_map('trim', $stateIds), fn ($id) => $id !== '');
             $states = $statesQuery->whereIn('state_id', $stateIds)->get();
-            $configurationQuery->whereIn('state_id', $stateIds);
         } else {
             $states = $statesQuery->get();
+        }
+
+        if (! $isCentralAdmin) {
+            $configurationQuery->where('created_by', $user?->user_id);
         }
 
         $routeName = 'mail.configuration';
@@ -1713,6 +1719,24 @@ class PageController extends Controller
         ];
 
         $mailConfigurations = $configurationQuery->get();
+        $applicationIds = $mailConfigurations->flatMap(function ($configuration) {
+            return $configuration->application_ids ?: array_filter([(int) $configuration->application_id]);
+        })->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        $applicationNames = $applicationIds->isEmpty()
+            ? collect()
+            : DB::table('mst_application')->whereIn('application_id', $applicationIds)->pluck('application_name', 'application_id');
+
+        $mailConfigurations->each(function ($configuration) use ($applicationNames) {
+            $ids = $configuration->application_ids ?: array_filter([(int) $configuration->application_id]);
+            $configuration->application_rows = collect($ids)->map(function ($id) use ($applicationNames, $configuration) {
+                $id = (int) $id;
+                return [
+                    'id' => $id,
+                    'name' => $applicationNames[$id] ?? ('Application #' . $id),
+                    'is_active' => (bool) $configuration->is_active,
+                ];
+            })->values();
+        });
 
         return view('pages.mail-configuration', [
             'states' => $states,

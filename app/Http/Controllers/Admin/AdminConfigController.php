@@ -40,9 +40,15 @@ class AdminConfigController extends Controller
             ->where('is_active', 1)
             ->orderBy('state_name');
 
-        $configurationQuery = MailConfiguration::query()->orderByDesc('mail_configuration_id');
+        $configurationQuery = MailConfiguration::query()
+            ->with(['project:project_id,project_name', 'application:application_id,application_name'])
+            ->orderByDesc('mail_configuration_id');
 
-        if ($user?->hasRole('Vendor Admin') && ! empty($user->vendor_id)) {
+        $isCentralAdmin = $user?->hasRole('Central Admin');
+
+        if ($isCentralAdmin) {
+            $states = $statesQuery->get();
+        } elseif ($user?->hasRole('Vendor Admin') && ! empty($user->vendor_id)) {
             $states = DB::table('map_vendor_state as m')
                 ->join('mst_state as s', 'm.state_id', '=', 's.state_id')
                 ->where('m.vendor_id', $user->vendor_id)
@@ -52,16 +58,16 @@ class AdminConfigController extends Controller
                 ->get(['s.state_id', 's.state_name']);
 
             $stateIds = $states->pluck('state_id')->all();
-            if (! empty($stateIds)) {
-                $configurationQuery->whereIn('state_id', $stateIds);
-            }
-        } elseif ($user?->hasRole('State Admin') && ! empty($user->state_id)) {
+        } elseif (($user?->hasRole('State Admin') || $user?->hasRole('State IT')) && ! empty($user->state_id)) {
             $stateIds = explode(',', (string) $user->state_id);
             $stateIds = array_filter(array_map('trim', $stateIds), fn ($id) => $id !== '');
             $states = $statesQuery->whereIn('state_id', $stateIds)->get();
-            $configurationQuery->whereIn('state_id', $stateIds);
         } else {
             $states = $statesQuery->get();
+        }
+
+        if (! $isCentralAdmin) {
+            $configurationQuery->where('created_by', $user?->user_id);
         }
 
         $routeName = 'notification.configuration';

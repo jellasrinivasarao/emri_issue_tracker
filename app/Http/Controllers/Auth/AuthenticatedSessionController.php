@@ -52,12 +52,7 @@ class AuthenticatedSessionController extends Controller
             now()->addMinutes((int) config('session.lifetime', 120))
         );
 
-        $hasIssueDashboardAccess = $user->menus->contains(function ($menu) {
-            return strtolower((string) ($menu->route_name ?? '')) === 'role.issue.dashboard';
-        });
-        $redirectRoute = $hasIssueDashboardAccess
-            ? route('role.issue.dashboard')
-            : route('role.dashboard');
+        $redirectRoute = route('role.dashboard');
 
         if (is_null($user->password_changed_at)) {
             // Ensure we have a sensible intended URL after password change

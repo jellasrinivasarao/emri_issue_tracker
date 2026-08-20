@@ -558,6 +558,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:notification.configuration'])
         ->name('notification.configuration.store');
 
+    Route::get('/notification-configuration/projects', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'projects'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.projects');
+
+    Route::get('/notification-configuration/applications', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'applications'])
+        ->middleware(['auth','menu.access:notification.configuration'])
+        ->name('notification.configuration.applications');
+
     Route::put('/notification-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'update'])
         ->middleware(['auth','menu.access:notification.configuration'])
         ->name('notification.configuration.update');
@@ -571,6 +579,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notification.configuration.destroy');
 
     Route::get('/mail-configuration', [PageController::class, 'mailConfiguration'])->middleware('menu.access:mail.configuration')->name('mail.configuration');
+
+    Route::post('/mail-configuration', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'store'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.store');
+
+    Route::put('/mail-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'update'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.update');
+
+    Route::get('/mail-configuration/projects', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'projects'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.projects');
+
+    Route::get('/mail-configuration/applications', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'applications'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.applications');
+
+    Route::post('/mail-configuration/{id}/application/{applicationId}/toggle', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'toggleApplication'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.application.toggle');
 
     Route::get('/priority-configuration', [AdminConfigController::class, 'priorityConfiguration'])->middleware('menu.access:priority.configuration')->name('priority.configuration');
 

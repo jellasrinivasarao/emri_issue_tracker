@@ -20,12 +20,7 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
-                $user = Auth::guard($guard)->user();
-                $hasIssueDashboardAccess = $user->menus->contains(function ($menu) {
-                    return strtolower((string) ($menu->route_name ?? '')) === 'role.issue.dashboard';
-                });
-
-                return redirect()->route($hasIssueDashboardAccess ? 'role.issue.dashboard' : 'role.dashboard');
+                return redirect()->route('role.dashboard');
             }
         }
 
