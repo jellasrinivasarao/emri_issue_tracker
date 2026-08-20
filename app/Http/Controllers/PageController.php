@@ -836,6 +836,7 @@ class PageController extends Controller
                 if (! empty($vendorNames)) {
                     $history[] = [
                         'changed_at' => $issue->created_at ? Carbon::parse($issue->created_at)->format('d M y h:i A') : $formattedDate,
+                        'sort_at' => $issue->created_at,
                         'changed_by' => 'System',
                         'status_name' => 'Vendor Assignment',
                         'comment' => 'Initial vendor assignment: ' . implode(', ', $vendorNames),
@@ -863,6 +864,7 @@ class PageController extends Controller
 
                     $history[] = [
                         'changed_at' => $row->created_at ? Carbon::parse($row->created_at)->format('d M y h:i A') : '—',
+                        'sort_at' => $row->created_at,
                         'changed_by' => 'System',
                         'status_name' => 'Vendor Assignment',
                         'comment' => 'Vendor assignment: ' . $vendorName . ($row->is_active ? '' : ' (inactive)'),
@@ -886,6 +888,7 @@ class PageController extends Controller
                 foreach ($historyRows as $row) {
                     $history[] = [
                         'changed_at' => $row->changed_at ? Carbon::parse($row->changed_at)->format('d M y h:i A') : '—',
+                        'sort_at' => $row->changed_at,
                         'changed_by' => $row->changed_by ?: 'Update user',
                         'status_name' => $row->status_name ?: 'Open',
                         'comment' => $row->comment ?: 'Status updated',
@@ -894,8 +897,8 @@ class PageController extends Controller
             }
 
             usort($history, function ($a, $b) {
-                $aTime = $a['changed_at'] === '—' ? 0 : Carbon::parse($a['changed_at'])->timestamp;
-                $bTime = $b['changed_at'] === '—' ? 0 : Carbon::parse($b['changed_at'])->timestamp;
+                $aTime = ! empty($a['sort_at']) ? Carbon::parse($a['sort_at'])->timestamp : 0;
+                $bTime = ! empty($b['sort_at']) ? Carbon::parse($b['sort_at'])->timestamp : 0;
                 return $bTime <=> $aTime;
             });
 
