@@ -1081,6 +1081,78 @@ class PageController extends Controller
                 ]);
             }
 
+            if ($isClosedStatus && $isStateRole) {
+                $isResolvedCurrentStatus = str_contains($oldStatusName, 'resolved')
+                    || str_contains($oldStatusName, 'completed');
+                $isRejectedCurrentStatus = str_contains($oldStatusName, 'reject');
+
+                $vendorWorkflowRows = DB::table('map_issue_vendor_assignment as m')
+                    ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+                    ->where('m.issue_id', $issueId)
+                    ->get(['m.is_active', 's.status_name']);
+
+                $isWaitingForHoIt = (int) ($currentIssue->ho_intervention_required ?? 0) === 1
+                    && (int) ($currentIssue->ho_working_hours ?? 0) === 1;
+
+                if ($vendorWorkflowRows->isEmpty() && ! $isWaitingForHoIt && ! $isResolvedCurrentStatus && ! $isRejectedCurrentStatus) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => 'This ticket must be Resolved or Rejected before the State team can close it.',
+                    ]);
+                }
+
+                if ((int) ($currentIssue->ho_intervention_required ?? 0) === 1
+                    && (int) ($currentIssue->ho_working_hours ?? 0) === 1
+                    && ! $isResolvedCurrentStatus
+                ) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => 'HO IT must take action on this ticket before the State team can close it.',
+                    ]);
+                }
+
+                $pendingVendorNames = DB::table('map_issue_vendor_assignment as m')
+                    ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
+                    ->leftJoin('mst_vendor as v', 'm.vendor_id', '=', 'v.vendor_id')
+                    ->where('m.issue_id', $issueId)
+                    ->where('m.is_active', 1)
+                    ->where(function ($query) {
+                        $query->whereNull('s.status_name')
+                            ->orWhere(function ($statusQuery) {
+                                $statusQuery->whereRaw('LOWER(s.status_name) NOT LIKE ?', ['%resolved%'])
+                                    ->whereRaw('LOWER(s.status_name) NOT LIKE ?', ['%completed%']);
+                            });
+                    })
+                    ->pluck('v.vendor_name')
+                    ->filter()
+                    ->map(fn ($name) => trim((string) $name))
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (! empty($pendingVendorNames)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => 'The following vendor(s) must take action before the State team can close this ticket: ' . implode(', ', $pendingVendorNames) . '.',
+                    ]);
+                }
+
+                $allVendorWorkflowsTerminal = $vendorWorkflowRows->isNotEmpty()
+                    && $vendorWorkflowRows->every(function ($row) {
+                        $statusName = strtolower(trim((string) ($row->status_name ?? '')));
+                        return str_contains($statusName, 'resolved')
+                            || str_contains($statusName, 'completed')
+                            || str_contains($statusName, 'reject');
+                    });
+
+                if ($vendorWorkflowRows->isNotEmpty()
+                    && ! $allVendorWorkflowsTerminal
+                    && ! $isResolvedCurrentStatus
+                    && ! $isRejectedCurrentStatus
+                ) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'status_name' => 'This ticket must be Resolved or Rejected before the State team can close it.',
+                    ]);
+                }
+            }
+
             if ($isResolvedStatus || $isClosedStatus) {
                 $activeVendorAssignments = DB::table('map_issue_vendor_assignment as m')
                     ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')

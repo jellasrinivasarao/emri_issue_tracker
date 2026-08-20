@@ -29,9 +29,13 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Keep the first authenticated page stable and role-dashboard driven.
         $user = $request->user();
-        $redirectRoute = route('role.dashboard');
+        $hasIssueDashboardAccess = $user->menus->contains(function ($menu) {
+            return strtolower((string) ($menu->route_name ?? '')) === 'role.issue.dashboard';
+        });
+        $redirectRoute = $hasIssueDashboardAccess
+            ? route('role.issue.dashboard')
+            : route('role.dashboard');
 
         if (is_null($user->password_changed_at)) {
             // Ensure we have a sensible intended URL after password change
@@ -39,8 +43,8 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('password.force.change');
         }
 
-        $request->session()->put('url.intended', $redirectRoute);
-        return redirect()->intended($redirectRoute);
+        $request->session()->forget('url.intended');
+        return redirect()->to($redirectRoute);
     }
 
     /**
