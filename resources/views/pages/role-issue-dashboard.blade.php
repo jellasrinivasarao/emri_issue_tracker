@@ -448,24 +448,7 @@
             };
 
             window.refreshIssueDashboard = function refreshIssueDashboard() {
-                fetch('{{ route('role.issue.dashboard') }}', {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept': 'text/html'
-                    },
-                    credentials: 'same-origin'
-                })
-                .then((response) => response.text())
-                .then((html) => {
-                    if (typeof replacePageContent === 'function') {
-                        replacePageContent(html, '{{ route('role.issue.dashboard') }}');
-                    } else {
-                        window.location.reload();
-                    }
-                })
-                .catch(() => {
-                    window.location.reload();
-                });
+                window.location.reload();
             };
 
             window.closeIssueDrawer = function closeIssueDrawer() {
@@ -616,6 +599,7 @@
                         }
 
                         updateForm.reset();
+                        refreshIssueDashboard();
                     })
                     .catch((error) => {
                         const message = error.message || 'Unable to update the ticket.';

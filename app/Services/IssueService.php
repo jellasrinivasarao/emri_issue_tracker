@@ -286,6 +286,12 @@ class IssueService
             Log::info('[STEP 2 RESULT] No occurred_date, using current datetime', ['datetime' => $dateTime->toDateTimeString()]);
         }
 
+        if ($this->hasEmriVendorAssignment($projectId, $stateId, $applicationId)) {
+            Log::info('[ROUTING PRIORITY] EMRI vendor detected - bypassing holiday and working-hours checks');
+
+            return $this->routeEmriVendorToHo();
+        }
+
         // STEP 3: Check mst_issue_routing_rule with rule_code priority
         Log::info('═══════════════════════════════════════════════════════════════');
         Log::info('[STEP 3] Checking mst_issue_routing_rule - Rule Priority Logic');
@@ -327,6 +333,61 @@ class IssueService
             Log::info('[ROUTING PRIORITY] No active routing rules - Using fallback (Direct Vendor L2)');
             return $this->routeDirectVendorL2Flow($projectId, $stateId, $applicationId);
         }
+    }
+
+    protected function hasEmriVendorAssignment(?int $projectId, ?int $stateId, ?int $applicationId): bool
+    {
+        if (! $projectId || ! $stateId) {
+            return false;
+        }
+
+        return DB::table('map_vendor_state as m')
+            ->join('mst_vendor as v', 'v.vendor_id', '=', 'm.vendor_id')
+            ->where('m.project_id', $projectId)
+            ->where('m.state_id', $stateId)
+            ->where('m.is_active', 1)
+            ->where(function ($query) use ($applicationId) {
+                $query->whereNull('m.application_id');
+
+                if ($applicationId) {
+                    $query->orWhere('m.application_id', $applicationId);
+                }
+            })
+            ->where(function ($query) {
+                $query->where('v.is_active', 1)->orWhereNull('v.is_active');
+            })
+            ->where('v.vendor_name', 'like', '%EMRI%')
+            ->exists();
+    }
+
+    protected function routeEmriVendorToHo(): array
+    {
+        $firstLevelVendors = null;
+        if (Schema::hasColumn('mst_issue_routing_rule', 'first_level_vendor_ids')) {
+            $firstLevelVendors = DB::table('mst_issue_routing_rule')
+                ->where('rule_code', 'ROUTE_HO_IT_L1')
+                ->where('is_active', 1)
+                ->value('first_level_vendor_ids');
+        }
+
+        Log::info('[EMRI ROUTING] Direct initial route to HO IT / HO Admin', [
+            'first_level_vendor_ids' => $firstLevelVendors,
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 1,
+        ]);
+
+        return [
+            'ho_intervention_required' => 1,
+            'ho_working_hours' => 1,
+            'first_level_vendor_ids' => $this->formatVendorIds(
+                array_map('intval', array_filter(explode(',', (string) $firstLevelVendors)))
+            ),
+            'second_level_vendor_ids' => null,
+            'current_stage' => 'ISSUE_RAISED',
+            'current_owner_type' => 0,
+            'current_owner_id' => null,
+            'workflow_status' => 0,
+        ];
     }
 
     /**
