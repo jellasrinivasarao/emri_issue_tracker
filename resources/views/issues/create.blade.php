@@ -57,27 +57,6 @@
     </x-slot>
 
 
-    <div id="issueSuccess" class="hidden mt-6">
-        <div class="bg-green-50 border border-green-200 rounded-xl p-6">
-            <div class="flex items-center gap-3">
-                <div class="text-green-600 text-2xl">
-                    ✓
-                </div>
-
-                <div>
-                    <h3 class="font-semibold text-green-800">
-                        Issue Raised Successfully
-                    </h3>
-
-                    <p class="text-sm text-green-700 mt-1">
-                        Issue Number:
-                        <strong id="successIssueNumber"></strong>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="py-8 bg-gray-100 min-h-screen">
 
         <div class="max-w-7xl mx-auto px-6">
@@ -913,7 +892,7 @@
                                                 Swal.fire({
                                                     icon: 'success',
                                                     title: 'Issue Raised Successfully',
-                                                    html: `<b>${message}</b><br><br>${data.error || ''} <b>Issue Number: ${issue.issue_number || '-'}</b><br><br>${message}${issue.issue_title ? `<br><br><b>Subject:</b> ${issue.issue_title}` : ''}`,
+                                                    html: `<b>${message}</b><br><br><b>Issue Number: ${issue.issue_number || '-'}</b>${issue.issue_title ? `<br><br><b>Subject:</b> ${issue.issue_title}` : ''}`,
                                                     allowOutsideClick: false,
                                                     allowEscapeKey: false,
                                                     confirmButtonText: 'OK'
@@ -928,9 +907,6 @@
                                             }
 
                                             issueForm.reset();
-
-                                            document.getElementById('successIssueNumber').textContent = issue.issue_number || '-';
-                                            document.getElementById('issueSuccess').classList.remove('hidden');
 
                                             $('#state_id').val('').trigger('change');
                                             $('#project_id').val('').trigger('change');
