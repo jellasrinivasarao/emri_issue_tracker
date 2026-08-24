@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Http\Controllers\Admin\ApplicationMasterController;
 use App\Http\Controllers\Admin\ModuleMasterController;

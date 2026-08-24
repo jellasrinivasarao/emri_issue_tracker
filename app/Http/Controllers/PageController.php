@@ -818,9 +818,9 @@ class PageController extends Controller
                         'attachment_id' => $row->attachment_id,
                         'file_name' => $row->original_file_name ?: ($row->stored_file_name ?: 'Attachment'),
                         'path' => $row->file_path ?: '',
-                        'view_url' => route('attachment.preview', ['id' => $row->attachment_id]),
-                        'inline_url' => route('attachment.view', ['id' => $row->attachment_id]),
-                        'download_url' => route('attachment.download', ['id' => $row->attachment_id]),
+                        'view_url' => route('attachment.preview', ['id' => $row->attachment_id], false),
+                        'inline_url' => route('attachment.view', ['id' => $row->attachment_id], false),
+                        'download_url' => route('attachment.download', ['id' => $row->attachment_id], false),
                         'created_at' => $row->uploaded_at ? Carbon::parse($row->uploaded_at)->format('d M y h:i A') : '—',
                     ];
                 })->values()->all();

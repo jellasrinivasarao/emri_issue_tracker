@@ -1358,7 +1358,7 @@ class IssueController extends Controller
             return null;
         }
 
-        $normalized = str_replace('\\', '/', $path);
+        $normalized = trim(str_replace('\\', '/', $path));
         $normalized = preg_replace('#^https?://[^/]+#', '', $normalized) ?? $normalized;
         $normalized = preg_replace('#^/+(public|storage)/#', '', $normalized);
         $normalized = preg_replace('#^app/(public/)?#', '', $normalized);
@@ -1432,6 +1432,13 @@ class IssueController extends Controller
         return $tempPath;
     }
 
+    private function clearAttachmentOutputBuffers(): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Format Issue
@@ -1454,15 +1461,17 @@ class IssueController extends Controller
                     'attachment_id' => $attachmentId,
                     'issue_id' => $attachment->issue_id ?? null,
                     'original_file_name' => $fileName,
+                    'file_name' => $fileName,
                     'stored_file_name' => $attachment->stored_file_name ?? basename((string) $relativePath),
                     'file_path' => $attachment->file_path ?? ($relativePath ? '/storage/' . $relativePath : null),
                     'file_size' => $attachment->file_size ?? null,
                     'file_type' => $attachment->file_type ?? null,
                     'uploaded_at' => $attachment->uploaded_at ?? null,
                     'exists' => $resolvedPath !== null,
-                    'view_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId]) : null,
-                    'preview_url' => $attachmentId ? route('attachment.preview', ['id' => $attachmentId]) : null,
-                    'download_url' => $attachmentId ? route('attachment.download', ['id' => $attachmentId]) : null,
+                    'view_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId], false) : null,
+                    'preview_url' => $attachmentId ? route('attachment.preview', ['id' => $attachmentId], false) : null,
+                    'inline_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId], false) : null,
+                    'download_url' => $attachmentId ? route('attachment.download', ['id' => $attachmentId], false) : null,
                 ];
             })
             ->values()
@@ -1714,10 +1723,10 @@ class IssueController extends Controller
         
         // Use the app route that serves the file with the correct inline headers.
         // This works even when the public/storage symlink is missing.
-        $publicUrl = route('attachment.view', ['id' => $id]);
+        $publicUrl = route('attachment.view', ['id' => $id], false);
 
         // Determine if we can preview this type
-        $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif']);
+        $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
         $isPdf = $ext === 'pdf';
         $isText = in_array($ext, ['txt', 'log']);
         $isOffice = in_array($ext, ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']);
@@ -1741,7 +1750,7 @@ class IssueController extends Controller
             'isPdf' => $isPdf,
             'isText' => $isText,
             'isOffice' => $isOffice,
-            'downloadUrl' => route('attachment.download', ['id' => $id]),
+            'downloadUrl' => route('attachment.download', ['id' => $id], false),
         ];
 
         // Load and display as plain text if text file
@@ -1796,7 +1805,7 @@ class IssueController extends Controller
 
         // Get file extension
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $isViewable = in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt']);
+        $isViewable = in_array($ext, ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'txt']);
 
         if ($isViewable) {
             // For viewable files, return with inline disposition
@@ -1809,6 +1818,8 @@ class IssueController extends Controller
                     'jpeg' => 'image/jpeg',
                     'png' => 'image/png',
                     'gif' => 'image/gif',
+                    'webp' => 'image/webp',
+                    'bmp' => 'image/bmp',
                     'txt' => 'text/plain',
                 ];
                 $mimeType = $mimeTypes[$ext] ?? 'application/octet-stream';
@@ -1822,6 +1833,7 @@ class IssueController extends Controller
             ]);
 
             $responseFile = $this->getAttachmentResponseFile($filePath);
+            $this->clearAttachmentOutputBuffers();
 
             return response()->file($responseFile, [
                 'Content-Type' => $mimeType,
@@ -1876,6 +1888,7 @@ class IssueController extends Controller
         }
 
         $responseFile = $this->getAttachmentResponseFile($filePath);
+        $this->clearAttachmentOutputBuffers();
 
         return response()->download($responseFile, $attachment->original_file_name ?? basename($filePath));
     }
