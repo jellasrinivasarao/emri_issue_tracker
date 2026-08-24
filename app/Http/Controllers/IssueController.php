@@ -1468,10 +1468,10 @@ class IssueController extends Controller
                     'file_type' => $attachment->file_type ?? null,
                     'uploaded_at' => $attachment->uploaded_at ?? null,
                     'exists' => $resolvedPath !== null,
-                    'view_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId], false) : null,
-                    'preview_url' => $attachmentId ? route('attachment.preview', ['id' => $attachmentId], false) : null,
-                    'inline_url' => $attachmentId ? route('attachment.view', ['id' => $attachmentId], false) : null,
-                    'download_url' => $attachmentId ? route('attachment.download', ['id' => $attachmentId], false) : null,
+                    'view_url' => $attachmentId ? rtrim(request()->getBaseUrl(), '/') . route('attachment.view', ['id' => $attachmentId], false) : null,
+                    'preview_url' => $attachmentId ? rtrim(request()->getBaseUrl(), '/') . route('attachment.preview', ['id' => $attachmentId], false) : null,
+                    'inline_url' => $attachmentId ? rtrim(request()->getBaseUrl(), '/') . route('attachment.view', ['id' => $attachmentId], false) : null,
+                    'download_url' => $attachmentId ? rtrim(request()->getBaseUrl(), '/') . route('attachment.download', ['id' => $attachmentId], false) : null,
                 ];
             })
             ->values()
@@ -1723,7 +1723,7 @@ class IssueController extends Controller
         
         // Use the app route that serves the file with the correct inline headers.
         // This works even when the public/storage symlink is missing.
-        $publicUrl = route('attachment.view', ['id' => $id], false);
+        $publicUrl = rtrim(request()->getBaseUrl(), '/') . route('attachment.view', ['id' => $id], false);
 
         // Determine if we can preview this type
         $isImage = in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']);
@@ -1750,7 +1750,7 @@ class IssueController extends Controller
             'isPdf' => $isPdf,
             'isText' => $isText,
             'isOffice' => $isOffice,
-            'downloadUrl' => route('attachment.download', ['id' => $id], false),
+            'downloadUrl' => rtrim(request()->getBaseUrl(), '/') . route('attachment.download', ['id' => $id], false),
         ];
 
         // Load and display as plain text if text file
