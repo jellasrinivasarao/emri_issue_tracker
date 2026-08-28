@@ -7,6 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
+    public const CENTRAL_ADMIN_ID = 1;
+    public const STATE_ADMIN_ID = 2;
+    public const VENDOR_ADMIN_ID = 3;
+    public const HO_ADMIN_ID = 4;
+    public const HO_IT_ID = 5;
+    public const VENDOR_IT_ID = 6;
+    public const STATE_IT_ID = 7;
+
     protected $table = 'mst_role';
     protected $primaryKey = 'role_id';
     public $incrementing = true;

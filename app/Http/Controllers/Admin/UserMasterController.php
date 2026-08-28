@@ -33,6 +33,7 @@ class UserMasterController extends Controller
                 'mobile_number',
                 'user_status',
                 'role_id',
+                'state_id',
                 'is_active',
                 'created_by'
             )
@@ -108,7 +109,48 @@ class UserMasterController extends Controller
             return redirect()->route('user.master')->with('error', 'Unsupported export format.');
         }
 
-        $states = State::query()->select('state_id', 'state_name')->orderBy('state_name')->get();
+        $currentUser = auth()->user();
+        $currentUserRoleIds = collect($currentUser?->roles ?? collect())
+            ->pluck('role_id')
+            ->map(fn ($roleId) => (int) $roleId)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if (! empty($currentUser?->user_id)) {
+            $mappedRoleIds = DB::table('map_user_role')
+                ->where('user_id', $currentUser->user_id)
+                ->where('is_active', 1)
+                ->pluck('role_id')
+                ->map(fn ($roleId) => (int) $roleId)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $currentUserRoleIds = array_values(array_unique(array_merge($currentUserRoleIds, $mappedRoleIds)));
+        }
+        if (empty($currentUserRoleIds) && ! empty($currentUser?->role_id)) {
+            $currentUserRoleIds = [(int) $currentUser->role_id];
+        } elseif (! empty($currentUser?->role_id)) {
+            $currentUserRoleIds[] = (int) $currentUser->role_id;
+            $currentUserRoleIds = array_values(array_unique($currentUserRoleIds));
+        }
+
+        $currentUserRoleNames = DB::table('mst_role')
+            ->whereIn('role_id', $currentUserRoleIds)
+            ->pluck('role_name')
+            ->map(fn ($roleName) => strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName))));
+        $currentUserIsStateAdmin = $currentUserRoleNames->contains('state admin');
+
+        $stateQuery = State::query()->select('state_id', 'state_name')->orderBy('state_name');
+        if ($currentUserIsStateAdmin) {
+            $managedStateIds = array_filter(array_map(
+                'trim',
+                explode(',', (string) ($currentUser->state_id ?? ''))
+            ));
+            $stateQuery->whereIn('state_id', $managedStateIds ?: [0]);
+        }
+        $states = $stateQuery->get();
         $vendors = Vendor::query()->select('vendor_id', 'vendor_name')->orderBy('vendor_name')->get();
         $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
         $currentUserVendorId = Schema::hasColumn('mst_user', 'vendor_id') ? auth()->user()->vendor_id : null;
@@ -122,6 +164,7 @@ class UserMasterController extends Controller
             'vendors' => $vendors,
             'currentUserIsVendorAdmin' => $currentUserIsVendorAdmin,
             'currentUserVendorId' => $currentUserVendorId,
+            'currentUserIsStateAdmin' => $currentUserIsStateAdmin,
         ]);
     }
 
@@ -169,7 +212,7 @@ class UserMasterController extends Controller
             $columnType = Schema::getColumnType('mst_user', 'state_id');
 
             if (! empty($stateIds)) {
-                if (in_array($columnType, ['string', 'text', 'json'], true)) {
+                if (in_array($columnType, ['char', 'string', 'text', 'varchar'], true)) {
                     $user->state_id = implode(',', $stateIds);
                 } else {
                     $user->state_id = $stateIds[0];
@@ -189,12 +232,10 @@ class UserMasterController extends Controller
 
         // If current user is a State Admin, ensure they cannot assign outside their mapped state(s)
         if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
-            $currentState = auth()->user()->state_id ?? null;
-            if ($currentState && $user->state_id) {
-                $assigned = (string) $user->state_id;
-                if (! str_contains($assigned, (string) $currentState)) {
+            $managedStates = array_filter(array_map('trim', explode(',', (string) (auth()->user()->state_id ?? ''))));
+            $assignedStates = array_filter(array_map('trim', explode(',', (string) ($user->state_id ?? ''))));
+            if (! empty($managedStates) && ! empty(array_diff($assignedStates, $managedStates))) {
                     return redirect()->route('user.master')->with('error', 'You may only assign users to states you manage.');
-                }
             }
         }
 
@@ -246,7 +287,7 @@ class UserMasterController extends Controller
             $columnType = Schema::getColumnType('mst_user', 'state_id');
 
             if (! empty($stateIds)) {
-                if (in_array($columnType, ['string', 'text', 'json'], true)) {
+                if (in_array($columnType, ['char', 'string', 'text', 'varchar'], true)) {
                     $user->state_id = implode(',', $stateIds);
                 } else {
                     $user->state_id = $stateIds[0];
@@ -265,12 +306,10 @@ class UserMasterController extends Controller
         }
 
         if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
-            $currentState = auth()->user()->state_id ?? null;
-            if ($currentState && $user->state_id) {
-                $assigned = (string) $user->state_id;
-                if (! str_contains($assigned, (string) $currentState)) {
+            $managedStates = array_filter(array_map('trim', explode(',', (string) (auth()->user()->state_id ?? ''))));
+            $assignedStates = array_filter(array_map('trim', explode(',', (string) ($user->state_id ?? ''))));
+            if (! empty($managedStates) && ! empty(array_diff($assignedStates, $managedStates))) {
                     return redirect()->route('user.master')->with('error', 'You may only assign users to states you manage.');
-                }
             }
         }
 

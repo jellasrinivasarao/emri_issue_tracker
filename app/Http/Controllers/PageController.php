@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MailConfiguration;
+use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,24 +89,23 @@ class PageController extends Controller
             $roleNames = DB::table('mst_role')
                 ->whereIn('role_id', $roleIds)
                 ->pluck('role_name')
-                ->map(fn ($roleName) => strtolower((string) $roleName))
+                ->map(fn ($roleName) => strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName))))
                 ->all();
         } elseif (! empty($user?->role_id)) {
-            $roleNames = [strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'))];
+            $roleNames = [strtolower(trim(preg_replace('/\s+/', ' ', (string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'))))];
         }
 
         $roleText = implode(' ', array_filter($roleNames));
-        
-        // Initialize all role detection variables
-        $isHoAdmin = str_contains($roleText, 'ho admin');
-        $isHoIt = str_contains($roleText, 'ho it');
-        $isHoRole = $isHoAdmin || $isHoIt || str_contains($roleText, 'head office') || str_contains($roleText, 'head-office');
-        $isVendorAdmin = str_contains($roleText, 'vendor admin');
-        $isVendorIt = str_contains($roleText, 'vendor it');
-        $isVendorRole = $isVendorAdmin || $isVendorIt || str_contains($roleText, 'vendor');
-        $isStateAdmin = str_contains($roleText, 'state admin');
-        $isStateIt = str_contains($roleText, 'state it');
-        $isStateRole = $isStateAdmin || $isStateIt || str_contains($roleText, 'state');
+
+        $isHoAdmin = in_array(Role::HO_ADMIN_ID, $roleIds, true);
+        $isHoIt = in_array(Role::HO_IT_ID, $roleIds, true);
+        $isHoRole = $isHoAdmin || $isHoIt;
+        $isVendorAdmin = in_array(Role::VENDOR_ADMIN_ID, $roleIds, true);
+        $isVendorIt = in_array(Role::VENDOR_IT_ID, $roleIds, true);
+        $isVendorRole = $isVendorAdmin || $isVendorIt;
+        $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
+        $isStateIt = in_array(Role::STATE_IT_ID, $roleIds, true);
+        $isStateRole = $isStateAdmin || $isStateIt;
         
         $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
 
@@ -495,18 +495,15 @@ class PageController extends Controller
             } else {
                 $issuesQuery->whereRaw('0 = 1');
             }
-        } elseif ($isStateAdmin && ! empty($user->state_id)) {
+        } elseif ($isStateAdmin || $isStateIt) {
             $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
             if (! empty($stateIds)) {
                 $issuesQuery->whereIn('i.state_id', $stateIds);
-            }
-        } elseif ($isStateIt && ! empty($user->state_id)) {
-            $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
-            if (! empty($stateIds)) {
-                $issuesQuery->where(function ($query) use ($stateIds, $user) {
-                    $query->whereIn('i.state_id', $stateIds)
-                          ->where('i.raised_by_user_id', $user->user_id);
-                });
+                if ($isStateIt) {
+                    $issuesQuery->where('i.raised_by_user_id', $user->user_id);
+                }
+            } else {
+                $issuesQuery->whereRaw('0 = 1');
             }
         }
 
@@ -686,7 +683,7 @@ class PageController extends Controller
             if (str_contains($normalizedDisplayStatus, 'reopen')
                 && ! str_contains($normalizedDisplayStatus, 'approv')
             ) {
-                $displayStatus = 'Reopen - State Admin Approval Required';
+                $displayStatus = 'Reopen - State IT Admin Approval Required';
             }
 
             $history = [];
@@ -972,11 +969,10 @@ class PageController extends Controller
             ->all();
     }
 
-    public function requiresStateApprovalBeforeRoleAction(string $roleText, string $currentStatusName): bool
+    public function requiresStateApprovalBeforeRoleAction(array $roleIds, string $currentStatusName): bool
     {
-        $normalizedRoleText = strtolower(trim($roleText));
         $normalizedStatusName = strtolower(trim($currentStatusName));
-        $isStateAdmin = str_contains($normalizedRoleText, 'state admin');
+        $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
 
         return ! $isStateAdmin
             && (str_contains($normalizedStatusName, 'reopen')
@@ -1071,16 +1067,15 @@ class PageController extends Controller
                     ->values()
                     ->all();
             }
-            $roleText = empty($roleIds)
-                ? ''
-                : strtolower(implode(' ', collect(
-                    DB::table('mst_role')->whereIn('role_id', $roleIds)->pluck('role_name')
-                )->all()));
-            $isStateRole = str_contains($roleText, 'state');
-            $isStateAdmin = str_contains($roleText, 'state admin');
-            $isHoRole = str_contains($roleText, 'ho it')
-                || str_contains($roleText, 'ho admin')
-                || str_contains($roleText, 'head office');
+            if (! empty($user?->role_id)) {
+                $roleIds[] = (int) $user->role_id;
+                $roleIds = array_values(array_unique($roleIds));
+            }
+            $isStateRole = in_array(Role::STATE_ADMIN_ID, $roleIds, true)
+                || in_array(Role::STATE_IT_ID, $roleIds, true);
+            $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
+            $isHoRole = in_array(Role::HO_IT_ID, $roleIds, true)
+                || in_array(Role::HO_ADMIN_ID, $roleIds, true);
             $isReopenedStatus = str_contains($statusLower, 'reopen');
             $isApprovedStatus = str_contains($statusLower, 'approv');
             $isRejectedStatus = str_contains($statusLower, 'reject');
@@ -1162,13 +1157,13 @@ class PageController extends Controller
 
             $isClarificationResponse = $isClarificationAction
                 && str_contains($statusLower, 'provided');
-            if ($this->requiresStateApprovalBeforeRoleAction($roleText, $oldStatusName)) {
+            if ($this->requiresStateApprovalBeforeRoleAction($roleIds, $oldStatusName)) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'status_name' => 'This ticket was reopened by the State team and requires State IT Admin approval before further action.',
                 ]);
             }
 
-            $isStateItOrAdmin = str_contains($roleText, 'state it') || str_contains($roleText, 'state admin');
+            $isStateItOrAdmin = $isStateRole;
             if ($isStateItOrAdmin) {
                 $vendorAssignments = DB::table('map_issue_vendor_assignment as m')
                     ->leftJoin('mst_issue_status as s', 'm.vendor_status_id', '=', 's.status_id')
@@ -1248,7 +1243,7 @@ class PageController extends Controller
                     }
 
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'status_name' => implode(' and ', $routeOwners) . ' must perform the action first. State IT Admin must wait until every routed vendor returns Clarification Required, Resolved/Completed, or Rejected before acting.',
+                        'status_name' => implode(' and ', $routeOwners) . ' must perform the action first. State Admin or State IT must wait until every routed vendor returns Clarification Required, Resolved/Completed, or Rejected before acting.',
                     ]);
                 }
             }

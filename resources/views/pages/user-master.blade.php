@@ -268,7 +268,11 @@
     <script>
         const rolesMap = @json($roles->pluck('role_name','role_id'));
         const currentUserStateId = @json(auth()->user()->state_id ?? null);
-        const currentUserIsStateAdmin = @json(auth()->user()->hasRole('State Admin'));
+        const currentUserStateIds = String(currentUserStateId || '')
+            .split(',')
+            .map(stateId => stateId.trim())
+            .filter(Boolean);
+        const currentUserIsStateAdmin = @json($currentUserIsStateAdmin ?? false);
         const currentUserIsVendorAdmin = @json(auth()->user()->hasRole('Vendor Admin'));
         const currentUserVendorId = @json(auth()->user()->vendor_id ?? null);
         // Multi-select state helper (reused pattern from other pages)
@@ -472,6 +476,7 @@
             if (methodInput) methodInput.value = 'POST';
             if (submitBtn) submitBtn.textContent = 'Save';
             if (empGroup) empGroup.classList.add('hidden');
+            if (employeeInput) employeeInput.required = false;
             if (loginGroup) loginGroup.classList.add('hidden');
 
             if (reset) {
@@ -518,8 +523,6 @@
             // In Edit mode show employee_code and login_id so they can be updated
             const empGroup = document.getElementById('employee_code_group');
             const loginGroup = document.getElementById('login_id_group');
-            if (empGroup) empGroup.classList.remove('hidden');
-            if (loginGroup) loginGroup.classList.remove('hidden');
             document.getElementById('user-modal-submit').textContent = 'Update';
             document.getElementById('user-master-modal').classList.remove('hidden');
             // populate state(s) and vendor
@@ -556,8 +559,8 @@
                 if (stateGroup) stateGroup.classList.remove('hidden');
                 // if current user is a State Admin, limit selectable states to their own
                 if (stateSelectMulti) {
-                    if (currentUserIsStateAdmin && currentUserStateId) {
-                        const allowed = stateOptions.filter(s => String(s.state_id) === String(currentUserStateId));
+                    if (currentUserIsStateAdmin && currentUserStateIds.length > 0) {
+                        const allowed = stateOptions.filter(s => currentUserStateIds.includes(String(s.state_id)));
                         stateSelectMulti.setOptions(allowed);
                     } else {
                         stateSelectMulti.setOptions(stateOptions);
@@ -669,12 +672,6 @@
             }
             if (methodInput) {
                 methodInput.value = 'PUT';
-            }
-            if (empGroup) {
-                empGroup.classList.remove('hidden');
-            }
-            if (loginGroup) {
-                loginGroup.classList.remove('hidden');
             }
             if (submitBtn) {
                 submitBtn.textContent = 'Update';

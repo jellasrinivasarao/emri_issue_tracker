@@ -5,7 +5,7 @@
 
     <div class="py-6">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm">
                 @if(session('success') || session('error'))
                     <div class="px-5 py-4" id="permission-message-container">
                         <div id="permission-message" class="relative rounded-2xl px-4 py-3 text-sm font-semibold shadow-sm {{ session('success') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
@@ -37,6 +37,19 @@
                                     @endforeach
                                 </select>
                             </div>
+                            @if($selectedRoleId && count($availableScopeStateIds ?? []) > 1)
+                                <div class="w-[320px]">
+                                    <label for="state-scope-search" class="text-sm font-medium text-slate-700">States</label>
+                                    <div id="state-scope-select" class="relative mt-2">
+                                        <div class="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-100">
+                                            <div id="state-scope-chips" class="flex flex-wrap gap-1.5"></div>
+                                            <input id="state-scope-search" type="text" placeholder="Search and select states" autocomplete="off" class="min-w-[130px] flex-1 border-0 bg-transparent px-1 py-1 text-sm text-slate-900 outline-none focus:ring-0">
+                                        </div>
+                                        <div id="state-scope-list" class="absolute left-0 right-0 z-50 mt-1 hidden max-h-52 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
+                                        <div id="state-scope-hidden" class="hidden"></div>
+                                    </div>
+                                </div>
+                            @endif
                             <button type="submit" class="inline-flex h-[42px] min-w-[142px] items-center justify-center rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">Load Permissions</button>
                         </form>
                     </div>
@@ -46,6 +59,7 @@
             <form id="permForm" method="POST" action="{{ route('role.privilege.mapping.store') }}">
                 @csrf
                 <input type="hidden" name="role_id" value="{{ $selectedRoleId }}">
+                <div id="state-scope-post-hidden" class="hidden"></div>
 
                 <div id="permission-matrix" class="mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                     <div class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -158,6 +172,103 @@
             </form>
         </div>
     </div>
+
+    @if($selectedRoleId && count($availableScopeStateIds ?? []) > 1)
+        <script>
+            (() => {
+                const options = @json($scopeStateOptions->values());
+                const selected = new Set(@json(array_map('strval', $scopeStateIds ?? [])));
+                const root = document.getElementById('state-scope-select');
+                const search = document.getElementById('state-scope-search');
+                const list = document.getElementById('state-scope-list');
+                const chips = document.getElementById('state-scope-chips');
+                const hidden = document.getElementById('state-scope-hidden');
+                const postHidden = document.getElementById('state-scope-post-hidden');
+
+                if (!root || !search || !list || !chips || !hidden || !postHidden) return;
+
+                function render() {
+                    chips.innerHTML = '';
+                    hidden.innerHTML = '';
+                    postHidden.innerHTML = '';
+                    selected.forEach(value => {
+                        const option = options.find(item => String(item.state_id) === value);
+                        if (!option) return;
+
+                        const chip = document.createElement('span');
+                        chip.className = 'inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700';
+                        chip.textContent = option.state_name;
+
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.className = 'text-sky-500 hover:text-sky-800';
+                        remove.textContent = 'x';
+                        remove.addEventListener('click', () => {
+                            selected.delete(value);
+                            render();
+                            renderList();
+                        });
+                        chip.appendChild(remove);
+                        chips.appendChild(chip);
+
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'state_ids[]';
+                        input.value = value;
+                        hidden.appendChild(input);
+
+                        const postInput = input.cloneNode();
+                        postHidden.appendChild(postInput);
+                    });
+                }
+
+                function renderList() {
+                    list.innerHTML = '';
+                    const query = search.value.trim().toLowerCase();
+                    const matches = options.filter(option => !selected.has(String(option.state_id))
+                        && String(option.state_name).toLowerCase().includes(query));
+
+                    if (!matches.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'px-3 py-2 text-sm text-slate-500';
+                        empty.textContent = 'No states found.';
+                        list.appendChild(empty);
+                        return;
+                    }
+
+                    matches.forEach(option => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
+                        button.textContent = option.state_name;
+                        button.addEventListener('click', () => {
+                            selected.add(String(option.state_id));
+                            search.value = '';
+                            render();
+                            renderList();
+                            list.classList.remove('hidden');
+                        });
+                        list.appendChild(button);
+                    });
+                }
+
+                search.addEventListener('focus', () => {
+                    renderList();
+                    list.classList.remove('hidden');
+                });
+                search.addEventListener('input', () => {
+                    renderList();
+                    list.classList.remove('hidden');
+                });
+                document.addEventListener('click', event => {
+                    if (!root.contains(event.target)) list.classList.add('hidden');
+                });
+
+                render();
+                renderList();
+            })();
+        </script>
+    @endif
 
     @push('styles')
     <style>

@@ -152,7 +152,7 @@ class User extends Authenticatable
             'map_user_role',
             'user_id',
             'role_id'
-        );
+        )->wherePivot('is_active', 1);
     }
 
     public function getRoleNamesAttribute(): string
@@ -162,6 +162,10 @@ class User extends Authenticatable
 
     public function getMenusAttribute(): Collection
     {
+        if (! (bool) $this->is_active) {
+            return collect();
+        }
+
         $this->loadMissing('roles');
 
         $roleIds = $this->roles->pluck('role_id')->all();
@@ -205,6 +209,10 @@ class User extends Authenticatable
 
     private function resolvePrivilege(?int $menuId, ?string $routeName, string $privilegeCode): bool
     {
+        if (! (bool) $this->is_active) {
+            return false;
+        }
+
         $this->loadMissing('roles');
 
         $roleIds = $this->roles->pluck('role_id')->map(fn ($id) => (int) $id)->all();
@@ -215,7 +223,10 @@ class User extends Authenticatable
         $query = DB::table('map_role_privilege as m')
             ->join('mst_menu as u', 'm.menu_id', '=', 'u.menu_id')
             ->join('mst_privilege as p', 'm.privilege_id', '=', 'p.privilege_id')
+            ->join('mst_role as role', 'm.role_id', '=', 'role.role_id')
             ->whereIn('m.role_id', $roleIds)
+            ->where('u.is_active', 1)
+            ->where('p.is_active', 1)
             ->where(DB::raw('LOWER(p.privilege_code)'), strtolower($privilegeCode))
             ->where('m.is_allowed', 1);
 
@@ -238,11 +249,11 @@ class User extends Authenticatable
             ->pluck('role_name', 'role_id');
 
         $stateRoleIds = $roleNames
-            ->filter(fn ($name) => strtolower(trim($name)) === 'state it')
+            ->filter(fn ($name) => strtolower(trim(preg_replace('/\s+/', ' ', (string) $name))) === 'state it')
             ->keys()
             ->all();
         $vendorRoleIds = $roleNames
-            ->filter(fn ($name) => strtolower(trim($name)) === 'vendor it')
+            ->filter(fn ($name) => strtolower(trim(preg_replace('/\s+/', ' ', (string) $name))) === 'vendor it')
             ->keys()
             ->all();
         $globalRoleIds = array_values(array_diff($roleIds, $stateRoleIds, $vendorRoleIds));
@@ -294,5 +305,42 @@ class User extends Authenticatable
         return $this->roles->contains(function (Role $role) use ($roleName) {
             return strtolower($role->role_name) === strtolower($roleName);
         });
+    }
+
+    public function hasRoleId(int $roleId): bool
+    {
+        if ((int) ($this->role_id ?? 0) === $roleId) {
+            return true;
+        }
+
+        return $this->roles()->where('mst_role.role_id', $roleId)->exists();
+    }
+
+    public function hasAnyRoleId(array $roleIds): bool
+    {
+        $roleIds = array_values(array_filter(array_map('intval', $roleIds)));
+        if (empty($roleIds)) {
+            return false;
+        }
+
+        if (in_array((int) ($this->role_id ?? 0), $roleIds, true)) {
+            return true;
+        }
+
+        return $this->roles()->whereIn('mst_role.role_id', $roleIds)->exists();
+    }
+
+    public function roleIds(): array
+    {
+        $roleIds = $this->roles()
+            ->pluck('mst_role.role_id')
+            ->map(fn ($roleId) => (int) $roleId)
+            ->all();
+
+        if (! empty($this->role_id)) {
+            $roleIds[] = (int) $this->role_id;
+        }
+
+        return array_values(array_unique(array_filter($roleIds)));
     }
 }

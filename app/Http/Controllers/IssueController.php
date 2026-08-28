@@ -17,6 +17,7 @@ use App\Models\Application;
 use App\Models\Priority;
 use App\Models\IssueCategory;
 use App\Models\Module;
+use App\Models\Role;
 
 use App\Services\IssueService;
 use App\Services\IssueRoutingService;
@@ -350,24 +351,11 @@ class IssueController extends Controller
                     ->all();
             }
 
-            $roleNames = [];
-            if (! empty($roleIds)) {
-                $roleNames = DB::table('mst_role')
-                    ->whereIn('role_id', $roleIds)
-                    ->pluck('role_name')
-                    ->map(fn ($roleName) => strtolower((string) $roleName))
-                    ->all();
-            } elseif (! empty($user?->role_id)) {
-                $roleNames = [strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'))];
-            }
-
-            $roleText = implode(' ', array_filter($roleNames));
-            $isVendorRole = str_contains($roleText, 'vendor admin')
-                || str_contains($roleText, 'vendor it')
-                || str_contains($roleText, 'vendor');
-            $isStateAdmin = str_contains($roleText, 'state admin');
-            $isStateIt = str_contains($roleText, 'state it');
-            $isStateRole = $isStateAdmin || $isStateIt || str_contains($roleText, 'state');
+            $isVendorRole = in_array(Role::VENDOR_ADMIN_ID, $roleIds, true)
+                || in_array(Role::VENDOR_IT_ID, $roleIds, true);
+            $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
+            $isStateIt = in_array(Role::STATE_IT_ID, $roleIds, true);
+            $isStateRole = $isStateAdmin || $isStateIt;
 
             $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
 
@@ -508,11 +496,43 @@ class IssueController extends Controller
         // Determine available states based on user roles (Central Admin sees all)
         $user = auth()->user();
 
-        $roleText = '';
-        if (! empty($user?->roles)) {
-            $roleText = implode(' ', collect($user->roles)->pluck('role_name')->map(fn($r)=>strtolower((string)$r))->all());
-        } elseif (! empty($user?->role_id)) {
-            $roleText = strtolower((string) DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name'));
+        $roleIds = collect($user?->roles ?? collect())
+            ->pluck('role_id')
+            ->map(fn ($roleId) => (int) $roleId)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($roleIds) && ! empty($user?->user_id)) {
+            $roleIds = DB::table('map_user_role')
+                ->where('user_id', $user->user_id)
+                ->where('is_active', 1)
+                ->pluck('role_id')
+                ->map(fn ($roleId) => (int) $roleId)
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $roleNames = ! empty($roleIds)
+            ? DB::table('mst_role')->whereIn('role_id', $roleIds)->pluck('role_name')->all()
+            : (! empty($user?->role_id)
+                ? [DB::table('mst_role')->where('role_id', $user->role_id)->value('role_name')]
+                : []);
+
+        $roleText = implode(' ', array_map(
+            fn ($roleName) => strtolower(trim((string) $roleName)),
+            array_filter($roleNames)
+        ));
+
+        if (empty($roleText) && ! empty($user?->roles)) {
+            $roleText = implode(' ', collect($user->roles)
+                ->pluck('role_name')
+                ->map(fn ($roleName) => strtolower(trim((string) $roleName)))
+                ->filter()
+                ->all());
         }
 
         $isStateAdmin = str_contains($roleText, 'state admin');
@@ -524,7 +544,7 @@ class IssueController extends Controller
             $stateQuery->where('st.is_active', 1);
         }
 
-        if (($isStateAdmin || $isStateIt) && ! empty($user->state_id)) {
+        if ($isStateRole) {
             $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
             if (! empty($stateIds)) {
                 $states = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();

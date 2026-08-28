@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RolePrivilegeBulkRequest;
+use App\Models\Role;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
@@ -14,7 +15,7 @@ class RolePrivilegeMappingController extends Controller
 {
     public function index(): View
     {
-        $isCentralAdmin = auth()->user()->hasRole('Central Admin');
+        $isCentralAdmin = auth()->user()->hasRoleId(Role::CENTRAL_ADMIN_ID);
         $currentRoleIds = auth()->user()->roles()->pluck('mst_role.role_id')->map(fn ($id) => (int) $id)->all();
         if (empty($currentRoleIds) && ! empty(auth()->user()->role_id)) {
             $currentRoleIds = [(int) auth()->user()->role_id];
@@ -75,17 +76,31 @@ class RolePrivilegeMappingController extends Controller
             abort(403);
         }
         $selectedScope = $selectedRoleId
-            ? $this->scopeForTargetRole((int) $selectedRoleId, auth()->user())
+            ? $this->scopeForTargetRole((int) $selectedRoleId, auth()->user(), request()->query('state_ids', []))
             : null;
         $existing = [];
         $totalMenus = 0;
         $totalPrivileges = $privileges->count();
+        $scopeStateIds = $selectedScope['ids'] ?? [];
+        $availableScopeStateIds = $selectedScope['available_ids'] ?? [];
+        $scopeStateOptions = ! empty($availableScopeStateIds)
+            ? DB::table('mst_state')
+                ->whereIn('state_id', $availableScopeStateIds)
+                ->orderBy('state_name')
+                ->get(['state_id', 'state_name'])
+            : collect();
 
         if ($selectedRoleId) {
             $rows = DB::table('map_role_privilege')
                 ->where('role_id', $selectedRoleId)
                 ->when($selectedScope !== null, function ($query) use ($selectedScope) {
-                    return $query->where($selectedScope['column'], $selectedScope['id']);
+                    if (empty($selectedScope['ids'])) {
+                        return $query->whereRaw('1 = 0');
+                    }
+
+                    return count($selectedScope['ids']) > 1
+                        ? $query->whereIn($selectedScope['column'], $selectedScope['ids'])
+                        : $query->where($selectedScope['column'], $selectedScope['ids'][0]);
                 })
                 ->get();
 
@@ -105,6 +120,9 @@ class RolePrivilegeMappingController extends Controller
             'selectedRoleId' => $selectedRoleId,
             'totalMenus' => $totalMenus,
             'totalPrivileges' => $totalPrivileges,
+            'scopeStateIds' => $scopeStateIds,
+            'availableScopeStateIds' => $availableScopeStateIds,
+            'scopeStateOptions' => $scopeStateOptions,
         ]);
     }
 
@@ -114,13 +132,13 @@ class RolePrivilegeMappingController extends Controller
 
         $roleId = (int) $data['role_id'];
         $permissions = $data['permissions'] ?? [];
-        $isCentralAdmin = auth()->user()->hasRole('Central Admin');
+        $isCentralAdmin = auth()->user()->hasRoleId(Role::CENTRAL_ADMIN_ID);
         $currentRoleIds = auth()->user()->roles()->pluck('mst_role.role_id')->map(fn ($id) => (int) $id)->all();
         if (empty($currentRoleIds) && ! empty(auth()->user()->role_id)) {
             $currentRoleIds = [(int) auth()->user()->role_id];
         }
         $childRoleIds = $this->childRoleIds($currentRoleIds);
-        $scope = $this->scopeForTargetRole($roleId, auth()->user());
+        $scope = $this->scopeForTargetRole($roleId, auth()->user(), $data['state_ids'] ?? []);
 
         if (! in_array($roleId, $childRoleIds, true)) {
             abort(403);
@@ -146,23 +164,27 @@ class RolePrivilegeMappingController extends Controller
                 DB::table('map_role_privilege')
                     ->where('role_id', $roleId)
                     ->when($scope !== null, function ($query) use ($scope) {
-                        return $query->where($scope['column'], $scope['id']);
+                        return count($scope['ids'] ?? []) > 1
+                            ? $query->whereIn($scope['column'], $scope['ids'])
+                            : $query->where($scope['column'], $scope['ids'][0]);
                     })
                     ->update(['is_allowed' => 0, 'updated_at' => now()]);
 
                 $rows = [];
                 foreach ($permissions as $menuId => $privs) {
                     foreach ($privs as $privilegeId => $val) {
-                        $rows[] = [
-                            'role_id' => $roleId,
-                            'state_id' => $scope !== null && $scope['column'] === 'state_id' ? $scope['id'] : null,
-                            'vendor_id' => $scope !== null && $scope['column'] === 'vendor_id' ? $scope['id'] : null,
-                            'menu_id' => (int) $menuId,
-                            'privilege_id' => (int) $privilegeId,
-                            'is_allowed' => 1,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
+                        foreach ($scope['ids'] ?? [null] as $scopeId) {
+                            $rows[] = [
+                                'role_id' => $roleId,
+                                'state_id' => $scope !== null && $scope['column'] === 'state_id' ? $scopeId : null,
+                                'vendor_id' => $scope !== null && $scope['column'] === 'vendor_id' ? $scopeId : null,
+                                'menu_id' => (int) $menuId,
+                                'privilege_id' => (int) $privilegeId,
+                                'is_allowed' => 1,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
                     }
                 }
 
@@ -238,7 +260,7 @@ class RolePrivilegeMappingController extends Controller
         $parentNames = DB::table('mst_role')
             ->whereIn('role_id', $parentRoleIds)
             ->pluck('role_name');
-        $childNames = $parentNames->map(fn ($roleName) => match (strtolower(trim($roleName))) {
+        $childNames = $parentNames->map(fn ($roleName) => match (strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName)))) {
             'state admin' => 'State IT',
             'vendor admin' => 'Vendor IT',
             'ho admin' => 'HO IT',
@@ -255,31 +277,50 @@ class RolePrivilegeMappingController extends Controller
             ->all();
     }
 
-    private function scopeForTargetRole(int $roleId, $user): ?array
+    private function scopeForTargetRole(int $roleId, $user, array $requestedStateIds = []): ?array
     {
-        $roleName = DB::table('mst_role')->where('role_id', $roleId)->value('role_name');
-        $normalizedRoleName = strtolower(trim((string) $roleName));
-
-        if ($normalizedRoleName === 'state it') {
+        if ($roleId === Role::STATE_IT_ID) {
             $stateIds = collect(preg_split('/\s*,\s*/', (string) ($user->state_id ?? ''), -1, PREG_SPLIT_NO_EMPTY))
                 ->filter(fn ($id) => is_numeric($id))
                 ->map(fn ($id) => (int) $id)
+                ->unique()
                 ->values()
                 ->all();
 
-            if (count($stateIds) !== 1) {
-                abort(403, 'State IT privilege mapping requires exactly one state scope.');
+            if (empty($stateIds)) {
+                abort(403, 'State IT privilege mapping requires at least one state scope.');
             }
 
-            return ['column' => 'state_id', 'id' => $stateIds[0]];
+            $requestedStateIds = collect($requestedStateIds)
+                ->filter(fn ($id) => is_numeric($id))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->intersect($stateIds)
+                ->values()
+                ->all();
+
+            if (empty($requestedStateIds)) {
+                $requestedStateIds = count($stateIds) === 1 ? $stateIds : [];
+            }
+
+            if (request()->isMethod('post') && empty($requestedStateIds)) {
+                abort(403, 'Select at least one state for State IT privilege mapping.');
+            }
+
+            return [
+                'column' => 'state_id',
+                'id' => $requestedStateIds[0] ?? null,
+                'ids' => $requestedStateIds,
+                'available_ids' => $stateIds,
+            ];
         }
 
-        if ($normalizedRoleName === 'vendor it') {
+        if ($roleId === Role::VENDOR_IT_ID) {
             if (empty($user->vendor_id)) {
                 abort(403, 'Vendor IT privilege mapping requires a vendor scope.');
             }
 
-            return ['column' => 'vendor_id', 'id' => (int) $user->vendor_id];
+            return ['column' => 'vendor_id', 'id' => (int) $user->vendor_id, 'ids' => [(int) $user->vendor_id]];
         }
 
         return null;
