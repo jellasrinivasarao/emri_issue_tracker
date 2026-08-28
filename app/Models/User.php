@@ -162,14 +162,26 @@ class User extends Authenticatable
 
     public function getMenusAttribute(): Collection
     {
-        if (! $this->relationLoaded('roles')) {
-            $this->load('roles.menus');
+        $this->loadMissing('roles');
+
+        $roleIds = $this->roles->pluck('role_id')->all();
+        if (empty($roleIds)) {
+            return collect();
         }
 
-        return $this->roles
-            ->flatMap(fn(Role $role) => $role->menus)
-            ->filter(fn($menu) => $menu->pivot->is_allowed && $menu->is_active)
-            ->unique('menu_id')
+        $query = DB::table('map_role_privilege as m')
+            ->join('mst_role as role', 'm.role_id', '=', 'role.role_id')
+            ->where('m.is_allowed', 1)
+            ->whereIn('m.role_id', $roleIds);
+
+        $this->applyScopedRoleConditions($query, $roleIds);
+
+        $menuIds = $query->pluck('m.menu_id')->unique();
+
+        return Menu::whereIn('menu_id', $menuIds)
+            ->where('is_active', 1)
+            ->orderBy('display_order')
+            ->get()
             ->sortBy('display_order')
             ->values();
     }
@@ -183,37 +195,78 @@ class User extends Authenticatable
 
     public function hasPrivilege(int $menuId, string $privilegeCode): bool
     {
-        if (! $this->relationLoaded('roles')) {
-            $this->load('roles.menus');
-        }
-
-        $privilegeCode = strtolower($privilegeCode);
-
-        return $this->roles->flatMap(function (Role $role) use ($menuId) {
-            return $role->menus->filter(fn($menu) => (int) $menu->menu_id === (int) $menuId)->map(fn($menu) => $menu->pivot);
-        })->contains(function ($pivot) use ($privilegeCode) {
-            $code = DB::table('mst_privilege')->where('privilege_id', $pivot->privilege_id)->value('privilege_code');
-            return $pivot->is_allowed && $code && strtolower($code) === $privilegeCode;
-        });
+        return $this->resolvePrivilege($menuId, null, $privilegeCode);
     }
 
     public function hasPrivilegeOnRoute(string $routeName, string $privilegeCode): bool
     {
+        return $this->resolvePrivilege(null, $routeName, $privilegeCode);
+    }
+
+    private function resolvePrivilege(?int $menuId, ?string $routeName, string $privilegeCode): bool
+    {
         $this->loadMissing('roles');
 
-        $roleIds = $this->roles->pluck('role_id')->toArray();
+        $roleIds = $this->roles->pluck('role_id')->map(fn ($id) => (int) $id)->all();
         if (empty($roleIds)) {
             return false;
         }
 
-        return DB::table('map_role_privilege as m')
+        $query = DB::table('map_role_privilege as m')
             ->join('mst_menu as u', 'm.menu_id', '=', 'u.menu_id')
             ->join('mst_privilege as p', 'm.privilege_id', '=', 'p.privilege_id')
             ->whereIn('m.role_id', $roleIds)
-            ->where('u.route_name', $routeName)
             ->where(DB::raw('LOWER(p.privilege_code)'), strtolower($privilegeCode))
-            ->where('m.is_allowed', 1)
-            ->exists();
+            ->where('m.is_allowed', 1);
+
+        if ($menuId !== null) {
+            $query->where('m.menu_id', $menuId);
+        }
+        if ($routeName !== null) {
+            $query->where('u.route_name', $routeName);
+        }
+
+        $this->applyScopedRoleConditions($query, $roleIds);
+
+        return $query->exists();
+    }
+
+    private function applyScopedRoleConditions($query, array $roleIds): void
+    {
+        $roleNames = DB::table('mst_role')
+            ->whereIn('role_id', $roleIds)
+            ->pluck('role_name', 'role_id');
+
+        $stateRoleIds = $roleNames
+            ->filter(fn ($name) => strtolower(trim($name)) === 'state it')
+            ->keys()
+            ->all();
+        $vendorRoleIds = $roleNames
+            ->filter(fn ($name) => strtolower(trim($name)) === 'vendor it')
+            ->keys()
+            ->all();
+        $globalRoleIds = array_values(array_diff($roleIds, $stateRoleIds, $vendorRoleIds));
+        $stateIds = collect(preg_split('/\s*,\s*/', (string) ($this->state_id ?? ''), -1, PREG_SPLIT_NO_EMPTY))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $query->where(function ($scope) use ($globalRoleIds, $stateRoleIds, $vendorRoleIds, $stateIds) {
+            if (! empty($globalRoleIds)) {
+                $scope->whereIn('m.role_id', $globalRoleIds);
+            }
+            if (! empty($stateRoleIds) && ! empty($stateIds)) {
+                $scope->orWhere(function ($state) use ($stateRoleIds, $stateIds) {
+                    $state->whereIn('m.role_id', $stateRoleIds)->whereIn('m.state_id', $stateIds);
+                });
+            }
+            if (! empty($vendorRoleIds) && ! empty($this->vendor_id)) {
+                $scope->orWhere(function ($vendor) use ($vendorRoleIds) {
+                    $vendor->whereIn('m.role_id', $vendorRoleIds)->where('m.vendor_id', $this->vendor_id);
+                });
+            }
+        });
     }
 
     public function getDefaultSectionRouteAttribute(): string
