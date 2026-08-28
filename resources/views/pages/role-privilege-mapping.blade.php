@@ -22,22 +22,22 @@
                     </div>
                 @endif
                 <div class="px-5 py-4">
-                    <div class="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                    <div class="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
                             <h1 class="text-lg font-semibold text-slate-900">Role Menu & Action Mapping</h1>
                             <p class="mt-1 text-sm text-slate-500">Map menus and actions/privileges for the selected role.</p>
                         </div>
-                        <form method="GET" action="{{ route('role.privilege.mapping') }}" class="grid gap-3 sm:grid-cols-[320px_auto] items-end">
-                            <div>
+                        <form method="GET" action="{{ route('role.privilege.mapping') }}" class="flex w-full items-end gap-3 lg:w-auto">
+                            <div class="w-[320px]">
                                 <label for="role_id" class="text-sm font-medium text-slate-700">Role</label>
-                                <select id="role_id" name="role_id" class="mt-2 block w-full min-w-[320px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
+                                <select id="role_id" name="role_id" class="mt-2 block h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-100">
                                     <option value="">-- Select role --</option>
                                     @foreach($roles as $role)
                                         <option value="{{ $role->role_id }}" @selected((string)$selectedRoleId === (string)$role->role_id)>{{ $role->role_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
-                            <button type="submit" class="inline-flex h-[42px] items-center justify-center rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">Load Permissions</button>
+                            <button type="submit" class="inline-flex h-[42px] min-w-[142px] items-center justify-center rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-sky-700">Load Permissions</button>
                         </form>
                     </div>
                 </div>
