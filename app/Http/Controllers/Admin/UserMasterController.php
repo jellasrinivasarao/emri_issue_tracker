@@ -136,14 +136,12 @@ class UserMasterController extends Controller
             $currentUserRoleIds = array_values(array_unique($currentUserRoleIds));
         }
 
-        $currentUserRoleNames = DB::table('mst_role')
-            ->whereIn('role_id', $currentUserRoleIds)
-            ->pluck('role_name')
-            ->map(fn ($roleName) => strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName))));
-        $currentUserIsStateAdmin = $currentUserRoleNames->contains('state admin');
+        $currentUserIsStateAdmin = in_array(Role::STATE_ADMIN_ID, $currentUserRoleIds, true);
+        $currentUserIsStateIt = in_array(Role::STATE_IT_ID, $currentUserRoleIds, true);
+        $currentUserIsStateScopedUser = $currentUserIsStateAdmin || $currentUserIsStateIt;
 
         $stateQuery = State::query()->select('state_id', 'state_name')->orderBy('state_name');
-        if ($currentUserIsStateAdmin) {
+        if ($currentUserIsStateScopedUser) {
             $managedStateIds = array_filter(array_map(
                 'trim',
                 explode(',', (string) ($currentUser->state_id ?? ''))
@@ -165,6 +163,8 @@ class UserMasterController extends Controller
             'currentUserIsVendorAdmin' => $currentUserIsVendorAdmin,
             'currentUserVendorId' => $currentUserVendorId,
             'currentUserIsStateAdmin' => $currentUserIsStateAdmin,
+            'currentUserIsStateIt' => $currentUserIsStateIt,
+            'currentUserIsStateScopedUser' => $currentUserIsStateScopedUser,
         ]);
     }
 
@@ -230,8 +230,8 @@ class UserMasterController extends Controller
             }
         }
 
-        // If current user is a State Admin, ensure they cannot assign outside their mapped state(s)
-        if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
+        // State Admin and State IT users can only assign states within their mapped state(s)
+        if ((auth()->user()?->hasRoleId(Role::STATE_ADMIN_ID) || auth()->user()?->hasRoleId(Role::STATE_IT_ID)) && Schema::hasColumn('mst_user', 'state_id')) {
             $managedStates = array_filter(array_map('trim', explode(',', (string) (auth()->user()->state_id ?? ''))));
             $assignedStates = array_filter(array_map('trim', explode(',', (string) ($user->state_id ?? ''))));
             if (! empty($managedStates) && ! empty(array_diff($assignedStates, $managedStates))) {
@@ -305,7 +305,7 @@ class UserMasterController extends Controller
             }
         }
 
-        if (auth()->user()?->hasRole('State Admin') && Schema::hasColumn('mst_user', 'state_id')) {
+        if ((auth()->user()?->hasRoleId(Role::STATE_ADMIN_ID) || auth()->user()?->hasRoleId(Role::STATE_IT_ID)) && Schema::hasColumn('mst_user', 'state_id')) {
             $managedStates = array_filter(array_map('trim', explode(',', (string) (auth()->user()->state_id ?? ''))));
             $assignedStates = array_filter(array_map('trim', explode(',', (string) ($user->state_id ?? ''))));
             if (! empty($managedStates) && ! empty(array_diff($assignedStates, $managedStates))) {

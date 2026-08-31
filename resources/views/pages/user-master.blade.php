@@ -273,6 +273,8 @@
             .map(stateId => stateId.trim())
             .filter(Boolean);
         const currentUserIsStateAdmin = @json($currentUserIsStateAdmin ?? false);
+        const currentUserIsStateIt = @json($currentUserIsStateIt ?? false);
+        const currentUserIsStateScopedUser = @json($currentUserIsStateScopedUser ?? false);
         const currentUserIsVendorAdmin = @json(auth()->user()->hasRole('Vendor Admin'));
         const currentUserVendorId = @json(auth()->user()->vendor_id ?? null);
         // Multi-select state helper (reused pattern from other pages)
@@ -557,9 +559,9 @@
             // Show state multi-select ONLY when a State role is selected
             if (roleName.includes('state')) {
                 if (stateGroup) stateGroup.classList.remove('hidden');
-                // if current user is a State Admin, limit selectable states to their own
+                // Restrict selectable states to the logged-in State Admin / State IT mapped states
                 if (stateSelectMulti) {
-                    if (currentUserIsStateAdmin && currentUserStateIds.length > 0) {
+                    if (currentUserIsStateScopedUser && currentUserStateIds.length > 0) {
                         const allowed = stateOptions.filter(s => currentUserStateIds.includes(String(s.state_id)));
                         stateSelectMulti.setOptions(allowed);
                     } else {
