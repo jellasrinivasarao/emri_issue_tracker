@@ -231,7 +231,7 @@
                                         <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
                                         <div data-multi-select-hidden class="hidden"></div>
                                     </div>
-                                    <p class="text-xs text-slate-500">This field will be enabled for State Admin / State IT roles.</p>
+                                    <p class="text-xs text-slate-500">This field will be enabled for State Admin, State IT, and HO IT roles.</p>
                                 </div>
                             </div>
 
@@ -556,10 +556,11 @@
             if (stateGroup) stateGroup.classList.add('hidden');
             if (vendorGroup) vendorGroup.classList.add('hidden');
 
-            // Show state multi-select ONLY when a State role is selected
-            if (roleName.includes('state')) {
+            // Show state multi-select for State-scoped roles, including HO IT
+            const isStateScopedRole = roleName.includes('state') || roleName.includes('ho it');
+            if (isStateScopedRole) {
                 if (stateGroup) stateGroup.classList.remove('hidden');
-                // Restrict selectable states to the logged-in State Admin / State IT mapped states
+                // Restrict selectable states to the logged-in state-scoped user's mapped states
                 if (stateSelectMulti) {
                     if (currentUserIsStateScopedUser && currentUserStateIds.length > 0) {
                         const allowed = stateOptions.filter(s => currentUserStateIds.includes(String(s.state_id)));

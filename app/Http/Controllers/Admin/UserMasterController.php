@@ -138,7 +138,8 @@ class UserMasterController extends Controller
 
         $currentUserIsStateAdmin = in_array(Role::STATE_ADMIN_ID, $currentUserRoleIds, true);
         $currentUserIsStateIt = in_array(Role::STATE_IT_ID, $currentUserRoleIds, true);
-        $currentUserIsStateScopedUser = $currentUserIsStateAdmin || $currentUserIsStateIt;
+        $currentUserIsHoIt = in_array(Role::HO_IT_ID, $currentUserRoleIds, true);
+        $currentUserIsStateScopedUser = $currentUserIsStateAdmin || $currentUserIsStateIt || $currentUserIsHoIt;
 
         $stateQuery = State::query()->select('state_id', 'state_name')->orderBy('state_name');
         if ($currentUserIsStateScopedUser) {

@@ -267,11 +267,17 @@ class User extends Authenticatable
             if (! empty($globalRoleIds)) {
                 $scope->whereIn('m.role_id', $globalRoleIds);
             }
-            if (! empty($stateRoleIds) && ! empty($stateIds)) {
-                $scope->orWhere(function ($state) use ($stateRoleIds, $stateIds) {
-                    $state->whereIn('m.role_id', $stateRoleIds)->whereIn('m.state_id', $stateIds);
-                });
+
+            if (! empty($stateRoleIds)) {
+                if (empty($stateIds)) {
+                    $scope->orWhereIn('m.role_id', $stateRoleIds);
+                } else {
+                    $scope->orWhere(function ($state) use ($stateRoleIds, $stateIds) {
+                        $state->whereIn('m.role_id', $stateRoleIds)->whereIn('m.state_id', $stateIds);
+                    });
+                }
             }
+
             if (! empty($vendorRoleIds) && ! empty($this->vendor_id)) {
                 $scope->orWhere(function ($vendor) use ($vendorRoleIds) {
                     $vendor->whereIn('m.role_id', $vendorRoleIds)->where('m.vendor_id', $this->vendor_id);

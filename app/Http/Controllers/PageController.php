@@ -14,6 +14,23 @@ use Illuminate\View\View;
 
 class PageController extends Controller
 {
+    public static function getScopedStateIdsForUser($user, array $roleIds): array
+    {
+        $roleIds = array_map('intval', $roleIds);
+        $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
+        $isStateIt = in_array(Role::STATE_IT_ID, $roleIds, true);
+        $isHoIt = in_array(Role::HO_IT_ID, $roleIds, true);
+
+        if ((! $isStateAdmin && ! $isStateIt && ! $isHoIt) || empty($user?->state_id)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map('trim', explode(',', (string) $user->state_id)),
+            fn ($id) => $id !== ''
+        )));
+    }
+
     public function roleDashboard(): View
     {
         return view('role-dashboard');
@@ -106,7 +123,8 @@ class PageController extends Controller
         $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
         $isStateIt = in_array(Role::STATE_IT_ID, $roleIds, true);
         $isStateRole = $isStateAdmin || $isStateIt;
-        
+        $stateIds = self::getScopedStateIdsForUser($user, $roleIds);
+
         $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
 
         $statusRows = DB::table('map_role_issue_status as m')
@@ -252,13 +270,10 @@ class PageController extends Controller
             $stateQuery->where('st.is_active', 1);
         }
 
-        if (($isStateAdmin || $isStateIt) && ! empty($user->state_id)) {
-            $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
-            if (! empty($stateIds)) {
-                $stateOptions = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();
-            } else {
-                $stateOptions = collect();
-            }
+        if (($isStateAdmin || $isStateIt || $isHoIt) && ! empty($stateIds)) {
+            $stateOptions = $stateQuery->whereIn('st.state_id', $stateIds)->orderBy('st.state_name')->get();
+        } elseif (($isStateAdmin || $isStateIt || $isHoIt) && empty($stateIds)) {
+            $stateOptions = $stateQuery->orderBy('st.state_name')->get();
         } elseif ($isVendorRole) {
             if (! empty($vendorId)) {
                 $stateOptions = DB::table('map_vendor_state as m')
@@ -300,7 +315,7 @@ class PageController extends Controller
                 ->where('m.state_id', $request->input('state_id'))
                 ->where('m.is_active', 1)
                 ->distinct();
-        } elseif ($isStateRole && ! empty($stateIds)) {
+        } elseif (($isStateRole || $isHoIt) && ! empty($stateIds)) {
             $projectQuery->join('map_project_state as m', 'pr.project_id', '=', 'm.project_id')
                 ->whereIn('m.state_id', $stateIds)
                 ->where('m.is_active', 1)
@@ -462,8 +477,12 @@ class PageController extends Controller
             });
         }
 
-        if ($isHoRole) {
-            // Show all issues for HO roles.
+        if ($isHoAdmin) {
+            // Show all issues for HO Admin.
+        } elseif ($isHoIt) {
+            if (! empty($stateIds)) {
+                $issuesQuery->whereIn('i.state_id', $stateIds);
+            }
         } elseif ($isVendorRole) {
             $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? ($user->vendor_id ?? null) : null;
 
@@ -496,7 +515,6 @@ class PageController extends Controller
                 $issuesQuery->whereRaw('0 = 1');
             }
         } elseif ($isStateAdmin || $isStateIt) {
-            $stateIds = array_filter(array_map('trim', explode(',', (string) $user->state_id)), fn ($id) => $id !== '');
             if (! empty($stateIds)) {
                 $issuesQuery->whereIn('i.state_id', $stateIds);
                 if ($isStateIt) {

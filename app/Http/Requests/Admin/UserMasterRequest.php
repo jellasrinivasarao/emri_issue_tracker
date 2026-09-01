@@ -24,7 +24,10 @@ class UserMasterRequest extends FormRequest
         }
 
         $normalizedRoleName = strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName)));
-        $stateRequired = $normalizedRoleName && str_contains($normalizedRoleName, 'state');
+        $stateRequired = $normalizedRoleName && (
+            str_contains($normalizedRoleName, 'state')
+            || str_contains($normalizedRoleName, 'ho it')
+        );
         $vendorRequired = $normalizedRoleName && str_contains($normalizedRoleName, 'vendor');
         $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
 
