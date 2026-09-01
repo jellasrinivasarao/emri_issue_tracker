@@ -585,73 +585,73 @@ class PageController extends Controller
         }
 
         $requestedStatusValue = trim((string) $request->input('status_id', ''));
-        if ($request->has('status_id') && $requestedStatusValue !== '') {
-            $requestedStatusValue = strtolower($requestedStatusValue);
+        if ($requestedStatusValue === '') {
+            $requestedStatusValue = 'in_process';
+        }
 
-            if ($requestedStatusValue === 'total' || $requestedStatusValue === 'all') {
-                // Keep all applicable issues for the selected role.
-            } elseif ($requestedStatusValue === 'in_process' || $requestedStatusValue === 'in_progress') {
-                // Exclude resolved and closed issues from in-progress view
-                if (!empty($resolvedStatusIds)) {
-                    $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds);
-                }
-                if (!empty($closedStatusIds)) {
-                    $issuesQuery->whereNotIn('i.status_id', $closedStatusIds);
-                }
-                if (!empty($reopenedStatusIds)) {
-                    $issuesQuery->whereNotIn('i.status_id', $reopenedStatusIds);
-                }
-                if (!empty($approvedStatusIds)) {
-                    $issuesQuery->whereNotIn('i.status_id', $approvedStatusIds);
-                }
-                if (!empty($rejectedStatusIds)) {
-                    $issuesQuery->whereNotIn('i.status_id', $rejectedStatusIds);
-                }
-            } elseif ($requestedStatusValue === 'resolved') {
-                if ($isStateIt) {
-                    $issuesQuery->where('i.raised_by_user_id', $user->user_id)
-                        ->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
-                } else {
-                    $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
-                }
-            } elseif ($requestedStatusValue === 'closed') {
-                if ($isStateIt) {
-                    $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
-                        $query->select('issue_id')
-                            ->from('txn_issue_status_history')
-                            ->where('changed_by_user_id', $user->user_id)
-                            ->whereIn('new_status_id', $closedStatusIds ?: [0]);
-                    })->where('i.raised_by_user_id', $user->user_id)
-                        ->whereIn('i.status_id', $closedStatusIds ?: [0]);
-                } else {
-                    $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
-                }
-            } elseif ($requestedStatusValue === 'reopened') {
-                $issuesQuery->whereIn('i.status_id', $reopenWorkflowStatusIds ?: [0]);
-            } elseif ($requestedStatusValue === 'approved') {
-                $issuesQuery->whereIn('i.status_id', $approvedStatusIds ?: [0]);
-            } elseif ($requestedStatusValue === 'rejected') {
-                $issuesQuery->whereIn('i.status_id', $rejectedStatusIds ?: [0]);
-            } elseif (is_numeric($requestedStatusValue)) {
-                $requestedStatusId = (int) $requestedStatusValue;
-                if (in_array($requestedStatusId, $inProcessStatusIds, true)) {
-                    $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds ?: [0])
-                        ->whereNotIn('i.status_id', $closedStatusIds ?: [0])
-                        ->whereNotIn('i.status_id', $reopenedStatusIds ?: [0])
-                        ->whereNotIn('i.status_id', $approvedStatusIds ?: [0])
-                        ->whereNotIn('i.status_id', $rejectedStatusIds ?: [0]);
-                } elseif (in_array($requestedStatusId, $resolvedStatusIds, true)) {
-                    $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
-                } elseif (in_array($requestedStatusId, $closedStatusIds, true)) {
-                    $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
-                } else {
-                    $issuesQuery->where('i.status_id', $requestedStatusId);
-                }
-            } else {
-                $issuesQuery->where('i.status_id', (int) $requestedStatusValue);
+        $requestedStatusValue = strtolower($requestedStatusValue);
+
+        if ($requestedStatusValue === 'total' || $requestedStatusValue === 'all') {
+            // Keep all applicable issues for the selected role.
+        } elseif ($requestedStatusValue === 'in_process' || $requestedStatusValue === 'in_progress') {
+            // Default queue to In-Process, matching the previous dashboard behavior.
+            if (!empty($resolvedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds);
             }
-        } elseif (empty($requestedStatusValue) && ! $request->has('status_id')) {
-            // Default view shows all issues; status cards apply explicit filters.
+            if (!empty($closedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $closedStatusIds);
+            }
+            if (!empty($reopenedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $reopenedStatusIds);
+            }
+            if (!empty($approvedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $approvedStatusIds);
+            }
+            if (!empty($rejectedStatusIds)) {
+                $issuesQuery->whereNotIn('i.status_id', $rejectedStatusIds);
+            }
+        } elseif ($requestedStatusValue === 'resolved') {
+            if ($isStateIt) {
+                $issuesQuery->where('i.raised_by_user_id', $user->user_id)
+                    ->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
+            } else {
+                $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
+            }
+        } elseif ($requestedStatusValue === 'closed') {
+            if ($isStateIt) {
+                $issuesQuery->whereIn('i.issue_id', function ($query) use ($user, $closedStatusIds) {
+                    $query->select('issue_id')
+                        ->from('txn_issue_status_history')
+                        ->where('changed_by_user_id', $user->user_id)
+                        ->whereIn('new_status_id', $closedStatusIds ?: [0]);
+                })->where('i.raised_by_user_id', $user->user_id)
+                    ->whereIn('i.status_id', $closedStatusIds ?: [0]);
+            } else {
+                $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
+            }
+        } elseif ($requestedStatusValue === 'reopened') {
+            $issuesQuery->whereIn('i.status_id', $reopenWorkflowStatusIds ?: [0]);
+        } elseif ($requestedStatusValue === 'approved') {
+            $issuesQuery->whereIn('i.status_id', $approvedStatusIds ?: [0]);
+        } elseif ($requestedStatusValue === 'rejected') {
+            $issuesQuery->whereIn('i.status_id', $rejectedStatusIds ?: [0]);
+        } elseif (is_numeric($requestedStatusValue)) {
+            $requestedStatusId = (int) $requestedStatusValue;
+            if (in_array($requestedStatusId, $inProcessStatusIds, true)) {
+                $issuesQuery->whereNotIn('i.status_id', $resolvedStatusIds ?: [0])
+                    ->whereNotIn('i.status_id', $closedStatusIds ?: [0])
+                    ->whereNotIn('i.status_id', $reopenedStatusIds ?: [0])
+                    ->whereNotIn('i.status_id', $approvedStatusIds ?: [0])
+                    ->whereNotIn('i.status_id', $rejectedStatusIds ?: [0]);
+            } elseif (in_array($requestedStatusId, $resolvedStatusIds, true)) {
+                $issuesQuery->whereIn('i.status_id', $resolvedStatusIds ?: [0]);
+            } elseif (in_array($requestedStatusId, $closedStatusIds, true)) {
+                $issuesQuery->whereIn('i.status_id', $closedStatusIds ?: [0]);
+            } else {
+                $issuesQuery->where('i.status_id', $requestedStatusId);
+            }
+        } else {
+            $issuesQuery->where('i.status_id', (int) $requestedStatusValue);
         }
 
         $issues = $issuesQuery->get();
@@ -948,7 +948,7 @@ class PageController extends Controller
                 'project_id' => $request->input('project_id'),
                 'application_id' => $request->input('application_id'),
                 'priority_id' => $request->input('priority_id'),
-                'status_id' => $request->input('status_id'),
+                'status_id' => $request->input('status_id') ?: 'in_process',
                 'date_from' => $request->input('date_from'),
                 'date_to' => $request->input('date_to'),
                 'ticket_id' => $request->input('ticket_id'),
