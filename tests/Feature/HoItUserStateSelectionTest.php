@@ -30,7 +30,7 @@ class HoItUserStateSelectionTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_ho_it_role_requires_multi_state_selection(): void
+    public function test_ho_it_role_allows_optional_multi_state_selection(): void
     {
         $role = Role::query()->create([
             'role_code' => 'HO_IT',
@@ -48,6 +48,8 @@ class HoItUserStateSelectionTest extends TestCase
         $rules = $request->rules();
 
         $this->assertArrayHasKey('state_ids', $rules);
-        $this->assertSame(['required', 'array', 'min:1'], $rules['state_ids']);
+        $this->assertSame(['nullable', 'array'], $rules['state_ids']);
+        $this->assertArrayHasKey('support_group_ids', $rules);
+        $this->assertSame(['nullable', 'array'], $rules['support_group_ids']);
     }
 }

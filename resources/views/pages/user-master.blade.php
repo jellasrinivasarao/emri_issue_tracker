@@ -89,6 +89,7 @@
                                                         data-mobile-number="{{ $user->mobile_number }}"
                                                         data-role-id="{{ $user->role_id }}"
                                                         data-state-id="{{ $user->state_id ?? '' }}"
+                                                        data-support-group-ids="{{ implode(',', $supportGroupIdsByUser[$user->user_id] ?? []) }}"
                                                         data-vendor-id="{{ $user->vendor_id ?? '' }}"
                                                         data-user-status="{{ $user->user_status }}"
                                                         onclick="editUser(this.dataset)"
@@ -252,6 +253,21 @@
                                     <p class="text-xs text-slate-500">This field will be enabled for Vendor Admin role.</p>
                                 </div>
                             </div>
+
+                            <div class="space-y-2">
+                                <div id="support_group_wrapper" class="hidden">
+                                    <label class="text-sm font-medium text-slate-700">Group <span class="text-slate-400 text-xs">(Select one or more)</span></label>
+                                    <div id="support-group-select" class="relative">
+                                        <div class="flex flex-wrap items-center gap-2 rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm transition focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-emerald-100" data-multi-select="support-groups" style="min-height: 4rem;">
+                                            <div class="flex flex-wrap gap-2" data-multi-select-chips></div>
+                                            <input type="text" class="min-w-[120px] flex-1 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none" placeholder="Search and select groups" data-multi-select-input autocomplete="off" />
+                                        </div>
+                                        <div class="absolute left-0 right-0 z-50 mt-1 hidden max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl" data-multi-select-list></div>
+                                        <div data-multi-select-hidden class="hidden"></div>
+                                    </div>
+                                    <p class="text-xs text-slate-500">Optional for HO IT users.</p>
+                                </div>
+                            </div>
                         </div>
 
                     </div>
@@ -279,7 +295,10 @@
         const currentUserVendorId = @json(auth()->user()->vendor_id ?? null);
         // Multi-select state helper (reused pattern from other pages)
         const stateOptions = @json($states ?? []);
+        const supportGroupOptions = @json($supportGroups ?? []);
+        const supportGroupIdsByUser = @json($supportGroupIdsByUser ?? []);
         const oldStateIds = @json(old('state_ids', []));
+        const oldSupportGroupIds = @json(old('support_group_ids', []));
         const oldUserId = @json(old('user_id', ''));
         const hasValidationErrors = {{ $errors->any() ? 'true' : 'false' }};
         function formatStateLabel(item) {
@@ -442,6 +461,80 @@
         }
 
         let stateSelectMulti;
+        let supportGroupSelectMulti;
+
+        function initSupportGroupMultiSelect() {
+            const element = document.querySelector('[data-multi-select="support-groups"]');
+            const container = element?.closest('#support-group-select');
+            if (!container) return { setItems() {}, setOptions() {} };
+
+            const input = container.querySelector('[data-multi-select-input]');
+            const list = container.querySelector('[data-multi-select-list]');
+            const chips = container.querySelector('[data-multi-select-chips]');
+            const hidden = container.querySelector('[data-multi-select-hidden]');
+            const selected = [];
+            let options = [];
+
+            function label(option) { return option.support_group_name || ''; }
+            function renderList(filter = '') {
+                list.innerHTML = '';
+                const query = filter.trim().toLowerCase();
+                const available = options.filter((option) => !selected.includes(String(option.support_group_id)) && (query === '' || label(option).toLowerCase().includes(query)));
+                if (!available.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'px-3 py-2 text-sm text-slate-500';
+                    empty.textContent = options.length ? 'No results found.' : 'No support groups found.';
+                    list.appendChild(empty);
+                    return;
+                }
+                available.forEach((option) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50';
+                    button.dataset.value = option.support_group_id;
+                    button.textContent = label(option);
+                    list.appendChild(button);
+                });
+            }
+            function renderChips() {
+                chips.innerHTML = '';
+                hidden.innerHTML = '';
+                selected.forEach((value) => {
+                    const option = options.find((item) => String(item.support_group_id) === String(value));
+                    if (!option) return;
+                    const chip = document.createElement('span');
+                    chip.className = 'inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700';
+                    chip.textContent = label(option);
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'rounded-full bg-slate-200 px-1 text-slate-500 hover:bg-slate-300';
+                    remove.textContent = '×';
+                    remove.onclick = () => { selected.splice(selected.indexOf(String(value)), 1); renderChips(); renderList(input.value); };
+                    chip.appendChild(remove);
+                    chips.appendChild(chip);
+                    const inputElement = document.createElement('input');
+                    inputElement.type = 'hidden';
+                    inputElement.name = 'support_group_ids[]';
+                    inputElement.value = value;
+                    hidden.appendChild(inputElement);
+                });
+            }
+            input.addEventListener('focus', () => { renderList(input.value); list.classList.remove('hidden'); });
+            input.addEventListener('input', () => { renderList(input.value); list.classList.remove('hidden'); });
+            list.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-value]');
+                if (!button) return;
+                selected.push(String(button.dataset.value));
+                renderChips();
+                renderList(input.value);
+            });
+            document.addEventListener('click', (event) => { if (!container.contains(event.target)) list.classList.add('hidden'); });
+
+            return {
+                setItems(values = []) { selected.splice(0, selected.length, ...values.map(String)); renderChips(); },
+                setOptions(nextOptions = []) { options = nextOptions; renderChips(); renderList(input.value); },
+            };
+        }
         try {
             stateSelectMulti = initMultiSelectStates();
             if (stateSelectMulti) {
@@ -449,6 +542,12 @@
             }
         } catch (error) {
             console.error('State multi-select initialization failed:', error);
+        }
+        try {
+            supportGroupSelectMulti = initSupportGroupMultiSelect();
+            supportGroupSelectMulti.setOptions(supportGroupOptions || []);
+        } catch (error) {
+            console.error('Support group multi-select initialization failed:', error);
         }
 
         function showUserMasterModal(reset = true) {
@@ -492,6 +591,9 @@
                 if (passwordInput) passwordInput.value = '';
                 if (stateSelectMulti) {
                     stateSelectMulti.setItems([]);
+                }
+                if (supportGroupSelectMulti) {
+                    supportGroupSelectMulti.setItems([]);
                 }
             }
 
@@ -537,6 +639,12 @@
                     stateSelectMulti.setItems([]);
                 }
             }
+            if (supportGroupSelectMulti) {
+                const supportGroupIds = data.supportGroupIds
+                    ? String(data.supportGroupIds).split(',').map(id => id.trim()).filter(Boolean)
+                    : (supportGroupIdsByUser[data.userId] || []);
+                supportGroupSelectMulti.setItems(supportGroupIds);
+            }
             if (vendorSelect) {
                 vendorSelect.value = currentUserIsVendorAdmin ? (currentUserVendorId || '') : (data.vendorId || '');
             }
@@ -550,10 +658,12 @@
             const roleName = rolesMap[roleId] ? String(rolesMap[roleId]).toLowerCase() : '';
 
             const stateGroup = document.getElementById('state_group_wrapper');
+            const supportGroup = document.getElementById('support_group_wrapper');
             const vendorGroup = document.getElementById('vendor_group');
 
             // Default hide
             if (stateGroup) stateGroup.classList.add('hidden');
+            if (supportGroup) supportGroup.classList.add('hidden');
             if (vendorGroup) vendorGroup.classList.add('hidden');
 
             // Show state multi-select for State-scoped roles, including HO IT
@@ -575,6 +685,13 @@
                 if (stateSelectMulti) {
                     stateSelectMulti.setItems([]);
                 }
+            }
+
+            if (roleName.includes('ho it')) {
+                if (supportGroup) supportGroup.classList.remove('hidden');
+                if (supportGroupSelectMulti) supportGroupSelectMulti.setOptions(supportGroupOptions || []);
+            } else if (supportGroupSelectMulti) {
+                supportGroupSelectMulti.setItems([]);
             }
 
             // If current user is Vendor Admin, hide vendor selection and auto-assign vendor_id.
@@ -699,6 +816,12 @@
                 setEditModeFromOldInput();
                 if (stateSelectMulti && oldStateIds.length > 0) {
                     stateSelectMulti.setItems(oldStateIds);
+                }
+                if (supportGroupSelectMulti && oldSupportGroupIds.length > 0) {
+                    supportGroupSelectMulti.setItems(oldSupportGroupIds);
+                }
+                if (supportGroupSelectMulti && oldSupportGroupIds.length > 0) {
+                    supportGroupSelectMulti.setItems(oldSupportGroupIds);
                 }
             }
         }

@@ -101,6 +101,10 @@ class PageController extends Controller
                 ->all();
         }
 
+            if (empty($roleIds) && ! empty($user?->role_id)) {
+                $roleIds = [(int) $user->role_id];
+            }
+
         $roleNames = [];
         if (! empty($roleIds)) {
             $roleNames = DB::table('mst_role')
@@ -124,6 +128,9 @@ class PageController extends Controller
         $isStateIt = in_array(Role::STATE_IT_ID, $roleIds, true);
         $isStateRole = $isStateAdmin || $isStateIt;
         $stateIds = self::getScopedStateIdsForUser($user, $roleIds);
+        $supportGroupIds = Schema::hasColumn('mst_user', 'support_group_id')
+            ? array_values(array_unique(array_filter(array_map('intval', explode(',', (string) ($user->support_group_id ?? ''))))))
+            : [];
 
         $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? $user->vendor_id : null;
 
@@ -482,6 +489,15 @@ class PageController extends Controller
         } elseif ($isHoIt) {
             if (! empty($stateIds)) {
                 $issuesQuery->whereIn('i.state_id', $stateIds);
+            }
+            if (! empty($supportGroupIds)) {
+                $issuesQuery->whereExists(function ($query) use ($supportGroupIds) {
+                    $query->from('map_group_project_application as group_mapping')
+                        ->whereColumn('group_mapping.project_id', 'i.project_id')
+                        ->whereColumn('group_mapping.application_id', 'i.application_id')
+                        ->whereIn('group_mapping.group_id', $supportGroupIds)
+                        ->where('group_mapping.is_active', 1);
+                });
             }
         } elseif ($isVendorRole) {
             $vendorId = Schema::hasColumn('mst_user', 'vendor_id') ? ($user->vendor_id ?? null) : null;

@@ -24,10 +24,7 @@ class UserMasterRequest extends FormRequest
         }
 
         $normalizedRoleName = strtolower(trim(preg_replace('/\s+/', ' ', (string) $roleName)));
-        $stateRequired = $normalizedRoleName && (
-            str_contains($normalizedRoleName, 'state')
-            || str_contains($normalizedRoleName, 'ho it')
-        );
+        $stateRequired = $normalizedRoleName && str_contains($normalizedRoleName, 'state') && ! str_contains($normalizedRoleName, 'ho it');
         $vendorRequired = $normalizedRoleName && str_contains($normalizedRoleName, 'vendor');
         $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
 
@@ -69,6 +66,11 @@ class UserMasterRequest extends FormRequest
             'state_ids.*' => [
                 'integer',
                 Rule::exists('mst_state', 'state_id')->where(fn ($query) => $query->where('is_active', 1)),
+            ],
+            'support_group_ids' => ['nullable', 'array'],
+            'support_group_ids.*' => [
+                'integer',
+                Rule::exists('mst_group', 'group_id')->where(fn ($query) => $query->where('is_active', 1)),
             ],
             'vendor_id' => array_merge(
                 $vendorRequired && ! $currentUserIsVendorAdmin ? ['required'] : ['nullable'],

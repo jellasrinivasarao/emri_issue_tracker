@@ -28,6 +28,8 @@ use App\Http\Controllers\Admin\WorkingScheduleController;
 use App\Http\Controllers\Admin\WorkingHoursController;
 use App\Http\Controllers\Admin\CalendarHolidayController;
 use App\Http\Controllers\Admin\SlaConfigurationController;
+use App\Http\Controllers\Admin\GroupMasterController;
+use App\Http\Controllers\Admin\GroupProjectApplicationMappingController;
 
 
 use App\Http\Controllers\PageController;
@@ -246,6 +248,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(['auth','menu.access:support-group.master'])
         ->name('support-group.master.toggle');
 
+    Route::get('/group-master', [GroupMasterController::class, 'index'])
+        ->middleware(['auth', 'menu.access:group.master'])
+        ->name('group.master');
+
+    Route::post('/group-master', [GroupMasterController::class, 'store'])
+        ->middleware(['auth', 'menu.access:group.master'])
+        ->name('group.master.store');
+
+    Route::put('/group-master/{group_id}', [GroupMasterController::class, 'update'])
+        ->middleware(['auth', 'menu.access:group.master'])
+        ->name('group.master.update');
+
+    Route::post('/group-master/{group_id}/toggle', [GroupMasterController::class, 'toggle'])
+        ->middleware(['auth', 'menu.access:group.master'])
+        ->name('group.master.toggle');
+
     Route::get('/user-master', [UserMasterController::class, 'index'])
         ->middleware(['auth','menu.access:user.master'])
         ->name('user.master');
@@ -328,6 +346,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/project-application-module/{mapping_id}/toggle', [ProjectApplicationModuleMappingController::class, 'toggle'])
         ->middleware(['auth','menu.access:project.application.module.mapping'])
         ->name('project.application.module.mapping.toggle');
+
+    Route::get('/group-project-application-mapping', [GroupProjectApplicationMappingController::class, 'index'])
+        ->middleware(['auth', 'menu.access:group.project.application.mapping'])
+        ->name('group.project.application.mapping');
+
+    Route::post('/group-project-application-mapping', [GroupProjectApplicationMappingController::class, 'store'])
+        ->middleware(['auth', 'menu.access:group.project.application.mapping'])
+        ->name('group.project.application.mapping.store');
+
+    Route::get('/group-project-application-mapping/applications/{project_id}', [GroupProjectApplicationMappingController::class, 'applications'])
+        ->middleware(['auth', 'menu.access:group.project.application.mapping'])
+        ->name('group.project.application.mapping.applications');
+
+    Route::post('/group-project-application-mapping/{mapping_id}/toggle', [GroupProjectApplicationMappingController::class, 'toggle'])
+        ->middleware(['auth', 'menu.access:group.project.application.mapping'])
+        ->name('group.project.application.mapping.toggle');
     Route::get('/project-state-mapping', [ProjectStateMappingController::class, 'index'])
         ->middleware(['auth','menu.access:project.state.mapping'])
         ->name('project.state.mapping');

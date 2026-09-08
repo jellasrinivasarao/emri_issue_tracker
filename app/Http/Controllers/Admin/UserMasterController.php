@@ -34,6 +34,7 @@ class UserMasterController extends Controller
                 'user_status',
                 'role_id',
                 'state_id',
+                'support_group_id',
                 'is_active',
                 'created_by'
             )
@@ -44,6 +45,10 @@ class UserMasterController extends Controller
         }
 
         $users = $usersQuery->get();
+        $supportGroupIdsByUser = $users->mapWithKeys(function ($user) {
+            $ids = array_values(array_filter(array_map('trim', explode(',', (string) ($user->support_group_id ?? ''))), fn ($id) => $id !== ''));
+            return [$user->user_id => $ids];
+        });
 
         $currentRoleId = auth()->user()->role_id ?? null;
         if ($currentRoleId) {
@@ -151,6 +156,11 @@ class UserMasterController extends Controller
         }
         $states = $stateQuery->get();
         $vendors = Vendor::query()->select('vendor_id', 'vendor_name')->orderBy('vendor_name')->get();
+        $supportGroups = DB::table('mst_group')
+            ->select('group_id as support_group_id', 'group_name as support_group_name')
+            ->where('is_active', 1)
+            ->orderBy('support_group_name')
+            ->get();
         $currentUserIsVendorAdmin = auth()->user()?->hasRole('Vendor Admin');
         $currentUserVendorId = Schema::hasColumn('mst_user', 'vendor_id') ? auth()->user()->vendor_id : null;
 
@@ -158,9 +168,11 @@ class UserMasterController extends Controller
             'title' => 'User Master',
             'description' => 'Manage users, login details, and role assignments.',
             'users' => $users,
+            'supportGroupIdsByUser' => $supportGroupIdsByUser,
             'roles' => $roles,
             'states' => $states,
             'vendors' => $vendors,
+            'supportGroups' => $supportGroups,
             'currentUserIsVendorAdmin' => $currentUserIsVendorAdmin,
             'currentUserVendorId' => $currentUserVendorId,
             'currentUserIsStateAdmin' => $currentUserIsStateAdmin,
@@ -249,6 +261,7 @@ class UserMasterController extends Controller
         }
 
         DB::transaction(function () use ($user, $request) {
+            $this->syncSupportGroups($user, $request->input('support_group_ids', []));
             $user->save();
             if ($request->filled('role_id')) {
                 $user->roles()->sync([$request->role_id]);
@@ -322,6 +335,7 @@ class UserMasterController extends Controller
         }
 
         DB::transaction(function () use ($user, $request) {
+            $this->syncSupportGroups($user, $request->input('support_group_ids', []));
             $user->save();
             if ($request->filled('role_id')) {
                 $user->roles()->sync([$request->role_id]);
@@ -346,5 +360,15 @@ class UserMasterController extends Controller
         $user->save();
 
         return redirect()->route('user.master')->with('success', $user->is_active ? 'User activated successfully.' : 'User deactivated successfully.');
+    }
+
+    private function syncSupportGroups(User $user, array $supportGroupIds): void
+    {
+        if (! Schema::hasColumn('mst_user', 'support_group_id')) {
+            return;
+        }
+
+        $ids = collect($supportGroupIds)->filter(fn ($id) => $id !== null && $id !== '')->map(fn ($id) => (int) $id)->unique()->values();
+        $user->support_group_id = $ids->implode(',');
     }
 }

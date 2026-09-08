@@ -107,7 +107,7 @@
                 'Main Dashboard' => ['role.dashboard'],
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
                 'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
-                'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping','mail.configuration'],
+                'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping', 'group.master', 'group.project.application.mapping', 'mail.configuration'],
                 'Operational Configuration' => ['working-schedules.index', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
                 'Audit & Governance' => ['active.inactive.status', 'change.history', 'user.activity.log', 'system.audit.logs'],
             ];
@@ -151,6 +151,18 @@
                     return request()->routeIs($menuRouteName);
                 }
                 return request()->routeIs($menuRouteName . '*');
+            };
+
+            $menuIconPath = function ($icon) {
+                return [
+                    'users' => 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a4 4 0 0 1 0 8m4 5v-2a4 4 0 0 0-3-3.87',
+                    'link' => 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+                    'shield' => 'M12 3 4 6v5c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-3Z',
+                    'map-pin' => 'M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+                    'briefcase' => 'M9 6V4h6v2m-9 0h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm-2 5h10',
+                    'layers-outline' => 'm12 2 9 5-9 5-9-5 9-5Zm-9 10 9 5 9-5M3 17l9 5 9-5',
+                    'menu' => 'M4 6h16M4 12h16M4 18h16',
+                ][$icon] ?? 'M4 6h16M4 12h16M4 18h16';
             };
         @endphp
 
@@ -220,7 +232,7 @@
                                 @endphp
                                 <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[16px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#103d7f] text-white shadow-sm' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
                                     <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900/70 text-slate-300">
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menuIconPath($menu->icon) }}"></path></svg>
                                     </span>
                                     <span>{{ $menu->display_name }}</span>
                                 </a>
@@ -263,7 +275,7 @@
                                                                 $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                                                             @endphp
                                                             <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
-                                                                <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                                                <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menuIconPath($menu->icon) }}"></path></svg>
                                                                 <span>{{ $menu->display_name }}</span>
                                                             </a>
                                                         @endforeach
@@ -314,7 +326,7 @@
                                 $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                             @endphp
                             <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-3 text-sm font-semibold transition {{ $isActive ? 'bg-[#14417a] text-white' : 'text-slate-200 hover:bg-[#102c56] hover:text-white' }}">
-                                <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                <svg class="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menuIconPath($menu->icon) }}"></path></svg>
                                 <span>{{ $menu->display_name }}</span>
                             </a>
                         @endforeach
@@ -356,7 +368,7 @@
                                                             $href = $resolvedRouteName ? route($resolvedRouteName) : '#';
                                                         @endphp
                                                         <a href="{{ $href }}" data-no-ajax="true" class="flex items-center gap-3 rounded-[14px] px-4 py-2 text-sm font-medium transition {{ $isActive ? 'bg-[#102c56] text-white' : 'text-slate-300 hover:bg-[#102c56] hover:text-white' }}">
-                                                            <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menu->icon ?? 'M4 6h16M4 12h16M4 18h16' }}"></path></svg>
+                                                                <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $menuIconPath($menu->icon) }}"></path></svg>
                                                             <span>{{ $menu->display_name }}</span>
                                                         </a>
                                                     @endforeach
