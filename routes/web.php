@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\UserSupportGroupMappingController;
 use App\Http\Controllers\Admin\VendorStateMappingController;
 use App\Http\Controllers\Admin\AdminConfigController;
 use App\Http\Controllers\Admin\IssueRoutingRuleController;
+use App\Http\Controllers\Admin\ItSupportMasterController;
 use App\Http\Controllers\IssueController;
 
 use App\Http\Controllers\Admin\WorkingCalendarController;
@@ -61,6 +62,8 @@ Route::get('/attachment/preview/{id}', [IssueController::class, 'previewAttachme
 
 Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
     ->name('attachment.download');
+
+Route::get('/internal-issue', [PageController::class, 'internalIssue'])->name('internal.issue');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
@@ -235,6 +238,86 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/support-group-master', [SupportGroupMasterController::class, 'index'])
         ->middleware('menu.access:support-group.master')
         ->name('support-group.master');
+
+    Route::get('/it-support-category-master', [ItSupportMasterController::class, 'index'])
+        ->defaults('type', 'category')
+        ->middleware('menu.access:it.support.category.master')
+        ->name('it.support.category.master');
+
+    Route::post('/it-support-category-master', [ItSupportMasterController::class, 'store'])
+        ->defaults('type', 'category')
+        ->middleware(['auth','menu.access:it.support.category.master'])
+        ->name('it.support.category.store');
+
+    Route::put('/it-support-category-master/{id}', [ItSupportMasterController::class, 'update'])
+        ->defaults('type', 'category')
+        ->middleware(['auth','menu.access:it.support.category.master'])
+        ->name('it.support.category.update');
+
+    Route::post('/it-support-category-master/{id}/toggle', [ItSupportMasterController::class, 'toggle'])
+        ->defaults('type', 'category')
+        ->middleware(['auth','menu.access:it.support.category.master'])
+        ->name('it.support.category.toggle');
+
+    Route::get('/it-support-device-master', [ItSupportMasterController::class, 'index'])
+        ->defaults('type', 'device')
+        ->middleware('menu.access:it.support.device.master')
+        ->name('it.support.device.master');
+
+    Route::post('/it-support-device-master', [ItSupportMasterController::class, 'store'])
+        ->defaults('type', 'device')
+        ->middleware(['auth','menu.access:it.support.device.master'])
+        ->name('it.support.device.store');
+
+    Route::put('/it-support-device-master/{id}', [ItSupportMasterController::class, 'update'])
+        ->defaults('type', 'device')
+        ->middleware(['auth','menu.access:it.support.device.master'])
+        ->name('it.support.device.update');
+
+    Route::post('/it-support-device-master/{id}/toggle', [ItSupportMasterController::class, 'toggle'])
+        ->defaults('type', 'device')
+        ->middleware(['auth','menu.access:it.support.device.master'])
+        ->name('it.support.device.toggle');
+
+    Route::get('/it-support-issue-type-master', [ItSupportMasterController::class, 'index'])
+        ->defaults('type', 'issue_type')
+        ->middleware('menu.access:it.support.issue.type.master')
+        ->name('it.support.issue.type.master');
+
+    Route::post('/it-support-issue-type-master', [ItSupportMasterController::class, 'store'])
+        ->defaults('type', 'issue_type')
+        ->middleware(['auth','menu.access:it.support.issue.type.master'])
+        ->name('it.support.issue.type.store');
+
+    Route::put('/it-support-issue-type-master/{id}', [ItSupportMasterController::class, 'update'])
+        ->defaults('type', 'issue_type')
+        ->middleware(['auth','menu.access:it.support.issue.type.master'])
+        ->name('it.support.issue.type.update');
+
+    Route::post('/it-support-issue-type-master/{id}/toggle', [ItSupportMasterController::class, 'toggle'])
+        ->defaults('type', 'issue_type')
+        ->middleware(['auth','menu.access:it.support.issue.type.master'])
+        ->name('it.support.issue.type.toggle');
+
+    Route::get('/it-support-impact-master', [ItSupportMasterController::class, 'index'])
+        ->defaults('type', 'impact')
+        ->middleware('menu.access:it.support.impact.master')
+        ->name('it.support.impact.master');
+
+    Route::post('/it-support-impact-master', [ItSupportMasterController::class, 'store'])
+        ->defaults('type', 'impact')
+        ->middleware(['auth','menu.access:it.support.impact.master'])
+        ->name('it.support.impact.store');
+
+    Route::put('/it-support-impact-master/{id}', [ItSupportMasterController::class, 'update'])
+        ->defaults('type', 'impact')
+        ->middleware(['auth','menu.access:it.support.impact.master'])
+        ->name('it.support.impact.update');
+
+    Route::post('/it-support-impact-master/{id}/toggle', [ItSupportMasterController::class, 'toggle'])
+        ->defaults('type', 'impact')
+        ->middleware(['auth','menu.access:it.support.impact.master'])
+        ->name('it.support.impact.toggle');
 
     Route::post('/support-group-master', [SupportGroupMasterController::class, 'store'])
         ->middleware(['auth','menu.access:support-group.master'])

@@ -31,6 +31,66 @@ class PageController extends Controller
         )));
     }
 
+    protected function getLookupOptions(string $tableName): array
+    {
+        if (! Schema::hasTable($tableName)) {
+            return [];
+        }
+
+        $columns = Schema::getColumnListing($tableName);
+        if (empty($columns)) {
+            return [];
+        }
+
+        $idColumn = collect($columns)->first(function ($column) {
+            return in_array($column, ['id', 'support_id', 'category_id', 'device_id', 'issue_type_id', 'impact_id', 'mst_it_support_id'], true);
+        });
+
+        $labelColumn = collect($columns)->first(function ($column) {
+            return in_array($column, ['name', 'category_name', 'device_name', 'issue_type_name', 'impact_name', 'label', 'title'], true);
+        });
+
+        if (! $idColumn || ! $labelColumn) {
+            $idColumn = $columns[0];
+            $labelColumn = $columns[1] ?? $columns[0];
+        }
+
+        $rows = DB::table($tableName)
+            ->select([$idColumn, $labelColumn])
+            ->orderBy($labelColumn)
+            ->get();
+
+        return $rows->map(fn ($row) => [
+            'id' => $row->{$idColumn},
+            'name' => $row->{$labelColumn},
+        ])->all();
+    }
+
+    public function internalIssue(): View
+    {
+        $categoryOptions = $this->getLookupOptions('mst_it_support_category');
+        $deviceOptions = $this->getLookupOptions('mst_it_support_device');
+        $issueTypeOptions = DB::table('mst_it_support_issue_type')
+            ->select('issue_type_id', 'issue_type_name', 'category_id')
+            ->where('is_active', 1)
+            ->orderBy('issue_type_name')
+            ->get()
+            ->map(fn ($row) => [
+                'id' => $row->issue_type_id,
+                'name' => $row->issue_type_name,
+                'category_id' => $row->category_id,
+            ])
+            ->all();
+        $impactOptions = $this->getLookupOptions('mst_it_support_impact');
+
+        return view('pages.internal-issue', compact(
+            'categoryOptions',
+            'deviceOptions',
+            'issueTypeOptions',
+            'impactOptions'
+        ));
+    }
+
     public function roleDashboard(): View
     {
         return view('role-dashboard');

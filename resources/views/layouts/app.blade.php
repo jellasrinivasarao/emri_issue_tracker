@@ -106,7 +106,7 @@
                 'Administration' => ['administration'],
                 'Main Dashboard' => ['role.dashboard'],
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
-                'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
+                'Organisation Setup' => ['state.master', 'vendor.master', 'service.master', 'project.master', 'application.master', 'module.master', 'support-group.master', 'it.support.category.master', 'it.support.device.master', 'it.support.issue.type.master', 'it.support.impact.master', 'project.application.module.mapping', 'project.state.mapping', 'vendor.state.mapping'],
                 'User & Security' => ['user.master', 'role.master', 'privilege.master', 'user.role.mapping', 'user.project.mapping', 'user.support.group.mapping', 'menu.master', 'role.menu.mapping', 'role.privilege.mapping', 'group.master', 'group.project.application.mapping', 'mail.configuration'],
                 'Operational Configuration' => ['working-schedules.index', 'holiday.calendar', 'sla.configuration', 'automatic.routing', 'notification.configuration', 'priority.configuration', 'severity.configuration', 'issue.category.configuration', 'vendor.level2.mapping'],
                 'Audit & Governance' => ['active.inactive.status', 'change.history', 'user.activity.log', 'system.audit.logs'],
