@@ -1101,6 +1101,7 @@ class PageController extends Controller
         return view('pages.role-issue-dashboard', [
             'issues' => $issueRows,
             'statusSummary' => $statusSummary,
+            'isStateIt' => $isStateIt,
             'statusOptions' => $statusOptions,
             'stateOptions' => $stateOptions,
             'projectOptions' => $projectOptions,

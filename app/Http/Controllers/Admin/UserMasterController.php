@@ -232,6 +232,8 @@ class UserMasterController extends Controller
                 }
             } elseif ($request->filled('state_id')) {
                 $user->state_id = $request->state_id;
+            } else {
+                $user->state_id = null;
             }
         }
 
@@ -308,6 +310,8 @@ class UserMasterController extends Controller
                 }
             } elseif ($request->filled('state_id')) {
                 $user->state_id = $request->state_id;
+            } else {
+                $user->state_id = null;
             }
         }
 
