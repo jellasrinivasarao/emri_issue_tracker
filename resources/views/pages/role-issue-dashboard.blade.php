@@ -22,6 +22,9 @@
                                 ['label' => 'Closed', 'value' => (string) ($statusSummary['closed'] ?? 0), 'icon' => 'M6 18L18 6M6 6l12 12', 'panel' => 'bg-violet-100 border-violet-200', 'iconWrap' => 'bg-white/80 text-violet-600', 'labelText' => 'text-violet-800', 'valueText' => 'text-violet-900', 'filterStatus' => 'closed'],
                                 ['label' => 'Reopened', 'value' => (string) ($statusSummary['reopened'] ?? 0), 'icon' => 'M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 11.8 1.2L20 14M4 10l2.7-2.2A7 7 0 0 1 18.5 9', 'panel' => 'bg-blue-500 border-blue-600', 'iconWrap' => 'bg-white/90 text-blue-600', 'labelText' => 'text-white', 'valueText' => 'text-white', 'filterStatus' => 'reopened'],
                             ];
+                            if ($isStateIt ?? false) {
+                                $statusCards[] = ['label' => 'Rejected', 'value' => (string) ($statusSummary['rejected'] ?? 0), 'icon' => 'M6 6l12 12M18 6L6 18', 'panel' => 'bg-rose-100 border-rose-200', 'iconWrap' => 'bg-white/80 text-rose-600', 'labelText' => 'text-rose-800', 'valueText' => 'text-rose-900', 'filterStatus' => 'rejected'];
+                            }
                         @endphp
                         @foreach($statusCards as $card)
                             @php
