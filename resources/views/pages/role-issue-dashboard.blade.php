@@ -13,7 +13,7 @@
                         <p class="text-sm font-semibold text-slate-900">Issue Summary</p>
                         <p class="mt-1 text-sm text-slate-500">Overview of all issues in the system.</p>
                     </div>
-                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                         @php
                             $statusCards = [
                                 ['label' => 'All Issues', 'value' => (string) ($statusSummary['all'] ?? 0), 'icon' => 'M3 7h18M3 12h18M3 17h18', 'panel' => 'bg-blue-100 border-blue-200', 'iconWrap' => 'bg-white/80 text-blue-600', 'labelText' => 'text-blue-800', 'valueText' => 'text-blue-900', 'filterStatus' => 'all'],
