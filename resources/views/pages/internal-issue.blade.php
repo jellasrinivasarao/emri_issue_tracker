@@ -371,7 +371,19 @@
             </div>
 
             <div class="internal-issue-panel-body">
-                <form>
+                @if(session('success'))
+                    <div class="internal-info-box" style="margin-top: 0; color: #166534; background: #dcfce7; border-color: #86efac;">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if(session('error'))
+                    <div class="internal-info-box" style="margin-top: 0; color: #991b1b; background: #fee2e2; border-color: #fca5a5;">
+                        {{ session('error') }}
+                    </div>
+                @endif
+
+                <form method="POST" action="{{ route('internal.issue.store') }}" enctype="multipart/form-data">
+                    @csrf
                     <div class="internal-form-grid">
                         <div class="internal-field">
                             <label for="issueCategory">Issue Category <span class="required-star">*</span></label>

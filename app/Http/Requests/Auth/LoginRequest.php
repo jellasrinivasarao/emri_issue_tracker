@@ -46,22 +46,34 @@ class LoginRequest extends FormRequest
         $loginId = $this->string('login_id')->toString();
         $password = $this->input('password');
         $remember = $this->boolean('remember');
+        $validatedEndUserGid = $this->session()->get('validated_end_user_gid');
+
+        if ($validatedEndUserGid && strcasecmp($validatedEndUserGid, $loginId) !== 0) {
+            throw ValidationException::withMessages([
+                'login_id' => 'Invalid GID or Password.',
+            ]);
+        }
 
         $user = User::query()
             ->where('login_id', $loginId)
             ->orWhere('official_email', $loginId)
             ->first();
 
-        if ($user && Hash::check($password, $user->getAuthPassword())) {
+        $isEndUser = $user?->roles()
+            ->whereRaw('LOWER(role_name) = ?', ['end user'])
+            ->exists();
+
+        if ($user && Hash::check($password, $user->getAuthPassword()) && (! $validatedEndUserGid || $isEndUser)) {
             Auth::login($user, $remember);
             RateLimiter::clear($this->throttleKey());
+            $this->session()->forget('validated_end_user_gid');
             return;
         }
 
         RateLimiter::hit($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'login_id' => trans('auth.failed'),
+            'login_id' => $validatedEndUserGid ? 'Invalid GID or Password.' : trans('auth.failed'),
         ]);
     }
 

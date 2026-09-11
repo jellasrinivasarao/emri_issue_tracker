@@ -102,7 +102,7 @@
     <body class="h-full m-0 p-0 font-sans antialiased bg-slate-100 text-slate-900 overflow-x-hidden overflow-y-auto" style="min-height:100%;margin:0;padding:0;">
         @php
             $menuGroups = [
-                'Main Menu' => ['dashboard', 'role.issue.dashboard', 'issues', 'raise.issue', 'reports'],
+                'Main Menu' => ['dashboard', 'role.issue.dashboard', 'issues', 'raise.issue', 'internal.issue', 'reports'],
                 'Administration' => ['administration'],
                 'Main Dashboard' => ['role.dashboard'],
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],

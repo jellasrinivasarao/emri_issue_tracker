@@ -91,6 +91,95 @@ class PageController extends Controller
         ));
     }
 
+    public function storeInternalIssue(Request $request)
+    {
+        $validated = $request->validate([
+            'issue_category' => ['required', 'integer', 'exists:mst_it_support_category,category_id'],
+            'device_type' => ['required', 'integer', 'exists:mst_it_support_device,device_type_id'],
+            'issue_type' => ['required', 'integer', 'exists:mst_it_support_issue_type,issue_type_id'],
+            'impact' => ['required', 'integer', 'exists:mst_it_support_impact,impact_id'],
+            'subject' => ['required', 'string', 'max:255'],
+            'description' => ['required', 'string', 'max:2000'],
+            'attachments' => ['nullable', 'array'],
+            'attachments.*' => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx', 'max:10240'],
+        ]);
+
+        $user = $request->user();
+        $requesterGid = (string) ($user?->login_id ?: $user?->user_name ?: $user?->user_id);
+        $ticketNumber = 'ITS-' . now()->format('YmdHis') . '-' . random_int(100, 999);
+
+        try {
+            $ticketId = DB::transaction(function () use ($request, $validated, $user, $requesterGid, $ticketNumber) {
+                $ticketId = DB::table('txn_it_support_ticket')->insertGetId([
+                    'ticket_number' => $ticketNumber,
+                    'requester_gid' => $requesterGid,
+                    'category_id' => $validated['issue_category'],
+                    'device_type_id' => $validated['device_type'],
+                    'issue_type_id' => $validated['issue_type'],
+                    'impact_id' => $validated['impact'],
+                    'issue_subject' => $validated['subject'],
+                    'issue_description' => $validated['description'],
+                    'status_id' => 1,
+                    'assigned_desk' => 'LOCAL_IT',
+                    'priority' => 'MEDIUM',
+                    'escalation_level' => 1,
+                    'created_by' => $user?->getAuthIdentifier(),
+                    'created_at' => now(),
+                ]);
+
+                foreach ($request->file('attachments', []) as $file) {
+                    if (! $file || ! $file->isValid()) {
+                        continue;
+                    }
+
+                    $storedName = $file->hashName();
+                    $relativePath = $file->storeAs('it-support-attachments/' . $ticketId, $storedName, 'public');
+
+                    DB::table('txn_it_support_attachment')->insert([
+                        'ticket_id' => $ticketId,
+                        'original_file_name' => $file->getClientOriginalName(),
+                        'stored_file_name' => $storedName,
+                        'file_path' => $relativePath,
+                        'file_extension' => strtolower($file->getClientOriginalExtension()),
+                        'file_size' => $file->getSize(),
+                        'mime_type' => $file->getMimeType(),
+                        'uploaded_by' => $user?->getAuthIdentifier(),
+                        'uploaded_at' => now(),
+                        'is_active' => 1,
+                    ]);
+                }
+
+                DB::table('txn_it_support_history')->insert([
+                    'ticket_id' => $ticketId,
+                    'action_type' => 'CREATED',
+                    'from_status_id' => null,
+                    'to_status_id' => 1,
+                    'from_user_id' => null,
+                    'from_user_gid' => null,
+                    'to_user_id' => null,
+                    'to_user_gid' => null,
+                    'from_desk' => null,
+                    'to_desk' => 'LOCAL_IT',
+                    'remarks' => 'Internal IT support ticket created.',
+                    'action_by_user_id' => $user?->getAuthIdentifier(),
+                    'action_by_gid' => $requesterGid,
+                    'action_at' => now(),
+                ]);
+
+                return $ticketId;
+            });
+
+            return redirect()->route('internal.issue')->with('success', "Ticket {$ticketNumber} created successfully.");
+        } catch (\Throwable $exception) {
+            Log::error('Internal IT support ticket creation failed', [
+                'user_id' => $user?->getAuthIdentifier(),
+                'message' => $exception->getMessage(),
+            ]);
+
+            return back()->withInput()->with('error', 'Unable to create the support ticket. Please try again.');
+        }
+    }
+
     public function roleDashboard(): View
     {
         return view('role-dashboard');

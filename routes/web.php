@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\GroupProjectApplicationMappingController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\ForcePasswordController;
+use App\Http\Controllers\Auth\EndUserAccessController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,10 +64,27 @@ Route::get('/attachment/preview/{id}', [IssueController::class, 'previewAttachme
 Route::get('/attachment/download/{id}', [IssueController::class, 'downloadAttachment'])
     ->name('attachment.download');
 
-Route::get('/internal-issue', [PageController::class, 'internalIssue'])->name('internal.issue');
+Route::get('/end-user-login', [EndUserAccessController::class, 'showGidVerification'])
+    ->name('end.user.gid');
+
+Route::post('/end-user-login/check', [EndUserAccessController::class, 'verifyGid'])
+    ->name('end.user.gid.check');
+
+Route::get('/end-user-login/otp', [EndUserAccessController::class, 'showOtp'])
+    ->name('end.user.otp');
+
+Route::post('/end-user-login/otp', [EndUserAccessController::class, 'verifyOtp'])
+    ->name('end.user.otp.verify');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/internal-issue', [PageController::class, 'internalIssue'])
+        ->middleware('menu.access:internal.issue')
+        ->name('internal.issue');
+    Route::post('/internal-issue', [PageController::class, 'storeInternalIssue'])
+        ->middleware('menu.access:internal.issue')
+        ->name('internal.issue.store');
+
     Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
     Route::get('/role-issue-dashboard', [PageController::class, 'roleIssueDashboard'])
         ->middleware('menu.access:role.issue.dashboard')

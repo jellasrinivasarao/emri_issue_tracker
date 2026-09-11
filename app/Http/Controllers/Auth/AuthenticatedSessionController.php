@@ -70,7 +70,9 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        $userId = Auth::id();
+        $user = Auth::guard('web')->user();
+        $userId = $user?->getAuthIdentifier();
+        $isEndUser = $user?->hasRoleId(9) === true;
 
         if ($userId) {
             Cache::forget(EnsureSingleUserSession::cacheKey((int) $userId));
@@ -83,13 +85,15 @@ class AuthenticatedSessionController extends Controller
         $request->session()->flush();
         $request->session()->regenerateToken();
 
-        // Redirect to login
-        $response = redirect()->route('login');
+        $response = $isEndUser
+            ? redirect()->route('end.user.gid')
+            : redirect()->route('login');
         
         // Add cache-preventing headers
         $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private');
         $response->header('Pragma', 'no-cache');
         $response->header('Expires', '0');
+        $response->header('Clear-Site-Data', '"cache", "storage"');
         
         return $response;
     }

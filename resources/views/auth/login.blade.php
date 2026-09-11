@@ -15,7 +15,7 @@
 
             <div class="space-y-2">
                 <label for="login_id" class="block text-sm font-semibold text-slate-700">Username / Email</label>
-                <input id="login_id" name="login_id" type="text" value="{{ old('login_id') }}" required autofocus autocomplete="username" class="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Enter username or email" />
+                <input id="login_id" name="login_id" type="text" value="{{ old('login_id', session('validated_end_user_gid')) }}" @if(session('validated_end_user_gid')) readonly @endif required autofocus autocomplete="username" class="w-full rounded-[28px] border border-slate-200 {{ session('validated_end_user_gid') ? 'bg-slate-100' : 'bg-slate-50' }} px-4 py-3 text-sm text-slate-900 outline-none transition duration-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Enter username or email" />
                 <x-input-error :messages="$errors->get('login_id')" class="mt-2 text-sm text-rose-600" />
             </div>
 
@@ -45,6 +45,10 @@
                 </button>
             @endif
         </form>
+
+        <div class="mt-6 text-center text-sm text-slate-500">
+            <a href="{{ route('end.user.gid') }}" class="font-medium text-sky-600 hover:text-sky-700">End User Login</a>
+        </div>
 
         <div class="mt-6 text-center text-sm text-slate-500">© 2026 EMRI Green Health Services. All rights reserved.</div>
     </div>
