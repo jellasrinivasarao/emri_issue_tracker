@@ -1,31 +1,141 @@
 {
+  "title": "Operational Status Integration API Documentation",
+  "description": "Documentation only. This document describes the token and ticket status APIs currently exposed by the EMRI Issue Tracker.",
   "base_urls": {
     "local": "http://127.0.0.1:8000",
+    "xampp": "http://localhost/EMRI_ISSUE_TRACKER/public",
     "server": "http://issuetracker.emri.in/emri_issue_tracker/public"
   },
+  "authentication_flow": [
+    "Call the token endpoint with the API username and password.",
+    "Use the returned token as a Bearer token for the status endpoint.",
+    "The status endpoint rejects missing, invalid, inactive, or expired tokens."
+  ],
   "endpoints": {
     "generate_token": {
+      "name": "Generate API Token",
       "method": "POST",
       "path": "/api/integration/token",
-      "body": {
-        "username": "your_username",
-        "password": "your_password"
-      }
-    },
-    "update_status": {
-      "method": "POST",
-      "path": "/api/integration/operational-dashboard/status",
+      "purpose": "Validates the API username and password and returns a bearer token.",
       "headers": {
-        "Authorization": "Bearer YOUR_TOKEN",
         "Content-Type": "application/json",
         "Accept": "application/json"
       },
-      "body": {
+      "request_body": {
+        "username": "your_username",
+        "password": "your_password"
+      },
+      "successful_response": {
+        "success": true,
+        "status_code": 200,
+        "message": "API token generated successfully.",
+        "token_type": "Bearer",
+        "token": "GENERATED_TOKEN",
+        "expires_at": null,
+        "username": "your_username"
+      },
+      "invalid_credentials_response": {
+        "success": false,
+        "status_code": 401,
+        "message": "Invalid username or password."
+      }
+    },
+    "update_ticket_status": {
+      "name": "Update Operational Ticket Status",
+      "method": "POST",
+      "path": "/api/integration/operational-dashboard/status",
+      "purpose": "Updates the ticket status and records the status history entry.",
+      "headers": {
+        "Authorization": "Bearer GENERATED_TOKEN",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "request_body": {
         "issue_number": "IS-20260817127",
         "status": "In Progress",
         "remarks": "Vendor status update received",
         "update_by": "Srinivas"
+      },
+      "request_fields": {
+        "issue_number": {
+          "type": "string",
+          "required": true,
+          "description": "Ticket number to update."
+        },
+        "status": {
+          "type": "string",
+          "required": true,
+          "description": "Existing active status name, for example In Progress."
+        },
+        "remarks": {
+          "type": "string",
+          "required": false,
+          "maximum_length": 2000,
+          "description": "Optional status update remarks."
+        },
+        "update_by": {
+          "type": "string",
+          "required": true,
+          "description": "Active mst_user user_name, login_id, or employee_code. The matching user_id is recorded in status history."
+        }
+      },
+      "successful_response": {
+        "success": true,
+        "status_code": 200,
+        "ticket_number": "IS-20260817127",
+        "update_by": "Srinivas",
+        "message": "Ticket status updated successfully."
+      },
+      "validation_error_response": {
+        "success": false,
+        "status_code": 422,
+        "ticket_number": "IS-20260817127",
+        "message": "Validation failed.",
+        "errors": {
+          "update_by": [
+            "The update_by field is required."
+          ]
+        }
+      },
+      "invalid_update_by_response": {
+        "success": false,
+        "status_code": 422,
+        "ticket_number": "IS-20260817127",
+        "message": "Invalid update_by user.",
+        "errors": {
+          "update_by": [
+            "The supplied update_by user was not found or is inactive."
+          ]
+        }
+      },
+      "ticket_not_found_response": {
+        "success": false,
+        "status_code": 404,
+        "ticket_number": "IS-20260817127",
+        "message": "Ticket not found."
+      },
+      "invalid_token_response": {
+        "success": false,
+        "status_code": 401,
+        "message": "Invalid or expired bearer token."
       }
     }
-  }
+  },
+  "status_history": {
+    "update_by_lookup": [
+      "mst_user.user_name",
+      "mst_user.login_id",
+      "mst_user.employee_code"
+    ],
+    "stored_user_field": "txn_issue_status_history.changed_by_user_id",
+    "audit_log_table": "txn_end_user_api_call_log",
+    "note": "The supplied password and generated bearer token are not included in API call logs."
+  },
+  "test_examples": {
+    "local_token_url": "http://127.0.0.1:8000/api/integration/token",
+    "local_status_url": "http://127.0.0.1:8000/api/integration/operational-dashboard/status",
+    "server_token_url": "http://issuetracker.emri.in/emri_issue_tracker/public/api/integration/token",
+    "server_status_url": "http://issuetracker.emri.in/emri_issue_tracker/public/api/integration/operational-dashboard/status"
+  },
+  "implementation_note": "This file is documentation only. It does not implement or modify any API endpoint."
 }
