@@ -106,13 +106,46 @@ class PageController extends Controller
 
         $user = $request->user();
         $requesterGid = (string) ($user?->login_id ?: $user?->user_name ?: $user?->user_id);
-        $ticketNumber = 'ITS-' . now()->format('YmdHis') . '-' . random_int(100, 999);
+        $stateId = (int) collect(explode(',', (string) ($user?->state_id ?? '')))->filter()->first();
+
+        if (! $stateId) {
+            return back()->withInput()->with('error', 'Your user account is not mapped to a state. Ticket cannot be created.');
+        }
 
         try {
-            $ticketId = DB::transaction(function () use ($request, $validated, $user, $requesterGid, $ticketNumber) {
+            [$ticketId, $ticketNumber] = DB::transaction(function () use ($request, $validated, $user, $requesterGid, $stateId) {
+                $datePrefix = 'ITS-' . now()->format('Ymd');
+                $lastTicketNumber = DB::table('txn_it_support_ticket')
+                    ->where('ticket_number', 'like', $datePrefix . '%')
+                    ->orderByDesc('ticket_id')
+                    ->lockForUpdate()
+                    ->value('ticket_number');
+                $lastSequence = $lastTicketNumber
+                    ? (int) substr((string) $lastTicketNumber, strlen($datePrefix))
+                    : 0;
+                $ticketNumber = $datePrefix . str_pad((string) ($lastSequence + 1), 7, '0', STR_PAD_LEFT);
+
+                $priorityId = DB::table('mst_priority')
+                    ->whereRaw('LOWER(priority_name) = ?', ['medium'])
+                    ->where('is_active', 1)
+                    ->value('priority_id');
+
+                if ($stateId && Schema::hasTable('mst_it_support_priority_rule')) {
+                    $priorityId = DB::table('mst_it_support_priority_rule')
+                        ->where('state_id', $stateId)
+                        ->where('category_id', $validated['issue_category'])
+                        ->where('is_active', 1)
+                        ->value('priority_id') ?: $priorityId;
+                }
+
+                $priority = DB::table('mst_priority')
+                    ->where('priority_id', $priorityId)
+                    ->value('priority_name') ?: 'Medium';
+
                 $ticketId = DB::table('txn_it_support_ticket')->insertGetId([
                     'ticket_number' => $ticketNumber,
                     'requester_gid' => $requesterGid,
+                    'state_id' => $stateId ?: null,
                     'category_id' => $validated['issue_category'],
                     'device_type_id' => $validated['device_type'],
                     'issue_type_id' => $validated['issue_type'],
@@ -120,8 +153,9 @@ class PageController extends Controller
                     'issue_subject' => $validated['subject'],
                     'issue_description' => $validated['description'],
                     'status_id' => 1,
-                    'assigned_desk' => 'LOCAL_IT',
-                    'priority' => 'MEDIUM',
+                    'assigned_desk' => 10,
+                    'priority' => $priority,
+                    'priority_id' => $priorityId,
                     'escalation_level' => 1,
                     'created_by' => $user?->getAuthIdentifier(),
                     'created_at' => now(),
@@ -159,14 +193,14 @@ class PageController extends Controller
                     'to_user_id' => null,
                     'to_user_gid' => null,
                     'from_desk' => null,
-                    'to_desk' => 'LOCAL_IT',
+                    'to_desk' => 10,
                     'remarks' => 'Internal IT support ticket created.',
                     'action_by_user_id' => $user?->getAuthIdentifier(),
                     'action_by_gid' => $requesterGid,
                     'action_at' => now(),
                 ]);
 
-                return $ticketId;
+                return [$ticketId, $ticketNumber];
             });
 
             return redirect()->route('internal.issue')->with('success', "Ticket {$ticketNumber} created successfully.");
@@ -183,6 +217,221 @@ class PageController extends Controller
     public function roleDashboard(): View
     {
         return view('role-dashboard');
+    }
+
+    public function itSupportDashboard(Request $request): View
+    {
+        $query = DB::table('txn_it_support_ticket as ticket')
+            ->leftJoin('mst_it_support_category as category', 'category.category_id', '=', 'ticket.category_id')
+            ->leftJoin('mst_it_support_device as device', 'device.device_type_id', '=', 'ticket.device_type_id')
+            ->leftJoin('mst_it_support_issue_type as issue_type', 'issue_type.issue_type_id', '=', 'ticket.issue_type_id')
+            ->leftJoin('mst_it_support_impact as impact', 'impact.impact_id', '=', 'ticket.impact_id')
+            ->leftJoin('mst_it_support_status as status', 'status.status_id', '=', 'ticket.status_id')
+            ->leftJoin('mst_priority as priority', 'priority.priority_id', '=', 'ticket.priority_id')
+            ->leftJoin('mst_state as state', 'state.state_id', '=', 'ticket.state_id')
+            ->where('ticket.assigned_desk', 10);
+
+        if ($request->filled('state_id')) {
+            $query->where('ticket.state_id', (int) $request->input('state_id'));
+        }
+        if ($request->filled('status_id')) {
+            $statusFilter = (string) $request->input('status_id');
+            $statusIds = match ($statusFilter) {
+                'in_process' => [2, 3, 7],
+                'resolved' => [8],
+                'closed' => [10],
+                'reopened' => [9],
+                default => [(int) $statusFilter],
+            };
+            $query->whereIn('ticket.status_id', $statusIds);
+        }
+        if ($request->filled('priority_id')) {
+            $query->where('ticket.priority_id', (int) $request->input('priority_id'));
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('ticket.created_at', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('ticket.created_at', '<=', $request->input('date_to'));
+        }
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('ticket.ticket_number', 'like', '%' . $search . '%')
+                    ->orWhere('ticket.requester_gid', 'like', '%' . $search . '%')
+                    ->orWhere('ticket.issue_subject', 'like', '%' . $search . '%')
+                    ->orWhere('ticket.issue_description', 'like', '%' . $search . '%');
+            });
+        }
+
+        $tickets = $query
+            ->orderByDesc('ticket.ticket_id')
+            ->select([
+                'ticket.ticket_id',
+                'ticket.ticket_number',
+                'ticket.requester_gid',
+                'ticket.state_id',
+                'ticket.status_id',
+                'ticket.issue_subject',
+                'ticket.issue_description',
+                'ticket.priority',
+                'ticket.created_at',
+                'category.category_name',
+                'device.device_name',
+                'issue_type.issue_type_name',
+                'impact.impact_name',
+                'status.status_name',
+                'priority.priority_name',
+                'state.state_name',
+            ])
+            ->get();
+
+        $tickets->each(function ($ticket) {
+            $ticket->history = DB::table('txn_it_support_history as history')
+                ->leftJoin('mst_it_support_status as from_status', 'from_status.status_id', '=', 'history.from_status_id')
+                ->leftJoin('mst_it_support_status as to_status', 'to_status.status_id', '=', 'history.to_status_id')
+                ->where('history.ticket_id', $ticket->ticket_id)
+                ->orderByDesc('history.history_id')
+                ->get([
+                    'history.action_type',
+                    'history.remarks',
+                    'history.action_by_gid',
+                    'history.action_at',
+                    'from_status.status_name as from_status_name',
+                    'to_status.status_name as to_status_name',
+                ]);
+            $ticket->attachments = DB::table('txn_it_support_attachment')
+                ->where('ticket_id', $ticket->ticket_id)
+                ->where('is_active', 1)
+                ->orderByDesc('attachment_id')
+                ->get(['attachment_id', 'original_file_name', 'file_path', 'file_size', 'mime_type', 'uploaded_at'])
+                ->map(function ($attachment) {
+                    $attachment->url = route('it.support.attachment.preview', ['id' => $attachment->attachment_id]);
+                    $attachment->view_url = $attachment->url;
+                    $attachment->download_url = route('it.support.attachment.download', ['id' => $attachment->attachment_id]);
+                    return $attachment;
+                });
+        });
+
+        $summaryQuery = DB::table('txn_it_support_ticket')->where('assigned_desk', 10);
+        $ticketCounts = [
+            'total' => (clone $summaryQuery)->count(),
+            'new' => (clone $summaryQuery)->where('status_id', 1)->count(),
+            'in_progress' => (clone $summaryQuery)->whereIn('status_id', [2, 3, 7])->count(),
+            'resolved' => (clone $summaryQuery)->where('status_id', 8)->count(),
+            'closed' => (clone $summaryQuery)->where('status_id', 10)->count(),
+            'reopened' => (clone $summaryQuery)->where('status_id', 9)->count(),
+        ];
+
+        return view('pages.it-support-dashboard', [
+            'tickets' => $tickets,
+            'ticketCounts' => $ticketCounts,
+            'stateOptions' => DB::table('mst_state')->where('is_active', 1)->orderBy('state_name')->get(),
+            'statusOptions' => DB::table('mst_it_support_status')->where('is_active', 1)->orderBy('display_order')->get(),
+            'priorityOptions' => DB::table('mst_priority')->where('is_active', 1)->orderBy('display_order')->get(),
+            'filterValues' => $request->only(['state_id', 'status_id', 'priority_id', 'date_from', 'date_to', 'search']),
+        ]);
+    }
+
+    public function updateItSupportTicket(Request $request)
+    {
+        $validated = $request->validate([
+            'ticket_id' => ['required', 'integer', 'exists:txn_it_support_ticket,ticket_id'],
+            'status_id' => ['required', 'integer', 'exists:mst_it_support_status,status_id'],
+            'remarks' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $user = $request->user();
+        $ticket = DB::table('txn_it_support_ticket')
+            ->where('ticket_id', $validated['ticket_id'])
+            ->where('assigned_desk', 10)
+            ->first();
+
+        abort_unless($ticket, 404);
+
+        DB::transaction(function () use ($validated, $ticket, $user) {
+            DB::table('txn_it_support_ticket')
+                ->where('ticket_id', $ticket->ticket_id)
+                ->update([
+                    'status_id' => $validated['status_id'],
+                    'updated_by' => $user?->getAuthIdentifier(),
+                    'updated_at' => now(),
+                    'resolved_at' => (int) $validated['status_id'] === 8 ? now() : $ticket->resolved_at,
+                ]);
+
+            DB::table('txn_it_support_history')->insert([
+                'ticket_id' => $ticket->ticket_id,
+                'action_type' => 'STATUS_UPDATED',
+                'from_status_id' => $ticket->status_id,
+                'to_status_id' => $validated['status_id'],
+                'action_by_user_id' => $user?->getAuthIdentifier(),
+                'action_by_gid' => $user?->login_id ?: $user?->user_name,
+                'remarks' => $validated['remarks'] ?: 'Support ticket status updated.',
+                'action_at' => now(),
+            ]);
+        });
+
+        return redirect()->route('it.support.dashboard')->with('success', 'Support ticket status updated.');
+    }
+
+    public function previewItSupportAttachment(int $id)
+    {
+        $attachment = DB::table('txn_it_support_attachment')
+            ->join('txn_it_support_ticket', 'txn_it_support_ticket.ticket_id', '=', 'txn_it_support_attachment.ticket_id')
+            ->where('txn_it_support_attachment.attachment_id', $id)
+            ->where('txn_it_support_attachment.is_active', 1)
+            ->first(['txn_it_support_attachment.*', 'txn_it_support_ticket.assigned_desk']);
+
+        abort_unless($attachment && (int) $attachment->assigned_desk === 10, 404);
+        $filePath = Storage::disk('public')->path($attachment->file_path);
+        abort_unless(is_file($filePath), 404, 'Attachment file not found.');
+
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+
+        return view('attachments.preview', [
+            'attachment' => $attachment,
+            'filePath' => $filePath,
+            'publicUrl' => route('it.support.attachment.view', ['id' => $id]),
+            'downloadUrl' => route('it.support.attachment.download', ['id' => $id]),
+            'extension' => $extension,
+            'isImage' => in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true),
+            'isPdf' => $extension === 'pdf',
+            'isText' => in_array($extension, ['txt', 'log'], true),
+            'isOffice' => in_array($extension, ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'], true),
+            'content' => in_array($extension, ['txt', 'log'], true) ? file_get_contents($filePath) : null,
+        ]);
+    }
+
+    public function viewItSupportAttachment(int $id)
+    {
+        $attachment = DB::table('txn_it_support_attachment')
+            ->join('txn_it_support_ticket', 'txn_it_support_ticket.ticket_id', '=', 'txn_it_support_attachment.ticket_id')
+            ->where('txn_it_support_attachment.attachment_id', $id)
+            ->where('txn_it_support_attachment.is_active', 1)
+            ->first();
+
+        abort_unless($attachment && (int) $attachment->assigned_desk === 10, 404);
+        $filePath = Storage::disk('public')->path($attachment->file_path);
+        abort_unless(is_file($filePath), 404, 'Attachment file not found.');
+
+        return response()->file($filePath, [
+            'Content-Disposition' => 'inline; filename="' . $attachment->original_file_name . '"',
+        ]);
+    }
+
+    public function downloadItSupportAttachment(int $id)
+    {
+        $attachment = DB::table('txn_it_support_attachment')
+            ->join('txn_it_support_ticket', 'txn_it_support_ticket.ticket_id', '=', 'txn_it_support_attachment.ticket_id')
+            ->where('txn_it_support_attachment.attachment_id', $id)
+            ->where('txn_it_support_attachment.is_active', 1)
+            ->first();
+
+        abort_unless($attachment && (int) $attachment->assigned_desk === 10, 404);
+        $filePath = Storage::disk('public')->path($attachment->file_path);
+        abort_unless(is_file($filePath), 404, 'Attachment file not found.');
+
+        return response()->download($filePath, $attachment->original_file_name);
     }
 
     public function vendorOptionsByStateProject(Request $request)

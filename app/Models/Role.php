@@ -14,6 +14,7 @@ class Role extends Model
     public const HO_IT_ID = 5;
     public const VENDOR_IT_ID = 6;
     public const STATE_IT_ID = 7;
+    public const IT_SUPPORT_DESK_ID = 10;
 
     protected $table = 'mst_role';
     protected $primaryKey = 'role_id';

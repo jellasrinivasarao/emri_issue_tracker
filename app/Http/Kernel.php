@@ -68,5 +68,6 @@ class Kernel extends HttpKernel
         'role' => \App\Http\Middleware\CheckRole::class,
         'menu.access' => \App\Http\Middleware\CheckMenuAccess::class,
         'no-cache.auth' => \App\Http\Middleware\NoCacheForAuthenticatedViews::class,
+        'api.token' => \Api\ApiTokenAuthentication::class,
     ];
 }

@@ -17,7 +17,7 @@
                 <input id="gid" name="gid" type="text" value="{{ old('gid') }}" required autofocus autocomplete="username" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100" placeholder="Enter employee GID" />
                 @error('gid')<p class="text-sm text-rose-600">{{ $message }}</p>@enderror
             </div>
-            <button type="submit" class="w-full rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700">Check / Continue</button>
+            <button type="submit" class="w-full rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700">Login</button>
         </form>
 
         <div class="mt-6 text-center text-sm text-slate-500">An OTP will be sent to your registered email address.</div>

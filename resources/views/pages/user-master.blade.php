@@ -667,7 +667,7 @@
             if (vendorGroup) vendorGroup.classList.add('hidden');
 
             // Show state multi-select for State-scoped roles, including HO IT
-            const isStateScopedRole = roleName.includes('state') || roleName.includes('ho it');
+            const isStateScopedRole = Number(roleId) === 10 || roleName.includes('state') || roleName.includes('ho it');
             if (isStateScopedRole) {
                 if (stateGroup) stateGroup.classList.remove('hidden');
                 // Restrict selectable states to the logged-in state-scoped user's mapped states

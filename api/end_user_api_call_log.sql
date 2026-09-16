@@ -1,5 +1,5 @@
--- End User Employee API call log
--- Stores every employee status/details API request and response.
+-- End User Integration API call log
+-- Stores every operational integration API request and response.
 
 CREATE TABLE IF NOT EXISTS `txn_end_user_api_call_log` (
     `api_log_id` bigint unsigned NOT NULL AUTO_INCREMENT,

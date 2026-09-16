@@ -86,6 +86,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('internal.issue.store');
 
     Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
+    Route::get('/it-support-dashboard', [PageController::class, 'itSupportDashboard'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.dashboard');
+    Route::get('/it-support-dashboard/attachment/{id}/preview', [PageController::class, 'previewItSupportAttachment'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.attachment.preview');
+    Route::get('/it-support-dashboard/attachment/{id}/view', [PageController::class, 'viewItSupportAttachment'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.attachment.view');
+    Route::get('/it-support-dashboard/attachment/{id}/download', [PageController::class, 'downloadItSupportAttachment'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.attachment.download');
+    Route::post('/it-support-dashboard/update', [PageController::class, 'updateItSupportTicket'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.dashboard.update');
     Route::get('/role-issue-dashboard', [PageController::class, 'roleIssueDashboard'])
         ->middleware('menu.access:role.issue.dashboard')
         ->name('role.issue.dashboard');

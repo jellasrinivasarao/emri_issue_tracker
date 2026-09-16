@@ -53,6 +53,9 @@ class UserMasterController extends Controller
         $currentRoleId = auth()->user()->role_id ?? null;
         if ($currentRoleId) {
             $mapped = DB::table('map_role_hierarchy')->where('parent_role_id', $currentRoleId)->pluck('child_role_id')->toArray();
+            if ((int) $currentRoleId === Role::STATE_IT_ID) {
+                $mapped[] = Role::IT_SUPPORT_DESK_ID;
+            }
             if (! empty($mapped)) {
                 $roles = Role::query()
                     ->select('role_id', 'role_name')

@@ -1,0 +1,31 @@
+{
+  "base_urls": {
+    "local": "http://127.0.0.1:8000",
+    "server": "http://issuetracker.emri.in/emri_issue_tracker/public"
+  },
+  "endpoints": {
+    "generate_token": {
+      "method": "POST",
+      "path": "/api/integration/token",
+      "body": {
+        "username": "your_username",
+        "password": "your_password"
+      }
+    },
+    "update_status": {
+      "method": "POST",
+      "path": "/api/integration/operational-dashboard/status",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      "body": {
+        "issue_number": "IS-20260817127",
+        "status": "In Progress",
+        "remarks": "Vendor status update received",
+        "update_by": "Srinivas"
+      }
+    }
+  }
+}

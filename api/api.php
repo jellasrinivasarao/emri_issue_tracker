@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Api\OperationalStatusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,3 +18,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::post('/integration/token', [OperationalStatusController::class, 'generateToken']);
+Route::post('/integration/operational-dashboard/status', [OperationalStatusController::class, 'updateStatus'])
+    ->middleware('api.token');
