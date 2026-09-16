@@ -59,8 +59,8 @@ class Parser
     /**
      * Parses a YAML file into a PHP value.
      *
-     * @param string                     $filename The path to the YAML file to be parsed
-     * @param int-mask-of<Yaml::PARSE_*> $flags    A bit field of Yaml::PARSE_* constants to customize the YAML parser behavior
+     * @param string $filename The path to the YAML file to be parsed
+     * @param int    $flags    A bit field of Yaml::PARSE_* constants to customize the YAML parser behavior
      *
      * @throws ParseException If the file could not be read or the YAML is not valid
      */
@@ -86,8 +86,8 @@ class Parser
     /**
      * Parses a YAML string to a PHP value.
      *
-     * @param string                     $value A YAML string
-     * @param int-mask-of<Yaml::PARSE_*> $flags A bit field of Yaml::PARSE_* constants to customize the YAML parser behavior
+     * @param string $value A YAML string
+     * @param int    $flags A bit field of Yaml::PARSE_* constants to customize the YAML parser behavior
      *
      * @throws ParseException If the YAML is not valid
      */
@@ -200,6 +200,8 @@ class Parser
                         $subTag,
                         $this->parseBlock($this->getRealCurrentLineNb() + 1, $this->getNextEmbedBlock(null, true), $flags)
                     );
+                } elseif (self::preg_match('/^'.self::TAG_PATTERN.' +'.self::BLOCK_SCALAR_HEADER_PATTERN.'$/', $values['value'])) {
+                    $data[] = $this->parseValue($values['value'], $flags, $context);
                 } else {
                     if (
                         isset($values['leadspaces'])
@@ -223,9 +225,14 @@ class Parser
                     array_pop($this->refsBeingParsed);
                 }
             } elseif (
-                self::preg_match('#^(?P<key>(?:![^\s]++\s++)?(?:'.Inline::REGEX_QUOTED_STRING.'|[^ \'"\[\{!].*?)) *\:(( |\t)++(?P<value>.+))?$#u', rtrim($this->currentLine), $values)
-                && (!str_contains($values['key'], ' #') || \in_array($values['key'][0], ['"', "'"], true))
+                // @todo in 7.0 remove legacy "(?:!?!php/const:)?"
+                self::preg_match('#^(?P<key>(?:![^\s]++\s++)?(?:'.Inline::REGEX_QUOTED_STRING.'|(?:!?!php/const:)?[^ \'"\[\{!].*?)) *\:(( |\t)++(?P<value>.+))?$#u', rtrim($this->currentLine), $values)
+                && (!str_contains($values['key'], ' #') || \in_array($values['key'][0], ['"', "'"]))
             ) {
+                if (str_starts_with($values['key'], '!php/const:')) {
+                    trigger_deprecation('symfony/yaml', '6.2', 'YAML syntax for key "%s" is deprecated and replaced by "!php/const %s".', $values['key'], substr($values['key'], 11));
+                }
+
                 if ($context && 'sequence' == $context) {
                     throw new ParseException('You cannot define a mapping item when in a sequence.', $this->currentLineNb + 1, $this->currentLine, $this->filename);
                 }
@@ -254,6 +261,12 @@ class Parser
                     $allowOverwrite = true;
                     if (isset($values['value'][0]) && '*' === $values['value'][0]) {
                         $refName = substr(rtrim($values['value']), 1);
+
+                        // remove comments
+                        if (self::preg_match('/[ \t]+#/', $refName, $match, \PREG_OFFSET_CAPTURE)) {
+                            $refName = substr($refName, 0, $match[0][1]);
+                        }
+
                         if (!\array_key_exists($refName, $this->refs)) {
                             if (false !== $pos = array_search($refName, $this->refsBeingParsed, true)) {
                                 throw new ParseException(\sprintf('Circular reference [%s] detected for reference "%s".', implode(', ', array_merge(\array_slice($this->refsBeingParsed, $pos), [$refName])), $refName), $this->currentLineNb + 1, $this->currentLine, $this->filename);
@@ -328,10 +341,6 @@ class Parser
                         // Spec: Keys MUST be unique; first one wins.
                         // But overwriting is allowed when a merge node is used in current block.
                         if ($allowOverwrite || !isset($data[$key])) {
-                            if (!$allowOverwrite && \array_key_exists($key, $data)) {
-                                trigger_deprecation('symfony/yaml', '7.2', 'Duplicate key "%s" detected on line %d whilst parsing YAML. Silent handling of duplicate mapping keys in YAML is deprecated and will throw a ParseException in 8.0.', $key, $this->getRealCurrentLineNb() + 1);
-                            }
-
                             if (null !== $subTag) {
                                 $data[$key] = new TaggedValue($subTag, '');
                             } else {
@@ -353,10 +362,6 @@ class Parser
 
                             $data += $value;
                         } elseif ($allowOverwrite || !isset($data[$key])) {
-                            if (!$allowOverwrite && \array_key_exists($key, $data)) {
-                                trigger_deprecation('symfony/yaml', '7.2', 'Duplicate key "%s" detected on line %d whilst parsing YAML. Silent handling of duplicate mapping keys in YAML is deprecated and will throw a ParseException in 8.0.', $key, $this->getRealCurrentLineNb() + 1);
-                            }
-
                             // Spec: Keys MUST be unique; first one wins.
                             // But overwriting is allowed when a merge node is used in current block.
                             if (null !== $subTag) {
@@ -373,10 +378,6 @@ class Parser
                     // Spec: Keys MUST be unique; first one wins.
                     // But overwriting is allowed when a merge node is used in current block.
                     if ($allowOverwrite || !isset($data[$key])) {
-                        if (!$allowOverwrite && \array_key_exists($key, $data)) {
-                            trigger_deprecation('symfony/yaml', '7.2', 'Duplicate key "%s" detected on line %d whilst parsing YAML. Silent handling of duplicate mapping keys in YAML is deprecated and will throw a ParseException in 8.0.', $key, $this->getRealCurrentLineNb() + 1);
-                        }
-
                         $data[$key] = $value;
                     } else {
                         throw new ParseException(\sprintf('Duplicate key "%s" detected.', $key), $this->getRealCurrentLineNb() + 1, $this->currentLine);
@@ -447,7 +448,7 @@ class Parser
                     throw new ParseException('Multiple documents are not supported.', $this->currentLineNb + 1, $this->currentLine, $this->filename);
                 }
 
-                if (isset($this->currentLine[1]) && '?' === $this->currentLine[0] && ' ' === $this->currentLine[1]) {
+                if ($deprecatedUsage = (isset($this->currentLine[1]) && '?' === $this->currentLine[0] && ' ' === $this->currentLine[1])) {
                     throw new ParseException('Complex mappings are not supported.', $this->getRealCurrentLineNb() + 1, $this->currentLine);
                 }
 
@@ -477,7 +478,7 @@ class Parser
                             continue;
                         }
                         // If the indentation is not consistent at offset 0, it is to be considered as a ParseError
-                        if (0 === $this->offset && isset($line[0]) && ' ' === $line[0]) {
+                        if (0 === $this->offset && !$deprecatedUsage && isset($line[0]) && ' ' === $line[0]) {
                             throw new ParseException('Unable to parse.', $this->getRealCurrentLineNb() + 1, $this->currentLine, $this->filename);
                         }
 
@@ -534,7 +535,7 @@ class Parser
             $data = $object;
         }
 
-        return $data ?: null;
+        return empty($data) ? null : $data;
     }
 
     private function parseBlock(int $offset, string $yaml, int $flags): mixed
@@ -745,10 +746,11 @@ class Parser
     private function parseValue(string $value, int $flags, string $context): mixed
     {
         if (str_starts_with($value, '*')) {
-            if (false !== $pos = strpos($value, '#')) {
-                $value = substr($value, 1, $pos - 2);
-            } else {
-                $value = substr($value, 1);
+            $value = substr($value, 1);
+
+            // remove comments
+            if (self::preg_match('/[ \t]+#/', $value, $match, \PREG_OFFSET_CAPTURE)) {
+                $value = substr($value, 0, $match[0][1]);
             }
 
             if (!\array_key_exists($value, $this->refs)) {
@@ -919,7 +921,7 @@ class Parser
         if ($notEOF) {
             $blockLines[] = '';
             $this->moveToPreviousLine();
-        } elseif (!$this->isCurrentLineLastLineInDocument()) {
+        } elseif (!$notEOF && !$this->isCurrentLineLastLineInDocument()) {
             $blockLines[] = '';
         }
 
@@ -1253,6 +1255,18 @@ class Parser
     }
 
     private function lexInlineStructure(int &$cursor, string $closingTag, bool $consumeUntilEol = true): string
+    {
+        $state = $this->getState();
+        $state->enterNestingLevel($this->getRealCurrentLineNb() + 1, $this->currentLine, $this->filename);
+
+        try {
+            return $this->doLexInlineStructure($cursor, $closingTag, $consumeUntilEol);
+        } finally {
+            $state->leaveNestingLevel();
+        }
+    }
+
+    private function doLexInlineStructure(int &$cursor, string $closingTag, bool $consumeUntilEol = true): string
     {
         $value = $this->currentLine[$cursor];
         ++$cursor;

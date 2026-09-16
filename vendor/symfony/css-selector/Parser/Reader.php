@@ -23,12 +23,15 @@ namespace Symfony\Component\CssSelector\Parser;
  */
 class Reader
 {
+    private static array $anchoredPatterns = [];
+
+    private string $source;
     private int $length;
     private int $position = 0;
 
-    public function __construct(
-        private string $source,
-    ) {
+    public function __construct(string $source)
+    {
+        $this->source = $source;
         $this->length = \strlen($source);
     }
 
@@ -52,7 +55,10 @@ class Reader
         return substr($this->source, $this->position + $offset, $length);
     }
 
-    public function getOffset(string $string): int|false
+    /**
+     * @return int|false
+     */
+    public function getOffset(string $string): int|bool
     {
         $position = strpos($this->source, $string, $this->position);
 
@@ -61,9 +67,12 @@ class Reader
 
     public function findPattern(string $pattern): array|false
     {
-        $source = substr($this->source, $this->position);
+        // Match in place instead of copying the remaining source before every probe.
+        // Combined with an offset, "^" still anchors at the start of the whole subject,
+        // so a leading anchor is turned into "\\G", which anchors at the offset instead.
+        $pattern = self::$anchoredPatterns[$pattern] ??= '^' === ($pattern[1] ?? '') ? $pattern[0].'\\G'.substr($pattern, 2) : $pattern;
 
-        if (preg_match($pattern, $source, $matches)) {
+        if (preg_match($pattern, $this->source, $matches, 0, $this->position)) {
             return $matches;
         }
 
