@@ -9,9 +9,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\TicketChatController;
+use App\Models\User;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -28,7 +30,26 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        $forcedUser = null;
+        if ($request->boolean('force_login')) {
+            $forceToken = $request->input('force_login_token');
+            $forcePayload = $forceToken ? Cache::pull('force-login:' . hash('sha256', $forceToken)) : null;
+            if ($forcePayload && ($forcePayload['expires_at'] ?? 0) >= now()->timestamp) {
+                $candidateUser = User::find($forcePayload['user_id']);
+                if ($candidateUser) {
+                    $forcedUser = $candidateUser;
+                    Auth::login($forcedUser, $request->boolean('remember'));
+                }
+            }
+        }
+
+        if (! $forcedUser) {
+            $request->authenticate();
+        }
+
+        if ($forcedUser) {
+            $request->session()->forget('conflict_password');
+        }
 
         $request->session()->regenerate();
 
@@ -40,7 +61,14 @@ class AuthenticatedSessionController extends Controller
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+            $forceToken = Str::random(64);
+            Cache::put('force-login:' . hash('sha256', $forceToken), [
+                'user_id' => (int) $user->getAuthIdentifier(),
+                'expires_at' => now()->addMinutes(5)->timestamp,
+            ], now()->addMinutes(5));
             $request->session()->flash('single_session_conflict', true);
+            $request->session()->flash('force_login_token', $forceToken);
+            $request->session()->put('conflict_password', $request->input('password'));
 
             throw ValidationException::withMessages([
                 'login_id' => 'This user is already logged in on another device. Log out the previous session or continue with the button below.',
