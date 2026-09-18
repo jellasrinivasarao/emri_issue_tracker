@@ -18,6 +18,8 @@ class MailConfiguration extends Model
     protected $fillable = [
         'state_id',
         'state_name',
+        'recipient_type',
+        'vendor_id',
         'project_id',
         'application_id',
         'application_ids',
@@ -31,6 +33,7 @@ class MailConfiguration extends Model
     protected $casts = [
         'mail_configuration_id' => 'integer',
         'state_id' => 'integer',
+        'vendor_id' => 'integer',
         'project_id' => 'integer',
         'application_id' => 'integer',
         'application_ids' => 'array',
@@ -57,6 +60,11 @@ class MailConfiguration extends Model
     public function state(): BelongsTo
     {
         return $this->belongsTo(State::class, 'state_id', 'state_id');
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'vendor_id');
     }
 
     public function project(): BelongsTo

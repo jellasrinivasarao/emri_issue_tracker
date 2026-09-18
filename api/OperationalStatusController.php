@@ -3,6 +3,8 @@
 namespace Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Issue;
+use App\Services\IssueService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -183,6 +185,20 @@ class OperationalStatusController extends Controller
                     'changed_at' => now(),
                 ]);
             });
+
+            try {
+                app(IssueService::class)->notifyTicketStatusUpdated(
+                    Issue::findOrFail($issue->issue_id),
+                    (string) $status->status_name,
+                    $remarks
+                );
+            } catch (Throwable $notificationException) {
+                Log::error('Operational API status notification failed after update.', [
+                    'issue_id' => $issue->issue_id,
+                    'status_name' => $status->status_name,
+                    'error' => $notificationException->getMessage(),
+                ]);
+            }
 
             $response = [
                 'success' => true,

@@ -102,7 +102,7 @@
     <body class="h-full m-0 p-0 font-sans antialiased bg-slate-100 text-slate-900 overflow-x-hidden overflow-y-auto" style="min-height:100%;margin:0;padding:0;">
         @php
             $menuGroups = [
-                'Main Menu' => ['dashboard', 'role.issue.dashboard', 'issues', 'raise.issue', 'internal.issue', 'reports'],
+                'Main Menu' => ['dashboard', 'role.issue.dashboard', 'issues', 'raise.issue', 'internal.issue', 'my.tickets', 'reports'],
                 'Administration' => ['administration'],
                 'Main Dashboard' => ['role.dashboard'],
                 'Admin Teams' => ['state.admin', 'ho.admin', 'vendor.admin'],
@@ -119,6 +119,14 @@
             })->filter(fn($items) => $items->isNotEmpty());
 
             $ungrouped = $menus->reject(fn($menu) => collect($menuGroups)->flatten()->contains($menu->route_name))->values();
+
+            if ($ungrouped->isNotEmpty()) {
+                $groupedMenus['Main Menu'] = $groupedMenus
+                    ->get('Main Menu', collect())
+                    ->merge($ungrouped)
+                    ->sortBy('display_order')
+                    ->values();
+            }
 
             $sectionOpen = collect($menuGroups)->mapWithKeys(function ($routeNames, $section) {
                 return [$section => collect($routeNames)->contains(fn($routeName) => request()->routeIs($routeName))];

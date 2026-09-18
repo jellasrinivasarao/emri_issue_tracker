@@ -10,7 +10,7 @@
             <div class="grid gap-4 xl:grid-cols-[minmax(460px,1fr)_minmax(700px,1fr)]">
                 <div class="rounded-[18px] border border-slate-200 bg-white p-4 shadow-sm">
                     <div class="mb-4">
-                        <p class="text-sm font-semibold text-slate-900">Issue Summary</p>
+                        <div class="flex items-center justify-between gap-3"><p class="text-sm font-semibold text-slate-900">Issue Summary</p><label class="flex items-center gap-2 text-xs font-semibold text-slate-500">Auto refresh time <input data-auto-refresh-time type="text" value="5 seconds" readonly class="w-24 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-center text-xs text-slate-700" /><button type="button" data-auto-refresh-toggle class="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">Pause</button></label></div>
                         <p class="mt-1 text-sm text-slate-500">Overview of all issues in the system.</p>
                     </div>
                     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
@@ -629,7 +629,7 @@
 
         <div class="relative min-h-0">
                     <div x-show="drawerOpen && selectedTicket" x-cloak class="fixed left-0 right-0 z-30 bg-slate-900/40 transition-opacity duration-200" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));"></div>
-                    <aside x-show="drawerOpen && selectedTicket" x-cloak class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
+                    <aside data-ticket-drawer x-show="drawerOpen && selectedTicket" x-cloak class="fixed right-0 z-40 w-full max-w-[520px] overflow-y-auto border-l border-slate-200 bg-white px-6 py-6 shadow-2xl transition duration-300 md:w-[520px]" style="top:var(--header-height,64px);height:calc(100% - var(--header-height,64px));">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-xs uppercase tracking-[0.32em] text-slate-500">Ticket Details</p>
@@ -1249,5 +1249,54 @@
         }
 
         window.exportIssueQueue = exportIssueQueue;
+
+        (function () {
+            const idleDelay = 5000;
+            let lastActivity = Date.now();
+            let pageReady = document.readyState === 'complete';
+            let manuallyPaused = false;
+            const refreshFields = document.querySelectorAll('[data-auto-refresh-time]');
+            const refreshToggles = document.querySelectorAll('[data-auto-refresh-toggle]');
+
+            refreshToggles.forEach(function (toggle) {
+                toggle.addEventListener('click', function () {
+                    manuallyPaused = !manuallyPaused;
+                    toggle.textContent = manuallyPaused ? 'Start' : 'Pause';
+                    lastActivity = Date.now();
+                });
+            });
+
+            window.addEventListener('load', function () {
+                pageReady = true;
+                lastActivity = Date.now();
+            }, { once: true });
+
+            const markActivity = function () {
+                lastActivity = Date.now();
+            };
+
+            ['pointerdown', 'keydown', 'input', 'change', 'focusin', 'scroll', 'wheel', 'submit'].forEach(function (eventName) {
+                document.addEventListener(eventName, markActivity, { passive: eventName !== 'submit' });
+            });
+
+            const isVisible = function (element) {
+                return Boolean(element && element.getClientRects().length && getComputedStyle(element).display !== 'none' && getComputedStyle(element).visibility !== 'hidden');
+            };
+
+            window.setInterval(function () {
+                const drawerOpen = Array.from(document.querySelectorAll('[data-ticket-drawer]')).some(isVisible);
+                const previewOpen = isVisible(document.querySelector('#ticket-preview-popup'));
+                const paused = !pageReady || manuallyPaused || document.hidden || drawerOpen || previewOpen;
+                refreshFields.forEach(function (field) {
+                    field.value = !pageReady ? 'Loading...' : paused ? 'Paused' : Math.max(0, Math.ceil((idleDelay - (Date.now() - lastActivity)) / 1000)) + ' seconds';
+                });
+
+                if (paused || Date.now() - lastActivity < idleDelay) {
+                    return;
+                }
+
+                window.location.reload();
+            }, 1000);
+        }());
     </script>
 </x-app-layout>

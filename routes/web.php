@@ -23,6 +23,10 @@ use App\Http\Controllers\Admin\AdminConfigController;
 use App\Http\Controllers\Admin\IssueRoutingRuleController;
 use App\Http\Controllers\Admin\ItSupportMasterController;
 use App\Http\Controllers\IssueController;
+use App\Http\Controllers\ItSupportDashboardController;
+use App\Http\Controllers\InternalIssueController;
+use App\Http\Controllers\MyTicketsController;
+use App\Http\Controllers\TicketChatController;
 
 use App\Http\Controllers\Admin\WorkingCalendarController;
 use App\Http\Controllers\Admin\WorkingScheduleController;
@@ -78,29 +82,59 @@ Route::post('/end-user-login/otp', [EndUserAccessController::class, 'verifyOtp']
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
-    Route::get('/internal-issue', [PageController::class, 'internalIssue'])
+    Route::get('/my-tickets', [MyTicketsController::class, 'index'])
+        ->middleware('role:End User')
+        ->name('my.tickets');
+    Route::post('/my-tickets/update', [MyTicketsController::class, 'update'])
+        ->middleware('role:End User')
+        ->name('my.tickets.update');
+    Route::get('/my-tickets/{ticket}/chat/status', [TicketChatController::class, 'status'])
+        ->middleware('role:End User')
+        ->name('my.tickets.chat.status');
+    Route::get('/my-tickets/{ticket}/chat/messages', [TicketChatController::class, 'messages'])
+        ->middleware('role:End User')
+        ->name('my.tickets.chat.messages');
+    Route::post('/my-tickets/{ticket}/chat/messages', [TicketChatController::class, 'send'])
+        ->middleware('role:End User')
+        ->name('my.tickets.chat.send');
+    Route::get('/my-tickets/attachment/{id}/preview', [MyTicketsController::class, 'previewAttachment'])
+        ->middleware('role:End User')
+        ->name('my.tickets.attachment.preview');
+    Route::get('/my-tickets/attachment/{id}/download', [MyTicketsController::class, 'downloadAttachment'])
+        ->middleware('role:End User')
+        ->name('my.tickets.attachment.download');
+    Route::get('/internal-issue', [InternalIssueController::class, 'create'])
         ->middleware('menu.access:internal.issue')
         ->name('internal.issue');
-    Route::post('/internal-issue', [PageController::class, 'storeInternalIssue'])
+    Route::post('/internal-issue', [InternalIssueController::class, 'store'])
         ->middleware('menu.access:internal.issue')
         ->name('internal.issue.store');
 
     Route::get('/role-dashboard', [PageController::class, 'roleDashboard'])->name('role.dashboard');
-    Route::get('/it-support-dashboard', [PageController::class, 'itSupportDashboard'])
+    Route::get('/it-support-dashboard', [ItSupportDashboardController::class, 'index'])
         ->middleware('role:IT Support Desk')
         ->name('it.support.dashboard');
-    Route::get('/it-support-dashboard/attachment/{id}/preview', [PageController::class, 'previewItSupportAttachment'])
+    Route::get('/it-support-dashboard/attachment/{id}/preview', [ItSupportDashboardController::class, 'previewAttachment'])
         ->middleware('role:IT Support Desk')
         ->name('it.support.attachment.preview');
-    Route::get('/it-support-dashboard/attachment/{id}/view', [PageController::class, 'viewItSupportAttachment'])
+    Route::get('/it-support-dashboard/attachment/{id}/view', [ItSupportDashboardController::class, 'viewAttachment'])
         ->middleware('role:IT Support Desk')
         ->name('it.support.attachment.view');
-    Route::get('/it-support-dashboard/attachment/{id}/download', [PageController::class, 'downloadItSupportAttachment'])
+    Route::get('/it-support-dashboard/attachment/{id}/download', [ItSupportDashboardController::class, 'downloadAttachment'])
         ->middleware('role:IT Support Desk')
         ->name('it.support.attachment.download');
-    Route::post('/it-support-dashboard/update', [PageController::class, 'updateItSupportTicket'])
+    Route::post('/it-support-dashboard/update', [ItSupportDashboardController::class, 'update'])
         ->middleware('role:IT Support Desk')
         ->name('it.support.dashboard.update');
+    Route::post('/it-support-dashboard/{ticket}/chat/initiate', [TicketChatController::class, 'initiate'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.chat.initiate');
+    Route::get('/it-support-dashboard/{ticket}/chat/messages', [TicketChatController::class, 'messages'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.chat.messages');
+    Route::post('/it-support-dashboard/{ticket}/chat/messages', [TicketChatController::class, 'send'])
+        ->middleware('role:IT Support Desk')
+        ->name('it.support.chat.send');
     Route::get('/role-issue-dashboard', [PageController::class, 'roleIssueDashboard'])
         ->middleware('menu.access:role.issue.dashboard')
         ->name('role.issue.dashboard');
@@ -737,6 +771,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/mail-configuration/{id}', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'update'])
         ->middleware(['auth','menu.access:mail.configuration'])
         ->name('mail.configuration.update');
+
+    Route::post('/mail-configuration/{id}/toggle', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'toggle'])
+        ->middleware(['auth','menu.access:mail.configuration'])
+        ->name('mail.configuration.toggle');
 
     Route::get('/mail-configuration/projects', [\App\Http\Controllers\Admin\MailConfigurationController::class, 'projects'])
         ->middleware(['auth','menu.access:mail.configuration'])

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MailConfiguration;
+use App\Models\Issue;
 use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -287,6 +288,7 @@ class PageController extends Controller
             ->get();
 
         $tickets->each(function ($ticket) {
+            $ticket->chat = app(TicketChatController::class)->statusForTicket((int) $ticket->ticket_id, auth()->user());
             $ticket->history = DB::table('txn_it_support_history as history')
                 ->leftJoin('mst_it_support_status as from_status', 'from_status.status_id', '=', 'history.from_status_id')
                 ->leftJoin('mst_it_support_status as to_status', 'to_status.status_id', '=', 'history.to_status_id')
@@ -370,6 +372,10 @@ class PageController extends Controller
                 'action_at' => now(),
             ]);
         });
+
+        if ((int) $validated['status_id'] === 10) {
+            app(TicketChatController::class)->endForClosedTicket((int) $ticket->ticket_id);
+        }
 
         return redirect()->route('it.support.dashboard')->with('success', 'Support ticket status updated.');
     }
@@ -2172,6 +2178,29 @@ class PageController extends Controller
                 }
             });
 
+            try {
+                $notificationService = app(\App\Services\IssueService::class);
+                $notificationIssue = Issue::findOrFail($issueId);
+                if ($isVendorAssignmentStatus) {
+                    $vendorEvent = $statusLower === 'escalate to vendor'
+                        ? 'Ticket Escalated to Vendor'
+                        : 'Vendor Assigned to Ticket';
+                    $notificationService->notifyVendorAssignment($notificationIssue, $vendorIds, $vendorEvent);
+                } else {
+                    $notificationService->notifyTicketStatusUpdated(
+                        $notificationIssue,
+                        $statusName,
+                        $request->input('remarks')
+                    );
+                }
+            } catch (\Throwable $notificationException) {
+                Log::error('Issue notification failed after status update.', [
+                    'issue_id' => $issueId,
+                    'status_name' => $statusName,
+                    'error' => $notificationException->getMessage(),
+                ]);
+            }
+
             if ($request->expectsJson() || $request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
                 return response()->json([
                     'success' => true,
@@ -2285,24 +2314,17 @@ class PageController extends Controller
             ->orderBy('state_name');
 
         $configurationQuery = MailConfiguration::query()
-            ->with(['project:project_id,project_name', 'application:application_id,application_name'])
+            ->with(['project:project_id,project_name', 'application:application_id,application_name', 'vendor:vendor_id,vendor_name'])
             ->orderByDesc('mail_configuration_id');
 
         $isCentralAdmin = $user?->hasRole('Central Admin');
+        $isHoAdmin = $user?->hasRole('HO Admin');
+        $isVendorAdmin = $user?->hasRole('Vendor Admin');
+        $isStateAdmin = $user?->hasRole('State Admin');
 
-        if ($isCentralAdmin) {
+        if ($isCentralAdmin || $isHoAdmin || $isVendorAdmin) {
             $states = $statesQuery->get();
-        } elseif ($user?->hasRole('Vendor Admin') && ! empty($user->vendor_id)) {
-            $states = DB::table('map_vendor_state as m')
-                ->join('mst_state as s', 'm.state_id', '=', 's.state_id')
-                ->where('m.vendor_id', $user->vendor_id)
-                ->where('s.is_active', 1)
-                ->distinct()
-                ->orderBy('s.state_name')
-                ->get(['s.state_id', 's.state_name']);
-
-            $stateIds = $states->pluck('state_id')->all();
-        } elseif (($user?->hasRole('State Admin') || $user?->hasRole('State IT')) && ! empty($user->state_id)) {
+        } elseif ($isStateAdmin && ! empty($user->state_id)) {
             $stateIds = explode(',', (string) $user->state_id);
             $stateIds = array_filter(array_map('trim', $stateIds), fn ($id) => $id !== '');
             $states = $statesQuery->whereIn('state_id', $stateIds)->get();
@@ -2347,6 +2369,8 @@ class PageController extends Controller
 
         return view('pages.mail-configuration', [
             'states' => $states,
+            'isGlobalMailAdmin' => $isCentralAdmin || $isHoAdmin || $isVendorAdmin,
+            'isStateMailAdmin' => $isStateAdmin,
             'permissions' => $permissions,
             'mailConfigurations' => $mailConfigurations,
         ]);

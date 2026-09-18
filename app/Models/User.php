@@ -10,6 +10,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Menu;
@@ -180,7 +181,16 @@ class User extends Authenticatable
 
         $this->applyScopedRoleConditions($query, $roleIds);
 
-        $menuIds = $query->pluck('m.menu_id')->unique();
+        $menuIds = $query->pluck('m.menu_id');
+
+        $mappedMenuIds = Schema::hasTable('map_role_menu')
+            ? DB::table('map_role_menu')
+                ->where('is_allowed', 1)
+                ->whereIn('role_id', $roleIds)
+                ->pluck('menu_id')
+            : collect();
+
+        $menuIds = $menuIds->merge($mappedMenuIds)->unique();
 
         return Menu::whereIn('menu_id', $menuIds)
             ->where('is_active', 1)

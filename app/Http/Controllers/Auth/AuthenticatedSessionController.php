@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\TicketChatController;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -77,6 +78,9 @@ class AuthenticatedSessionController extends Controller
         if ($userId) {
             Cache::forget(EnsureSingleUserSession::cacheKey((int) $userId));
         }
+
+        app(TicketChatController::class)->clearForUser($user);
+        app(TicketChatController::class)->clearAll();
 
         Auth::guard('web')->logout();
 

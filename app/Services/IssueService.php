@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Interfaces\IssueRepositoryInterface;
 use App\Models\Issue;
 use App\Models\IssueAttachment;
+use App\Models\MailConfiguration;
+use App\Models\MailLog;
+use App\Models\MailSetting;
 use App\Models\WorkingCalendar;
 use App\Models\WorkingSchedule;
 use App\Services\WorkingCalendarEngine;
@@ -12,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -370,76 +374,11 @@ class IssueService
                 ->value('first_level_vendor_ids');
         }
 
-        Log::info('[EMRI ROUTING] Direct initial route to HO IT / HO Admin', [
-            'first_level_vendor_ids' => $firstLevelVendors,
-            'ho_intervention_required' => 1,
-            'ho_working_hours' => 1,
+        $vendorIds = array_values(array_filter(array_map('intval', explode(',', (string) $firstLevelVendors))));
+        Log::info('[EMRI VENDOR ROUTING] Routing vendor IDs to HO', [
+            'vendor_ids' => $vendorIds,
+            'count' => count($vendorIds),
         ]);
-
-        return [
-            'ho_intervention_required' => 1,
-            'ho_working_hours' => 1,
-            'first_level_vendor_ids' => $this->formatVendorIds(
-                array_map('intval', array_filter(explode(',', (string) $firstLevelVendors)))
-            ),
-            'second_level_vendor_ids' => null,
-            'current_stage' => 'ISSUE_RAISED',
-            'current_owner_type' => 0,
-            'current_owner_id' => null,
-            'workflow_status' => 0,
-        ];
-    }
-
-    /**
-     * SCENARIO 1: Direct Vendor L2 Routing
-     * Condition: ROUTE_HO_IT_L1 = 0, ROUTE_VENDOR_L2 = 1
-     */
-    private function routeDirectVendorL2Flow(?int $projectId, ?int $stateId, ?int $applicationId): array
-    {
-        Log::info('═══════════════════════════════════════════════════════════════');
-        Log::info('[SCENARIO 1] Direct Vendor L2 Routing');
-        Log::info('═══════════════════════════════════════════════════════════════');
-        
-        Log::info('[S1-STEP 1] Skip holiday and working hours checks');
-        Log::info('[S1-STEP 2] Directly query map_vendor_state for active vendors');
-        Log::channel('insert_log')->info('[TABLE: map_vendor_state] Scenario 1 vendor lookup', [
-            'project_id' => $projectId,
-            'state_id' => $stateId,
-            'application_id' => $applicationId,
-            'is_active' => 1,
-        ]);
-        
-        $vendorIds = [];
-        if ($projectId && $stateId) {
-            Log::info('[TABLE: map_vendor_state] Query with conditions:', [
-                'project_id' => $projectId,
-                'state_id' => $stateId,
-                'application_id' => $applicationId,
-                'is_active' => 1
-            ]);
-            
-            $vendorIds = DB::table('map_vendor_state')
-                ->where('project_id', $projectId)
-                ->where('state_id', $stateId)
-                ->where('is_active', 1)
-                ->when($applicationId, function($q) use ($applicationId) {
-                    $q->where(function($sq) use ($applicationId) {
-                        $sq->whereNull('application_id')->orWhere('application_id', $applicationId);
-                    });
-                }, function($q) {
-                    $q->whereNull('application_id');
-                })
-                ->distinct()
-                ->orderBy('vendor_id')
-                ->pluck('vendor_id')
-                ->map(fn($v) => (int)$v)
-                ->all();
-                
-            Log::info('[S1-STEP 2 RESULT] Vendors found from map_vendor_state', [
-                'vendor_ids' => $vendorIds,
-                'count' => count($vendorIds)
-            ]);
-        }
 
         Log::info('[S1 FINAL RESULT]', [
             'ho_intervention_required' => 0,
@@ -1047,9 +986,6 @@ class IssueService
         Log::info('[STEP 4.5 COMPLETE] Notification sent');
     }
 
-    /**
-     * Auto Assign Engineer
-     */
     protected function assignEngineer(Issue $issue): void
     {
         Log::info('[TABLE: users] Querying for Support Engineer...');
@@ -1060,65 +996,43 @@ class IssueService
             })
             ->first();
 
-        if (!$engineer) {
+        if (! $engineer) {
             Log::info('[TABLE: users] No Support Engineer found for auto-assignment');
             return;
         }
 
-        Log::info('[TABLE: issues] Updating issue assigned_to field', ['engineer_id' => $engineer->user_id, 'engineer_name' => $engineer->user_name]);
         $this->repository->assign($issue, $engineer->user_id);
-        Log::info('[TABLE: issues] Assignment complete');
-
-        Log::info('[TABLE: issue_history] Creating assignment history', ['engineer_name' => $engineer->user_name]);
         $this->createHistory(
             $issue,
             'Assigned',
-            'Assigned to '.$engineer->user_name
+            'Assigned to ' . $engineer->user_name
         );
     }
 
-    /**
-     * Assign Vendors During Issue Creation
-     * Extracts vendors from routing metadata and inserts them into map_issue_vendor_assignment
-     */
     protected function assignVendorsDuringCreation(Issue $issue): void
     {
-        Log::info('═══════════════════════════════════════════════════════════════');
         Log::info('[VENDOR ASSIGNMENT] Starting vendor assignment during creation');
-        Log::info('═══════════════════════════════════════════════════════════════');
 
         if ((int) ($issue->ho_working_hours ?? 0) === 1) {
             Log::info('[VENDOR ASSIGNMENT] HO is working; no vendor assignment required');
             return;
         }
 
-        // Extract vendor IDs from first_level_vendor_ids and second_level_vendor_ids
         $vendorIds = [];
-        
         foreach (['first_level_vendor_ids', 'second_level_vendor_ids'] as $vendorField) {
-            $vendorStr = trim((string) ($issue->{$vendorField} ?? ''));
-            if (empty($vendorStr)) {
-                continue;
-            }
-
-            $ids = array_map('trim', explode(',', $vendorStr));
-            foreach ($ids as $id) {
-                $vendorId = (int) $id;
-                if ($vendorId > 0 && !in_array($vendorId, $vendorIds)) {
+            foreach (array_filter(array_map('intval', explode(',', (string) ($issue->{$vendorField} ?? '')))) as $vendorId) {
+                if ($vendorId > 0 && ! in_array($vendorId, $vendorIds, true)) {
                     $vendorIds[] = $vendorId;
                 }
             }
         }
 
-        Log::info('[VENDOR ASSIGNMENT] Extracted vendor IDs', [
-            'vendor_ids' => $vendorIds,
-            'count' => count($vendorIds)
-        ]);
-
         if (empty($vendorIds)) {
             Log::info('[VENDOR ASSIGNMENT] No vendors to assign - skipping vendor assignment');
             return;
         }
+
+        Log::info('[VENDOR ASSIGNMENT] Extracted vendor IDs', ['vendor_ids' => $vendorIds]);
 
         // Get initial vendor status ID using Role -> Status mapping
         $initialVendorStatusId = $this->getInitialVendorStatusId();
@@ -1280,6 +1194,16 @@ class IssueService
             );
 
             DB::commit();
+
+            try {
+                $this->notifyTicketStatusUpdated($issue, $status, $remarks);
+            } catch (\Throwable $notificationException) {
+                Log::error('Issue notification failed after status change.', [
+                    'issue_id' => $issue->issue_id,
+                    'status' => $status,
+                    'error' => $notificationException->getMessage(),
+                ]);
+            }
 
             return $issue;
 
@@ -1568,6 +1492,9 @@ class IssueService
         Issue $issue
     ): void {
 
+        $this->notifyTicketCreated($issue);
+        return;
+
         if (!$issue->assigned_to) {
 
             return;
@@ -1584,9 +1511,384 @@ class IssueService
 
         }
 
-        // Replace with Notification class
-        // Notification::send($user,new IssueAssignedNotification($issue));
+        $configurations = MailConfiguration::query()
+            ->where('is_active', 1)
+            ->where(function ($query) use ($issue) {
+                $query->whereNull('state_id')
+                    ->orWhere('state_id', $issue->state_id);
+            })
+            ->get();
 
+        $recipientGroups = [
+            'State' => ['to' => [], 'cc' => []],
+            'HO' => ['to' => [], 'cc' => []],
+            'Vendor' => ['to' => [], 'cc' => []],
+        ];
+
+        foreach ($configurations as $configuration) {
+            $group = match ($configuration->recipient_type) {
+                'state' => 'State',
+                'vendor' => 'Vendor',
+                default => 'HO',
+            };
+            $recipientGroups[$group]['to'] = array_merge($recipientGroups[$group]['to'], $this->mailAddresses($configuration->to_emails));
+            $recipientGroups[$group]['cc'] = array_merge($recipientGroups[$group]['cc'], $this->mailAddresses($configuration->cc_emails));
+        }
+
+        foreach ($recipientGroups as $group => $recipients) {
+            $to = array_values(array_unique(array_filter($recipients['to'])));
+            if (empty($to)) {
+                continue;
+            }
+
+            $cc = array_values(array_diff(array_unique(array_filter($recipients['cc'])), $to));
+            $subject = "[{$group} Mail] Issue Assigned: {$issue->issue_number}";
+            $body = "Hello,\n\n";
+            $body .= "This is a {$group} notification.\n";
+            $body .= "Issue Number: {$issue->issue_number}\n";
+            $body .= "Issue Title: {$issue->issue_title}\n";
+            $body .= "State ID: {$issue->state_id}\n\n";
+            $body .= "Please sign in to EMRI Issue Tracker to review the assigned issue.";
+
+            try {
+                Mail::raw($body, function ($message) use ($to, $cc, $subject): void {
+                    $message->to($to)->subject($subject);
+                    if (! empty($cc)) {
+                        $message->cc($cc);
+                    }
+                });
+            } catch (\Throwable $exception) {
+                Log::error('Issue assignment mail could not be sent.', [
+                    'issue_id' => $issue->issue_id,
+                    'recipient_group' => $group,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+    }
+
+    protected function mailAddresses(mixed $addresses): array
+    {
+        if (! is_array($addresses)) {
+            $addresses = array_filter(array_map('trim', explode(',', (string) $addresses)));
+        }
+
+        return array_values(array_filter(array_map('trim', $addresses), fn ($address) => filter_var($address, FILTER_VALIDATE_EMAIL)));
+    }
+
+    public function notifyTicketCreated(Issue $issue): void
+    {
+        $vendorIds = DB::table('map_issue_vendor_assignment')
+            ->where('issue_id', $issue->issue_id)
+            ->where('is_active', 1)
+            ->pluck('vendor_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (! empty($vendorIds)) {
+            $to = $this->configuredAddresses($issue, 'vendor', $vendorIds, true);
+            $cc = array_merge(
+                $this->configuredAddresses($issue, 'state'),
+                $this->centralAdminAddresses(),
+                $this->raisedPersonAddresses($issue)
+            );
+            $this->sendScenarioMail($issue, 'Ticket Created and Routed to Vendor', 'Vendor', $to, $cc);
+            return;
+        }
+
+        $to = $this->configuredAddresses($issue, 'ho', [], true);
+        $cc = array_merge(
+            $this->configuredAddresses($issue, 'state'),
+            $this->raisedPersonAddresses($issue)
+        );
+        $this->sendScenarioMail($issue, 'Ticket Created and Routed to HO IT', 'HO', $to, $cc);
+    }
+
+    public function notifyTicketStatusUpdated(Issue $issue, string $statusName, ?string $remarks = null): void
+    {
+        $to = $this->raisedPersonAddresses($issue);
+        $cc = array_merge(
+            $this->configuredAddresses($issue, 'state'),
+            $this->configuredAddresses($issue, 'ho'),
+            $this->centralAdminAddresses()
+        );
+
+        $this->sendScenarioMail($issue, "Ticket Status Updated: {$statusName}", 'Status', $to, $cc, $remarks);
+    }
+
+    public function notifyVendorAssignment(Issue $issue, array $vendorIds, string $event = 'Vendor Assigned to Ticket'): void
+    {
+        $to = $this->configuredAddresses($issue, 'vendor', $vendorIds, true);
+        $cc = array_merge(
+            $this->configuredAddresses($issue, 'state'),
+            $this->configuredAddresses($issue, 'ho'),
+            $this->centralAdminAddresses()
+        );
+
+        $this->sendScenarioMail($issue, $event, 'Vendor', $to, $cc);
+    }
+
+    protected function configuredAddresses(Issue $issue, string $type, array $vendorIds = [], bool $toOnly = false): array
+    {
+        if ($type === 'state') {
+            return $this->stateAdminAddresses($issue);
+        }
+
+        if (! Schema::hasColumn('mst_mail_configuration', 'recipient_type')) {
+            Log::warning('Mail notification skipped because mst_mail_configuration.recipient_type is missing.');
+            return [];
+        }
+
+        $query = MailConfiguration::query()
+            ->where('is_active', 1)
+            ->where('recipient_type', $type);
+
+        if ($type === 'state') {
+            $query->where('state_id', $issue->state_id);
+        } elseif ($type === 'vendor') {
+            $query->whereIn('vendor_id', $vendorIds);
+        } else {
+            $query->whereNull('state_id');
+        }
+
+        return $query->get()->flatMap(function (MailConfiguration $configuration) use ($toOnly) {
+            $addresses = $this->mailAddresses($configuration->to_emails);
+            if (! $toOnly) {
+                $addresses = array_merge($addresses, $this->mailAddresses($configuration->cc_emails));
+            }
+
+            return $addresses;
+        })->unique()->values()->all();
+    }
+
+    protected function raisedPersonAddresses(Issue $issue): array
+    {
+        $email = DB::table('mst_user')
+            ->where('user_id', $issue->raised_by_user_id)
+            ->value('official_email');
+
+        return $email && filter_var($email, FILTER_VALIDATE_EMAIL) ? [$email] : [];
+    }
+
+    protected function stateAdminAddresses(Issue $issue): array
+    {
+        return DB::table('mst_user as u')
+            ->join('map_user_role as mur', 'mur.user_id', '=', 'u.user_id')
+            ->join('mst_role as r', 'r.role_id', '=', 'mur.role_id')
+            ->whereRaw('LOWER(TRIM(r.role_name)) = ?', ['state admin'])
+            ->where(function ($query) {
+                $query->where('mur.is_active', 1)->orWhereNull('mur.is_active');
+            })
+            ->where(function ($query) use ($issue) {
+                $query->whereRaw('FIND_IN_SET(?, REPLACE(COALESCE(u.state_id, ""), " ", ""))', [$issue->state_id])
+                    ->orWhere('u.state_id', $issue->state_id);
+            })
+            ->whereNotNull('u.official_email')
+            ->pluck('u.official_email')
+            ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function centralAdminAddresses(): array
+    {
+        return DB::table('mst_user as u')
+            ->join('mst_role as r', function ($join) {
+                $join->whereRaw('LOWER(TRIM(r.role_name)) = ?', ['central admin'])
+                    ->where(function ($query) {
+                        $query->whereColumn('r.role_id', 'u.role_id')
+                            ->orWhereIn('r.role_id', function ($subQuery) {
+                                $subQuery->select('mur.role_id')
+                                    ->from('map_user_role as mur')
+                                    ->whereColumn('mur.user_id', 'u.user_id')
+                                    ->where(function ($activeQuery) {
+                                        $activeQuery->where('mur.is_active', 1)->orWhereNull('mur.is_active');
+                                    });
+                            });
+                    });
+            })
+            ->whereNotNull('u.official_email')
+            ->pluck('u.official_email')
+            ->filter(fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function sendScenarioMail(Issue $issue, string $event, string $recipientLabel, array $to, array $cc, ?string $remarks = null): void
+    {
+        $to = array_values(array_unique(array_filter($to, fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))));
+        $subject = "[{$recipientLabel} Mail] {$event}: {$issue->issue_number}";
+
+        if (empty($to)) {
+            $this->createMailLog($issue, '-', $subject, '', 'skipped');
+            Log::warning('Notification skipped because no configured recipients were found.', [
+                'issue_id' => $issue->issue_id,
+                'event' => $event,
+                'recipient_label' => $recipientLabel,
+            ]);
+            return;
+        }
+
+        $cc = array_values(array_diff(array_unique(array_filter($cc, fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))), $to));
+        Log::info('Issue notification recipients resolved.', [
+            'issue_id' => $issue->issue_id,
+            'event' => $event,
+            'recipient_label' => $recipientLabel,
+            'to' => $to,
+            'cc' => $cc,
+        ]);
+        $body = $this->buildTicketMailBody($issue, $event, $recipientLabel, $remarks);
+
+        $mailLog = $this->createMailLog($issue, implode(', ', $to), $subject, $body, 'pending');
+
+        try {
+            $setting = MailSetting::query()
+                ->where('is_active', true)
+                ->orderByDesc('mail_setting_id')
+                ->first();
+
+            if (! $setting || ! $setting->host || ! $setting->port) {
+                throw new \RuntimeException('Active SMTP mail settings are missing in mst_mail_setting.');
+            }
+
+            config([
+                'mail.default' => 'smtp',
+                'mail.mailers.smtp.transport' => 'smtp',
+                'mail.mailers.smtp.host' => $setting->host,
+                'mail.mailers.smtp.port' => $setting->port,
+                'mail.mailers.smtp.encryption' => $setting->encryption,
+                'mail.mailers.smtp.username' => $setting->username,
+                'mail.mailers.smtp.password' => $setting->password,
+                'mail.from.address' => $setting->from_address,
+                'mail.from.name' => $setting->from_name ?: config('app.name'),
+            ]);
+
+            Mail::raw($body, function ($message) use ($to, $cc, $subject, $setting): void {
+                $message->to($to)->subject($subject);
+                if (! empty($cc)) {
+                    $message->cc($cc);
+                }
+                if ($setting->from_address) {
+                    $message->from($setting->from_address, $setting->from_name ?: config('app.name'));
+                }
+            });
+
+            $mailLog->status = 'sent';
+            $mailLog->sent_at = now();
+            $mailLog->save();
+        } catch (\Throwable $exception) {
+            $mailLog->status = 'failed';
+            $mailLog->error_message = $exception->getMessage();
+            $mailLog->save();
+
+            Log::error('Issue notification mail could not be sent.', [
+                'issue_id' => $issue->issue_id,
+                'event' => $event,
+                'recipient_label' => $recipientLabel,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    protected function buildTicketMailBody(Issue $issue, string $event, string $recipientLabel, ?string $remarks = null): string
+    {
+        $issueData = DB::table('txn_issue as i')
+            ->leftJoin('mst_state as st', 'st.state_id', '=', 'i.state_id')
+            ->leftJoin('mst_project as p', 'p.project_id', '=', 'i.project_id')
+            ->leftJoin('mst_application as a', 'a.application_id', '=', 'i.application_id')
+            ->leftJoin('mst_module as m', 'm.module_id', '=', 'i.module_id')
+            ->leftJoin('mst_issue_category as c', 'c.issue_category_id', '=', 'i.issue_category_id')
+            ->leftJoin('mst_priority as pr', 'pr.priority_id', '=', 'i.priority_id')
+            ->leftJoin('mst_issue_status as s', 's.status_id', '=', 'i.status_id')
+            ->where('i.issue_id', $issue->issue_id)
+            ->first([
+                'i.issue_number', 'i.issue_title', 'i.issue_description', 'i.occurred_date', 'i.occurred_time',
+                'i.affected_users', 'st.state_name', 'p.project_name', 'a.application_name', 'm.module_name',
+                'c.category_name', 'pr.priority_name', 's.status_name', 'i.state_id',
+            ]);
+
+        $formatDate = fn ($value) => $value ? date('d-m-Y h:i A', strtotime((string) $value)) : '-';
+        $occurredOn = $issueData?->occurred_date
+            ? date('d-m-Y', strtotime((string) $issueData->occurred_date)) . ' ' . ($issueData->occurred_time ? date('h:i A', strtotime((string) $issueData->occurred_time)) : '')
+            : '-';
+
+        $body = "Hello,\n\n";
+        $body .= "Notification Type : {$recipientLabel}\n";
+        $body .= "Event             : {$event}\n\n";
+        $body .= "Issue Number      : " . ($issueData->issue_number ?? $issue->issue_number) . "\n";
+        $body .= "Issue Title       : " . ($issueData->issue_title ?? '-') . "\n";
+        $body .= "State             : " . ($issueData->state_name ?? '-') . "\n";
+        $body .= "Project           : " . ($issueData->project_name ?? '-') . "\n";
+        $body .= "Application       : " . ($issueData->application_name ?? '-') . "\n";
+        $body .= "Module            : " . ($issueData->module_name ?? '-') . "\n";
+        $body .= "Issue Category    : " . ($issueData->category_name ?? '-') . "\n";
+        $body .= "Priority          : " . ($issueData->priority_name ?? '-') . "\n";
+        $body .= "Subject           : " . ($issueData->issue_title ?? '-') . "\n";
+        $body .= "Description       : " . ($issueData->issue_description ?? '-') . "\n";
+        $body .= "Occurred On       : {$occurredOn}\n";
+        $body .= "Affected User     : " . ($issueData->affected_users ?? '-') . "\n";
+        $body .= "Current Status    : " . ($issueData->status_name ?? '-') . "\n";
+        if ($remarks !== null && trim($remarks) !== '') {
+            $body .= "Remarks           : " . trim($remarks) . "\n";
+        }
+
+        $vendorNames = DB::table('map_issue_vendor_assignment as ma')
+            ->join('mst_vendor as v', 'v.vendor_id', '=', 'ma.vendor_id')
+            ->where('ma.issue_id', $issue->issue_id)
+            ->where('ma.is_active', 1)
+            ->pluck('v.vendor_name')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if (! empty($vendorNames)) {
+            $body .= "Vendor            : " . implode(', ', $vendorNames) . "\n";
+        }
+
+        $body .= "\nAttachments\n";
+        $attachments = DB::table('txn_issue_attachment')
+            ->where('issue_id', $issue->issue_id)
+            ->where(function ($query) {
+                $query->where('is_active', 1)->orWhereNull('is_active');
+            })
+            ->get(['attachment_id', 'original_file_name']);
+        if ($attachments->isEmpty()) {
+            $body .= "- None\n";
+        } else {
+            foreach ($attachments as $attachment) {
+                $body .= '- ' . $attachment->original_file_name . ': ' . url('/attachment/preview/' . $attachment->attachment_id) . "\n";
+            }
+        }
+
+        $body .= "\nTicket History\n";
+        $body .= "Date & Time | Status | Updated By | Remarks\n";
+        $history = DB::table('txn_issue_status_history as h')
+            ->leftJoin('mst_issue_status as s', 's.status_id', '=', 'h.new_status_id')
+            ->leftJoin('mst_user as u', 'u.user_id', '=', 'h.changed_by_user_id')
+            ->where('h.issue_id', $issue->issue_id)
+            ->orderBy('h.changed_at')
+            ->get(['h.changed_at', 's.status_name', 'u.user_name', 'h.comment']);
+        foreach ($history as $row) {
+            $body .= $formatDate($row->changed_at) . ' | ' . ($row->status_name ?? '-') . ' | ' . ($row->user_name ?? '-') . ' | ' . ($row->comment ?? '-') . "\n";
+        }
+
+        return $body . "\nPlease sign in to EMRI Issue Tracker to review this ticket.\n";
+    }
+
+    protected function createMailLog(Issue $issue, string $toAddress, string $subject, string $body, string $status): MailLog
+    {
+        return MailLog::create([
+            'user_id' => $issue->raised_by_user_id,
+            'to_address' => $toAddress,
+            'subject' => $subject,
+            'body' => $body,
+            'status' => $status,
+            'mailer' => 'smtp',
+            'sent_at' => $status === 'sent' ? now() : null,
+        ]);
     }
 
 
@@ -2113,6 +2415,17 @@ class IssueService
             }
 
             DB::commit();
+
+            $issue->refresh();
+            try {
+                $this->notifyTicketStatusUpdated($issue, $statusRow->status_name ?? 'Vendor Status Updated', $remarks);
+            } catch (\Throwable $notificationException) {
+                Log::error('Issue notification failed after vendor status update.', [
+                    'issue_id' => $issue->issue_id,
+                    'vendor_id' => $vendorId,
+                    'error' => $notificationException->getMessage(),
+                ]);
+            }
 
             Log::info('[VENDOR STATUS UPDATE] Vendor status update completed successfully', [
                 'issue_id' => $issue->issue_id,

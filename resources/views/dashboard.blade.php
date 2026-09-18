@@ -1,7 +1,7 @@
 ﻿<x-app-layout>
-    <main class="min-h-screen bg-slate-100 p-0">
-                    <div class="flex h-full flex-col overflow-hidden border border-slate-200 bg-white shadow-sm">
-                        <div class="flex flex-1 flex-col overflow-hidden">
+    <main class="h-[calc(100vh-76px)] overflow-hidden bg-slate-100 p-0">
+                    <div class="flex h-full min-h-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-sm">
+                        <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
                             <div class="border-b border-slate-200 px-5 py-4">
                                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
@@ -42,46 +42,50 @@
                                     @endforeach
                                 </div>
 
-                                <div class="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                                    <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <p class="text-sm font-semibold text-slate-900">Average Resolution Time</p>
-                                                <p class="mt-3 text-2xl font-semibold text-slate-900">18.6 h</p>
+                                <div class="mt-3">
+                                    <div class="grid gap-3 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-slate-900">Average Resolution Time</p>
+                                                    <p class="mt-3 text-2xl font-semibold text-slate-900">18.6 h</p>
+                                                </div>
+                                                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
+                                                    <span class="text-xl font-semibold">78%</span>
+                                                </div>
                                             </div>
-                                            <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
-                                                <span class="text-xl font-semibold">78%</span>
-                                            </div>
-                                        </div>
-                                        <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200">
-                                            <div class="h-full w-[78%] rounded-full bg-blue-500"></div>
-                                        </div>
-                                    </div>
-                                    <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <p class="text-sm font-semibold text-slate-900">Overall SLA Compliance</p>
-                                                <p class="mt-3 text-2xl font-semibold text-slate-900">91%</p>
-                                            </div>
-                                            <div class="relative flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
-                                                <div class="absolute inset-0 rounded-full bg-slate-200"></div>
-                                                <div class="absolute inset-2 rounded-full bg-white"></div>
-                                                <span class="relative text-sm font-semibold text-slate-900">91%</span>
+                                            <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200">
+                                                <div class="h-full w-[78%] rounded-full bg-blue-500"></div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                        <p class="text-sm font-semibold text-slate-900">Monthly Issue Trend</p>
-                                        <p class="mt-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">Open · Closed · Pending</p>
-                                        <div class="mt-4 grid h-24 grid-cols-12 gap-1 items-end">
-                                            @foreach([5,7,6,8,7,9,8,7,10,9,11,10] as $value)
-                                                <div class="rounded-sm bg-slate-200" style="height: {{ $value * 8 }}px"></div>
-                                            @endforeach
+                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-slate-900">Overall SLA Compliance</p>
+                                                    <p class="mt-3 text-2xl font-semibold text-slate-900">91%</p>
+                                                </div>
+                                                <div class="relative flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
+                                                    <div class="absolute inset-0 rounded-full bg-slate-200"></div>
+                                                    <div class="absolute inset-2 rounded-full bg-white"></div>
+                                                    <span class="relative text-sm font-semibold text-slate-900">91%</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
-                                            @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $month)
-                                                <div class="text-center">{{ $month }}</div>
-                                            @endforeach
+                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                            <p class="text-sm font-semibold text-slate-900">Monthly Issue Trend</p>
+                                            <p class="mt-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">Open · Closed · Pending</p>
+                                            <div class="mt-4 h-[180px] rounded-xl border border-slate-200 bg-white p-3">
+                                                <div class="grid h-32 grid-cols-12 gap-1 items-end">
+                                                    @foreach([5,7,6,8,7,9,8,7,10,9,11,10] as $value)
+                                                        <div class="rounded-sm bg-slate-200" style="height: {{ $value * 8 }}px"></div>
+                                                    @endforeach
+                                                </div>
+                                                <div class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
+                                                    @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $month)
+                                                        <div class="text-center">{{ $month }}</div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -92,7 +96,7 @@
                                             <p class="text-sm font-semibold text-slate-900">State-wise Analysis</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-hidden">
+                                        <div class="mt-4">
                                             <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>State</span>
                                                 <span>Issues</span>
@@ -118,7 +122,7 @@
                                             <p class="text-sm font-semibold text-slate-900">Service-wise Analysis</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-hidden">
+                                        <div class="mt-4">
                                             <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>Service</span>
                                                 <span>Issues</span>
@@ -144,7 +148,7 @@
                                             <p class="text-sm font-semibold text-slate-900">Vendor Performance</p>
                                             <a href="#" class="text-xs font-semibold text-slate-500">View all</a>
                                         </div>
-                                        <div class="mt-4 overflow-hidden">
+                                        <div class="mt-4">
                                             <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                                 <span>Vendor</span>
                                                 <span>Issues</span>
@@ -270,6 +274,28 @@
                                                 <button class="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50">Reset</button>
                                             </div>
                                         </div>
+
+                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                                            <div class="flex items-center justify-between">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-slate-900">Monthly Issue Trend</p>
+                                                    <p class="mt-1 text-xs text-slate-500">Open · Closed · Pending</p>
+                                                </div>
+                                            </div>
+                                            <div class="mt-4 max-h-[260px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3">
+                                                <div class="grid h-32 grid-cols-12 gap-1 items-end">
+                                                    @foreach([5,7,6,8,7,9,8,7,10,9,11,10] as $value)
+                                                        <div class="rounded-sm bg-slate-200" style="height: {{ $value * 8 }}px"></div>
+                                                    @endforeach
+                                                </div>
+                                                <div class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
+                                                    @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $month)
+                                                        <div class="text-center">{{ $month }}</div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                             <div class="flex items-center justify-between">
                                                 <div>

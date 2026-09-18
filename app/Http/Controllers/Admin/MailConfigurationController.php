@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\MailConfiguration;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MailConfigurationController extends Controller
 {
@@ -14,11 +15,6 @@ class MailConfigurationController extends Controller
     {
         $data = $request->validate([
             'state_id' => ['nullable', 'integer', 'exists:mst_state,state_id'],
-            'state_name' => ['required', 'string', 'max:255'],
-            'project_id' => ['nullable', 'integer', 'exists:mst_project,project_id'],
-            'application_id' => ['nullable', 'integer', 'exists:mst_application,application_id'],
-            'application_ids' => ['nullable', 'array'],
-            'application_ids.*' => ['integer', 'exists:mst_application,application_id'],
             'to_emails' => ['required'],
             'cc_emails' => ['nullable'],
         ]);
@@ -26,35 +22,15 @@ class MailConfigurationController extends Controller
         $to = is_array($data['to_emails']) ? $data['to_emails'] : array_filter(array_map('trim', explode(',', (string) $data['to_emails'])));
         $cc = isset($data['cc_emails']) ? (is_array($data['cc_emails']) ? $data['cc_emails'] : array_filter(array_map('trim', explode(',', (string) $data['cc_emails'])))) : [];
 
-        $applicationIds = array_values(array_unique(array_map('intval', $request->input('application_ids', []))));
-        if (empty($applicationIds) && $request->filled('application_id')) {
-            $applicationIds = [(int) $request->input('application_id')];
+        $mc = new MailConfiguration();
+        [$mc->state_id, $mc->state_name, $mc->recipient_type, $mc->vendor_id] = $this->mailScope($request);
+        $mc->to_emails = $to;
+        $mc->cc_emails = $cc;
+        $mc->is_active = 1;
+        if (Schema::hasColumn($mc->getTable(), 'created_by')) {
+            $mc->created_by = auth()->id();
         }
-
-        if (empty($applicationIds)) {
-            return back()->withErrors(['application_ids' => 'Select at least one application.'])->withInput();
-        }
-
-        DB::transaction(function () use ($applicationIds, $request, $data, $to, $cc) {
-            foreach ($applicationIds as $applicationId) {
-                $mc = new MailConfiguration();
-                $mc->state_id = $request->input('state_id') ?: null;
-                $mc->state_name = $data['state_name'];
-                $mc->project_id = $request->input('project_id') ?: null;
-                $mc->application_id = $applicationId;
-                $mc->to_emails = $to;
-                $mc->cc_emails = $cc;
-                $mc->is_active = 1;
-
-                if (Schema::hasColumn($mc->getTable(), 'application_ids')) {
-                    $mc->application_ids = [$applicationId];
-                }
-                if (Schema::hasColumn($mc->getTable(), 'created_by')) {
-                    $mc->created_by = auth()->id();
-                }
-                $mc->save();
-            }
-        });
+        $mc->save();
 
         $route = $request->routeIs('mail.configuration.*') ? 'mail.configuration' : 'notification.configuration';
         return redirect()->route($route)->with('success', 'Mail configuration saved.');
@@ -66,11 +42,6 @@ class MailConfigurationController extends Controller
 
         $data = $request->validate([
             'state_id' => ['nullable', 'integer', 'exists:mst_state,state_id'],
-            'state_name' => ['required', 'string', 'max:255'],
-            'project_id' => ['nullable', 'integer', 'exists:mst_project,project_id'],
-            'application_id' => ['nullable', 'integer', 'exists:mst_application,application_id'],
-            'application_ids' => ['nullable', 'array'],
-            'application_ids.*' => ['integer', 'exists:mst_application,application_id'],
             'to_emails' => ['required'],
             'cc_emails' => ['nullable'],
         ]);
@@ -78,15 +49,7 @@ class MailConfigurationController extends Controller
         $to = is_array($data['to_emails']) ? $data['to_emails'] : array_filter(array_map('trim', explode(',', (string) $data['to_emails'])));
         $cc = isset($data['cc_emails']) ? (is_array($data['cc_emails']) ? $data['cc_emails'] : array_filter(array_map('trim', explode(',', (string) $data['cc_emails'])))) : [];
 
-        $mc->state_name = $data['state_name'];
-        $mc->state_id = $request->input('state_id') ?: null;
-        $mc->project_id = $request->input('project_id') ?: null;
-        $mc->application_id = $request->input('application_id') ?: null;
-        $applicationIds = array_values(array_unique(array_map('intval', $request->input('application_ids', []))));
-        $mc->application_id = $applicationIds[0] ?? $mc->application_id;
-        if (Schema::hasColumn($mc->getTable(), 'application_ids')) {
-            $mc->application_ids = $applicationIds;
-        }
+        [$mc->state_id, $mc->state_name, $mc->recipient_type, $mc->vendor_id] = $this->mailScope($request);
         $mc->to_emails = $to;
         $mc->cc_emails = $cc;
         if (Schema::hasColumn($mc->getTable(), 'updated_by')) {
@@ -109,7 +72,8 @@ class MailConfigurationController extends Controller
         $mc->updated_at = now();
         $mc->save();
 
-        return redirect()->route('notification.configuration')->with('success', $mc->is_active ? 'Configuration activated.' : 'Configuration deactivated.');
+        $route = $request->routeIs('mail.configuration.*') ? 'mail.configuration' : 'notification.configuration';
+        return redirect()->route($route)->with('success', $mc->is_active ? 'Configuration activated.' : 'Configuration deactivated.');
     }
 
     public function toggleApplication(Request $request, int $id, int $applicationId)
@@ -137,6 +101,40 @@ class MailConfigurationController extends Controller
         $mc->delete();
 
         return redirect()->route('notification.configuration')->with('success', 'Mail configuration deleted.');
+    }
+
+    private function mailScope(Request $request): array
+    {
+        $user = auth()->user();
+
+        if ($user?->hasRole('Central Admin') || $user?->hasRole('HO Admin') || $user?->hasRole('Vendor Admin')) {
+            if ($user?->hasRole('Vendor Admin')) {
+                return [null, 'All States', 'vendor', $user->vendor_id ?: null];
+            }
+
+            return [null, 'All States', 'ho', null];
+        }
+
+        $stateIds = collect(preg_split('/\s*,\s*/', (string) ($user?->state_id ?? ''), -1, PREG_SPLIT_NO_EMPTY))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $stateId = (int) $request->input('state_id');
+
+        if (! $stateId || ! in_array($stateId, $stateIds, true)) {
+            throw ValidationException::withMessages(['state_id' => 'Select one of your assigned states.']);
+        }
+
+        $stateName = DB::table('mst_state')
+            ->where('state_id', $stateId)
+            ->where('is_active', 1)
+            ->value('state_name');
+
+        if (! $stateName) {
+            throw ValidationException::withMessages(['state_id' => 'The selected state is not active.']);
+        }
+
+        return [$stateId, $stateName, 'state', null];
     }
 
     public function projects(Request $request)
