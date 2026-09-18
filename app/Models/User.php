@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Menu;
 use App\Models\Role;
+use App\Models\Vendor;
 
 class User extends Authenticatable
 {
@@ -153,6 +154,46 @@ class User extends Authenticatable
             'user_id',
             'role_id'
         )->wherePivot('is_active', 1);
+    }
+
+    public function vendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'vendor_id');
+    }
+
+    public function getVendorOrStateNameAttribute(): string
+    {
+        if (! empty($this->vendor_id)) {
+            $vendorName = $this->relationLoaded('vendor')
+                ? $this->vendor?->vendor_name
+                : $this->vendor()->value('vendor_name');
+
+            if (! empty($vendorName)) {
+                return (string) $vendorName;
+            }
+        }
+
+        $stateIds = array_values(array_filter(
+            array_map('trim', explode(',', (string) ($this->state_id ?? ''))),
+            fn ($id) => $id !== ''
+        ));
+
+        if (empty($stateIds)) {
+            return '-';
+        }
+
+        $stateNames = DB::table('mst_state')
+            ->whereIn('state_id', $stateIds)
+            ->pluck('state_name')
+            ->filter()
+            ->values()
+            ->all();
+
+        if (! empty($stateNames)) {
+            return implode(', ', $stateNames);
+        }
+
+        return implode(', ', $stateIds);
     }
 
     public function getRoleNamesAttribute(): string

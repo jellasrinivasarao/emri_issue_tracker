@@ -23,7 +23,7 @@ class UserMasterController extends Controller
     public function index(Request $request): View|Response
     {
         $usersQuery = User::query()
-            ->with('roles')
+            ->with(['roles', 'vendor'])
             ->select(
                 'user_id',
                 'employee_code',
@@ -35,6 +35,7 @@ class UserMasterController extends Controller
                 'role_id',
                 'state_id',
                 'support_group_id',
+                'vendor_id',
                 'is_active',
                 'created_by'
             )
@@ -83,6 +84,7 @@ class UserMasterController extends Controller
                     'Email' => $user->official_email,
                     'Mobile' => $user->mobile_number ?? '-',
                     'Role' => $user->roles->pluck('role_name')->join(', ') ?: '-',
+                    'Vendor/State' => $user->vendor_or_state_name,
                     'Status' => $user->is_active ? 'Active' : 'Inactive',
                 ];
             })->toArray();
@@ -102,7 +104,7 @@ class UserMasterController extends Controller
 
             if ($format === 'pdf') {
                 $html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;">';
-                $html .= '<thead><tr><th>Employee Code</th><th>User Name</th><th>Login ID</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th></tr></thead><tbody>';
+                $html .= '<thead><tr><th>Employee Code</th><th>User Name</th><th>Login ID</th><th>Email</th><th>Mobile</th><th>Role</th><th>Vendor/State</th><th>Status</th></tr></thead><tbody>';
                 foreach ($rows as $row) {
                     $html .= '<tr>' . implode('', array_map(fn ($value) => '<td>' . e($value) . '</td>', $row)) . '</tr>';
                 }

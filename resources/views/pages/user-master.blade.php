@@ -64,6 +64,7 @@
                                         <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Email</th>
                                         <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Mobile</th>
                                         <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Role</th>
+                                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Vendor/State</th>
                                         <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Status</th>
                                         <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.2em] text-purple-900">Actions</th>
                                     </tr>
@@ -77,6 +78,7 @@
                                             <td class="px-5 py-3 text-sm text-slate-600">{{ $user->official_email }}</td>
                                             <td class="px-5 py-3 text-sm text-slate-600">{{ $user->mobile_number ?? '-' }}</td>
                                             <td class="px-5 py-3 text-sm text-slate-600">{{ $user->roles->pluck('role_name')->join(', ') ?: '-' }}</td>
+                                            <td class="px-5 py-3 text-sm text-slate-600">{{ $user->vendor_or_state_name }}</td>
                                             <td class="px-5 py-3 text-sm">{{ $user->is_active ? 'Active' : 'Inactive' }}</td>
                                             <td class="px-5 py-3 text-sm">
                                                 <div class="flex flex-wrap items-center gap-2">
@@ -111,7 +113,7 @@
                                         </tr>
                                     @empty
                                         <tr class="empty-row">
-                                            <td colspan="8" class="px-5 py-6 text-center text-sm text-slate-500">No users found.</td>
+                                            <td colspan="9" class="px-5 py-6 text-center text-sm text-slate-500">No users found.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

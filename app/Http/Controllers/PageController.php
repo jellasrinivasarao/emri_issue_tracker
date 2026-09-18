@@ -1402,15 +1402,46 @@ class PageController extends Controller
             ->all();
     }
 
-    public function requiresStateApprovalBeforeRoleAction(array $roleIds, string $currentStatusName): bool
+    public function requiresStateApprovalBeforeRoleAction(array|string $roleIds, string $currentStatusName): bool
     {
         $normalizedStatusName = strtolower(trim($currentStatusName));
-        $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $roleIds, true);
+        $rawRoleIds = is_array($roleIds) ? $roleIds : [$roleIds];
+        $normalizedRoleIds = array_map(function ($roleId) {
+            if (is_int($roleId) || is_numeric($roleId)) {
+                return (int) $roleId;
+            }
+
+            $roleName = strtolower(trim((string) $roleId));
+            if (str_contains($roleName, 'state admin')) {
+                return Role::STATE_ADMIN_ID;
+            }
+
+            if (str_contains($roleName, 'state it')) {
+                return Role::STATE_IT_ID;
+            }
+
+            return 0;
+        }, $rawRoleIds);
+        $isStateAdmin = in_array(Role::STATE_ADMIN_ID, $normalizedRoleIds, true);
 
         return ! $isStateAdmin
             && (str_contains($normalizedStatusName, 'reopen')
                 || str_contains($normalizedStatusName, 'state admin approval')
                 || str_contains($normalizedStatusName, 'pending approval'));
+    }
+
+    public function allowsStateApprovalActionForReopenedTicket(string $statusName, string $currentStatusName): bool
+    {
+        $normalizedStatusName = strtolower(trim($statusName));
+        $normalizedCurrentStatusName = strtolower(trim($currentStatusName));
+
+        $isApprovalAction = str_contains($normalizedStatusName, 'approv')
+            || str_contains($normalizedStatusName, 'reject');
+        $isPendingReopenApproval = str_contains($normalizedCurrentStatusName, 'reopen')
+            || str_contains($normalizedCurrentStatusName, 'state admin approval')
+            || str_contains($normalizedCurrentStatusName, 'pending approval');
+
+        return $isApprovalAction && $isPendingReopenApproval;
     }
 
     public function getVendorResolutionValidationMessage(array $vendorAssignments, int $resolvedStatusId = 3): string
@@ -1654,6 +1685,8 @@ class PageController extends Controller
                 $hoReturnedAction = str_contains($oldStatusName, 'resolved')
                     || str_contains($oldStatusName, 'completed')
                     || str_contains($oldStatusName, 'reject');
+                   
+                    
                 $handoffCompleted = $allVendorsReturnedAction
                     || ($hasHoHandoff && $hoReturnedAction);
 
@@ -1665,10 +1698,13 @@ class PageController extends Controller
                     ]);
                 }
 
+                $stateApprovalBypass = $this->allowsStateApprovalActionForReopenedTicket($statusName, $oldStatusName);
+
                 if (($hasHoHandoff || $hasVendorHandoff)
                     && (! $handoffCompleted
                         || ($isClarificationResponse && ! $hasPendingClarification))
                     && ! ($isClarificationResponse && $hasPendingClarification)
+                    && ! $stateApprovalBypass
                 ) {
                     $routeOwners = $hasHoHandoff ? ['HO IT'] : [];
                     if ($hasVendorHandoff) {

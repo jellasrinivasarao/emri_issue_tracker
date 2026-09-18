@@ -64,4 +64,14 @@ class RoleIssueDashboardVendorStatusTest extends TestCase
         $this->assertFalse($controller->requiresStateApprovalBeforeRoleAction('HO Admin', 'Approved'));
         $this->assertFalse($controller->requiresStateApprovalBeforeRoleAction('State Admin', 'Reopened'));
     }
+
+    public function test_state_admin_can_approve_or_reject_reopened_ticket_without_waiting_for_vendor_resolution(): void
+    {
+        $controller = new PageController();
+
+        $this->assertTrue($controller->allowsStateApprovalActionForReopenedTicket('Approved', 'Reopen - State Admin Approval Required'));
+        $this->assertTrue($controller->allowsStateApprovalActionForReopenedTicket('Rejected', 'Reopen - State Admin Approval Required'));
+        $this->assertFalse($controller->allowsStateApprovalActionForReopenedTicket('Resolved', 'Reopen - State Admin Approval Required'));
+        $this->assertFalse($controller->allowsStateApprovalActionForReopenedTicket('Approved', 'Resolved'));
+    }
 }
