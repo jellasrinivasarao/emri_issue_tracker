@@ -119,6 +119,15 @@ class User extends Authenticatable
         return $this->password_hash;
     }
 
+    public function getRememberTokenName(): ?string
+    {
+        return null;
+    }
+
+    public function setRememberToken($value): void
+    {
+    }
+
     /**
      * Get the e-mail address where password reset links are sent.
      */

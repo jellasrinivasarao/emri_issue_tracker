@@ -40,13 +40,6 @@
                 <x-input-error :messages="$errors->get('password')" class="mt-2 text-sm text-rose-600" />
             </div>
 
-            <div class="flex items-center justify-between text-sm text-slate-600">
-                <label class="inline-flex items-center gap-2">
-                    <input id="remember_me" type="checkbox" name="remember" class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
-                    Remember me
-                </label>
-            </div>
-
             @if (! $sessionConflict)
                 <button type="submit" class="mt-2 w-full rounded-[28px] bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/10 transition duration-200 hover:bg-slate-800">Sign In</button>
             @endif
