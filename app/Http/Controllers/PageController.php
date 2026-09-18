@@ -220,6 +220,92 @@ class PageController extends Controller
         return view('role-dashboard');
     }
 
+    public function centralDashboardData(): \Illuminate\Http\JsonResponse
+    {
+        $issueRows = DB::table('txn_issue as issue')
+            ->leftJoin('mst_issue_status as status', 'status.status_id', '=', 'issue.status_id')
+            ->leftJoin('mst_priority as priority', 'priority.priority_id', '=', 'issue.priority_id')
+            ->leftJoin('mst_state as state', 'state.state_id', '=', 'issue.state_id')
+            ->leftJoin('mst_application as application', 'application.application_id', '=', 'issue.application_id')
+            ->select('issue.*', 'status.status_name', 'priority.priority_name', 'state.state_name', 'application.application_name')
+            ->get();
+        $resolvedStatusIds = DB::table('mst_issue_status')
+            ->whereIn(DB::raw('LOWER(status_name)'), ['resolved', 'closed'])
+            ->pluck('status_id')
+            ->all();
+        $resolvedNames = ['resolved', 'closed'];
+        $isResolved = fn ($issue) => in_array(strtolower((string) ($issue->status_name ?? '')), $resolvedNames, true);
+        $groupRows = function (string $field) use ($issueRows, $isResolved): array {
+            return $issueRows->groupBy(fn ($issue) => (string) ($issue->{$field} ?: 'Unknown'))
+                ->map(function ($rows, $name) use ($isResolved) {
+                    $total = $rows->count();
+                    $resolved = $rows->filter($isResolved)->count();
+                    return [$name, $total, $rows->reject($isResolved)->count(), $resolved, $total ? round(($resolved / $total) * 100) . '%' : '0%'];
+                })->sortByDesc(fn ($row) => $row[1])->take(5)->values()->all();
+        };
+        $monthly = collect(range(1, 12))->map(function (int $month) use ($issueRows, $isResolved) {
+            $rows = $issueRows->filter(fn ($issue) => $issue->raised_at && Carbon::parse($issue->raised_at)->month === $month);
+            return [$rows->count(), $rows->filter($isResolved)->count(), $rows->reject($isResolved)->count()];
+        })->values()->all();
+        $recentIssues = $issueRows->sortByDesc(fn ($issue) => $issue->raised_at ?: $issue->created_at)->take(6)->map(function ($issue) use ($isResolved) {
+            $issueDate = $issue->raised_at ?: $issue->created_at;
+            return [
+                $issue->issue_number ?: '#' . $issue->issue_id,
+                $issue->issue_title ?: 'Issue',
+                $issue->state_name ?: '-',
+                '-',
+                $issue->application_name ?: '-',
+                '-',
+                $issue->priority_name ?: '-',
+                $issue->status_name ?: '-',
+                $issue->raised_by_user_id ?: '-',
+                $issueDate ? Carbon::parse($issueDate)->format('Y-m-d') : '-',
+                '-',
+                $isResolved($issue) ? '100%' : '0%',
+            ];
+        })->values()->all();
+        $vendorRows = DB::table('mst_vendor')->orderBy('vendor_name')->get(['vendor_id', 'vendor_name'])->map(function ($vendor) use ($issueRows, $isResolved) {
+            $rows = $issueRows->filter(function ($issue) use ($vendor) {
+                return collect([(string) $issue->first_level_vendor_ids, (string) $issue->second_level_vendor_ids])
+                    ->flatMap(fn ($value) => preg_split('/[,|]+/', $value, -1, PREG_SPLIT_NO_EMPTY))
+                    ->map(fn ($id) => trim($id))
+                    ->contains((string) $vendor->vendor_id);
+            });
+            $total = $rows->count();
+            $resolved = $rows->filter($isResolved)->count();
+            return [$vendor->vendor_name, $total, $rows->reject($isResolved)->count(), $resolved, $total ? round(($resolved / $total) * 100) . '%' : '0%'];
+        })->take(5)->values()->all();
+        $resolutionIds = $resolvedStatusIds ?: [0];
+        $resolutionRows = DB::table('txn_issue_status_history as history')
+            ->join('txn_issue as issue', 'issue.issue_id', '=', 'history.issue_id')
+            ->whereIn('history.new_status_id', $resolutionIds)
+            ->whereNotNull('issue.raised_at')
+            ->whereNotNull('history.changed_at')
+            ->get(['issue.raised_at', 'history.changed_at']);
+        $averageResolutionHours = $resolutionRows->count()
+            ? round($resolutionRows->avg(fn ($row) => Carbon::parse($row->raised_at)->diffInMinutes(Carbon::parse($row->changed_at)) / 60), 1) . ' h'
+            : '0 h';
+        $resolvedCount = $issueRows->filter($isResolved)->count();
+        $slaCompliance = $issueRows->count() ? round(($resolvedCount / $issueRows->count()) * 100) . '%' : '0%';
+
+        return response()->json([
+            'total_issues' => $issueRows->count(),
+            'active_services' => $issueRows->pluck('application_id')->filter()->unique()->count(),
+            'open_issues' => $issueRows->reject($isResolved)->count(),
+            'critical_issues' => $issueRows->filter(fn ($issue) => strtolower((string) $issue->priority_name) === 'critical')->count(),
+            'resolved_today' => $issueRows->filter(fn ($issue) => $isResolved($issue) && $issue->raised_at && Carbon::parse($issue->raised_at)->isToday())->count(),
+            'pending_vendors' => $issueRows->filter(fn ($issue) => ! $isResolved($issue) && ($issue->first_level_vendor_ids || $issue->second_level_vendor_ids))->count(),
+            'monthly' => $monthly,
+            'state_rows' => $groupRows('state_name'),
+            'service_rows' => $groupRows('application_name'),
+            'vendor_rows' => $vendorRows,
+            'recent_issues' => $recentIssues,
+            'average_resolution_hours' => $averageResolutionHours,
+            'sla_compliance' => $slaCompliance,
+            'updated_at' => now()->format('d M Y H:i:s'),
+        ]);
+    }
+
     public function itSupportDashboard(Request $request): View
     {
         $query = DB::table('txn_it_support_ticket as ticket')

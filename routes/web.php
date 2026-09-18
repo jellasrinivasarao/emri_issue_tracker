@@ -82,6 +82,8 @@ Route::post('/end-user-login/otp', [EndUserAccessController::class, 'verifyOtp']
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard/live-data', [PageController::class, 'centralDashboardData'])
+        ->name('dashboard.live-data');
     Route::get('/my-tickets', [MyTicketsController::class, 'index'])
         ->middleware('role:End User')
         ->name('my.tickets');

@@ -1,5 +1,5 @@
 ﻿<x-app-layout>
-    <main class="h-[calc(100vh-76px)] overflow-hidden bg-slate-100 p-0">
+    <main class="central-dashboard h-[calc(100vh-76px)] overflow-hidden bg-slate-100 p-0">
                     <div class="flex h-full min-h-0 flex-col overflow-hidden border border-slate-200 bg-white shadow-sm">
                         <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
                             <div class="border-b border-slate-200 px-5 py-4">
@@ -11,7 +11,7 @@
                                     <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
                                         <span>Data Period: 01 Jul 2026 - 31 Jul 2026</span>
                                         <span class="h-4 w-px bg-slate-200"></span>
-                                        <span>Updated: 31 Jul 2026</span>
+                                        <span>Updated: <time data-live-updated>Loading...</time></span>
                                     </div>
                                 </div>
                             </div>
@@ -20,12 +20,12 @@
                                 <div class="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                                     @php
                                         $cards = [
-                                            ['label' => 'Total Issues', 'value' => '2,450', 'color' => 'blue', 'trend' => '+12%'],
-                                            ['label' => 'Active Services', 'value' => '680', 'color' => 'emerald', 'trend' => '+8%'],
-                                            ['label' => 'Open Issues', 'value' => '1,770', 'color' => 'violet', 'trend' => '-4%'],
-                                            ['label' => 'Critical Issues', 'value' => '45', 'color' => 'red', 'trend' => '+3%'],
-                                            ['label' => 'Resolved Today', 'value' => '62', 'color' => 'orange', 'trend' => '+7%'],
-                                            ['label' => 'Pending Vendors', 'value' => '28', 'color' => 'cyan', 'trend' => '+9%'],
+                                            ['label' => 'Total Issues', 'key' => 'total_issues', 'value' => '0', 'color' => 'blue', 'trend' => 'Live'],
+                                            ['label' => 'Active Services', 'key' => 'active_services', 'value' => '0', 'color' => 'emerald', 'trend' => 'Live'],
+                                            ['label' => 'Open Issues', 'key' => 'open_issues', 'value' => '0', 'color' => 'violet', 'trend' => 'Live'],
+                                            ['label' => 'Critical Issues', 'key' => 'critical_issues', 'value' => '0', 'color' => 'red', 'trend' => 'Live'],
+                                            ['label' => 'Resolved Today', 'key' => 'resolved_today', 'value' => '0', 'color' => 'orange', 'trend' => 'Live'],
+                                            ['label' => 'Pending Vendors', 'key' => 'pending_vendors', 'value' => '0', 'color' => 'cyan', 'trend' => 'Live'],
                                         ];
                                     @endphp
                                     @foreach($cards as $card)
@@ -37,7 +37,7 @@
                                                 <span class="rounded-full bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-sm">{{ $card['trend'] }}</span>
                                             </div>
                                             <p class="mt-4 text-[10px] uppercase tracking-[0.2em] text-slate-500">{{ $card['label'] }}</p>
-                                            <p class="mt-2 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
+                                            <p data-live-card="{{ $card['key'] }}" class="mt-2 text-2xl font-semibold text-slate-900">{{ $card['value'] }}</p>
                                         </div>
                                     @endforeach
                                 </div>
@@ -48,39 +48,22 @@
                                             <div class="flex items-center justify-between">
                                                 <div>
                                                     <p class="text-sm font-semibold text-slate-900">Average Resolution Time</p>
-                                                    <p class="mt-3 text-2xl font-semibold text-slate-900">18.6 h</p>
+                                                    <p data-live-metric="average_resolution_hours" class="mt-3 text-2xl font-semibold text-slate-900">—</p>
                                                 </div>
                                                 <div class="flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
-                                                    <span class="text-xl font-semibold">78%</span>
+                                                    <span data-live-metric="sla_compliance" class="text-xl font-semibold">—</span>
                                                 </div>
                                             </div>
                                             <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-200">
-                                                <div class="h-full w-[78%] rounded-full bg-blue-500"></div>
-                                            </div>
-                                        </div>
-                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                            <div class="flex items-center justify-between">
-                                                <div>
-                                                    <p class="text-sm font-semibold text-slate-900">Overall SLA Compliance</p>
-                                                    <p class="mt-3 text-2xl font-semibold text-slate-900">91%</p>
-                                                </div>
-                                                <div class="relative flex h-16 w-16 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm">
-                                                    <div class="absolute inset-0 rounded-full bg-slate-200"></div>
-                                                    <div class="absolute inset-2 rounded-full bg-white"></div>
-                                                    <span class="relative text-sm font-semibold text-slate-900">91%</span>
-                                                </div>
+                                                <div data-live-sla-bar class="h-full w-0 rounded-full bg-blue-500"></div>
                                             </div>
                                         </div>
                                         <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                             <p class="text-sm font-semibold text-slate-900">Monthly Issue Trend</p>
                                             <p class="mt-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">Open · Closed · Pending</p>
-                                            <div class="mt-4 h-[180px] rounded-xl border border-slate-200 bg-white p-3">
-                                                <div class="grid h-32 grid-cols-12 gap-1 items-end">
-                                                    @foreach([5,7,6,8,7,9,8,7,10,9,11,10] as $value)
-                                                        <div class="rounded-sm bg-slate-200" style="height: {{ $value * 8 }}px"></div>
-                                                    @endforeach
-                                                </div>
-                                                <div class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
+                                            <div data-live-monthly class="mt-4 h-[180px] rounded-xl border border-slate-200 bg-white p-3">
+                                                <div data-live-monthly-chart class="grid h-32 grid-cols-12 items-end gap-1"></div>
+                                                <div data-live-month-labels class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
                                                     @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $month)
                                                         <div class="text-center">{{ $month }}</div>
                                                     @endforeach
@@ -104,8 +87,8 @@
                                                 <span>Resolved</span>
                                                 <span>SLA</span>
                                             </div>
-                                            <div class="mt-2 space-y-3 text-[11px] text-slate-700">
-                                                @foreach([['Telangana','1,120','920','120','82%'],['Andhra Pradesh','740','560','110','76%'],['Odisha','430','340','70','79%'],['Karnataka','290','210','50','72%'],['Chhattisgarh','180','140','35','78%']] as $row)
+                                            <div data-live-analysis="state" class="mt-2 space-y-3 text-[11px] text-slate-700">
+                                                @foreach([] as $row)
                                                     <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
@@ -130,8 +113,8 @@
                                                 <span>Resolved</span>
                                                 <span>SLA</span>
                                             </div>
-                                            <div class="mt-2 space-y-3 text-[11px] text-slate-700">
-                                                @foreach([['Connectivity','980','760','120','80%'],['Application','640','510','90','79%'],['Hardware','420','330','60','79%'],['Support','280','210','45','75%'],['Security','170','140','30','81%']] as $row)
+                                            <div data-live-analysis="service" class="mt-2 space-y-3 text-[11px] text-slate-700">
+                                                @foreach([] as $row)
                                                     <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
@@ -156,8 +139,8 @@
                                                 <span>Resolved</span>
                                                 <span>SLA</span>
                                             </div>
-                                            <div class="mt-2 space-y-3 text-[11px] text-slate-700">
-                                                @foreach([['Vendor A','310','250','40','81%'],['Vendor B','220','180','30','78%'],['Vendor C','150','120','25','80%'],['Vendor D','110','82','18','74%'],['Vendor E','95','74','15','78%']] as $row)
+                                            <div data-live-analysis="vendor" class="mt-2 space-y-3 text-[11px] text-slate-700">
+                                                @foreach([] as $row)
                                                     <div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600">
                                                         <span class="font-semibold text-slate-900">{{ $row[0] }}</span>
                                                         <span>{{ $row[1] }}</span>
@@ -210,15 +193,8 @@
                                                             <th class="w-[8%] px-3 py-2">SLA</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody class="divide-y divide-slate-200">
-                                                        @foreach([
-                                                            ['#2011','Power outage','Telangana','Hyderabad','Network','Vendor A','High','Open','R. Kumar','2026-07-30','2.8h','85%'],
-                                                            ['#2008','Server failure','Andhra Pradesh','Vijayawada','Infrastructure','Vendor B','Critical','Pending','S. Patel','2026-07-29','4.2h','71%'],
-                                                            ['#1999','App latency','Odisha','Bhubaneswar','Application','Vendor C','Medium','Closed','A. Das','2026-07-28','6.4h','92%'],
-                                                            ['#1984','Backup delay','Karnataka','Bengaluru','Storage','Vendor D','High','Open','M. Rao','2026-07-28','3.1h','88%'],
-                                                            ['#1977','Security alert','Chhattisgarh','Raipur','Security','Vendor E','Critical','Pending','N. Singh','2026-07-27','5.5h','68%'],
-                                                            ['#1963','Compliance review','Telangana','Warangal','Process','Vendor A','Low','Closed','S. Iyer','2026-07-26','8.0h','94%'],
-                                                        ] as $ticket)
+                                                    <tbody data-live-report class="divide-y divide-slate-200">
+                                                        @foreach([] as $ticket)
                                                             <tr class="hover:bg-slate-100 {{ $loop->even ? 'bg-slate-50' : '' }}">
                                                                 <td class="truncate px-3 py-2 font-semibold text-slate-900">{{ $ticket[0] }}</td>
                                                                 <td class="truncate px-3 py-2">{{ $ticket[1] }}</td>
@@ -278,27 +254,6 @@
                                         <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
                                             <div class="flex items-center justify-between">
                                                 <div>
-                                                    <p class="text-sm font-semibold text-slate-900">Monthly Issue Trend</p>
-                                                    <p class="mt-1 text-xs text-slate-500">Open · Closed · Pending</p>
-                                                </div>
-                                            </div>
-                                            <div class="mt-4 max-h-[260px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3">
-                                                <div class="grid h-32 grid-cols-12 gap-1 items-end">
-                                                    @foreach([5,7,6,8,7,9,8,7,10,9,11,10] as $value)
-                                                        <div class="rounded-sm bg-slate-200" style="height: {{ $value * 8 }}px"></div>
-                                                    @endforeach
-                                                </div>
-                                                <div class="mt-3 grid grid-cols-12 gap-1 text-[10px] text-slate-500">
-                                                    @foreach(['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] as $month)
-                                                        <div class="text-center">{{ $month }}</div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="rounded-[14px] border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                            <div class="flex items-center justify-between">
-                                                <div>
                                                     <p class="text-sm font-semibold text-slate-900">Report Shortcuts</p>
                                                     <p class="mt-1 text-xs text-slate-500">Quick access to reports</p>
                                                 </div>
@@ -320,3 +275,156 @@
                     </div>
                 </main>
 </x-app-layout>
+
+<style>
+    .central-dashboard {
+        --dashboard-blue: #1976f3;
+        --dashboard-violet: #6941e8;
+        --dashboard-green: #11b981;
+        --dashboard-orange: #f59e0b;
+        --dashboard-cyan: #06b6d4;
+    }
+
+    .central-dashboard > div > div:first-child > div:first-child {
+        border: 0;
+        border-radius: 0 0 14px 14px;
+        background: linear-gradient(110deg, #1688ee 0%, #345bf1 48%, #743be9 100%);
+        color: white;
+        box-shadow: 0 10px 24px rgba(59, 91, 232, .22);
+    }
+
+    .central-dashboard > div > div:first-child > div:first-child p,
+    .central-dashboard > div > div:first-child > div:first-child span {
+        color: white !important;
+    }
+
+    .central-dashboard [data-live-card] {
+        font-size: 2rem;
+        color: #123875;
+    }
+
+    .central-dashboard > div > div:first-child > div:nth-child(2) > div:first-child > div {
+        border-radius: 14px;
+        background: linear-gradient(145deg, #eef7ff, #dceeff);
+        border-color: #8bc5ff;
+    }
+
+    .central-dashboard > div > div:first-child > div:nth-child(2) > div:first-child > div:nth-child(2) {
+        background: linear-gradient(145deg, #ecfff7, #d8f9e9);
+        border-color: #8be6bd;
+    }
+
+    .central-dashboard > div > div:first-child > div:nth-child(2) > div:first-child > div:nth-child(3) {
+        background: linear-gradient(145deg, #f7f0ff, #eee4ff);
+        border-color: #c7aaff;
+    }
+
+    .central-dashboard > div > div:first-child > div:nth-child(2) > div:first-child > div:nth-child(4) {
+        background: linear-gradient(145deg, #fff0f3, #ffe0e8);
+        border-color: #ff9db6;
+    }
+
+    .central-dashboard > div > div:first-child > div:first-child + div > div {
+        border-radius: 14px;
+        background: white;
+    }
+
+    .central-dashboard .bg-slate-50 {
+        background-color: #fff;
+    }
+
+    .central-dashboard .bg-slate-50.rounded-\[14px\] {
+        box-shadow: 0 8px 20px rgba(50, 75, 130, .08);
+    }
+
+    .central-dashboard .mt-3.grid > div:nth-child(1) {
+        border-color: #8bc5ff;
+        background: linear-gradient(145deg, #f2f8ff, #e4f1ff);
+    }
+
+    .central-dashboard .mt-3.grid > div:nth-child(2) {
+        border-color: #c5b1ff;
+        background: linear-gradient(145deg, #faf6ff, #f1ebff);
+    }
+
+    .central-dashboard .mt-3.grid > div:nth-child(3) {
+        border-color: #8be6ed;
+        background: linear-gradient(145deg, #f0fdff, #e1f9fc);
+    }
+
+    .central-dashboard table thead {
+        background: linear-gradient(90deg, #2964ef, #6941e8, #08a9dc);
+        color: white;
+    }
+
+    .central-dashboard .bg-slate-200 {
+        background-color: #2f7cf0;
+    }
+</style>
+
+                <script>
+                    (function () {
+                        const endpoint = @json(route('dashboard.live-data'));
+                        const cards = document.querySelectorAll('[data-live-card]');
+                        const updatedLabel = document.querySelector('[data-live-updated]');
+
+                        const escapeHtml = (value) => String(value ?? '-').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character]));
+                        const formatMetric = (value) => value === null || value === undefined || value === '' ? '—' : value;
+
+                        function renderAnalysisRows(key, rows) {
+                            const target = document.querySelector(`[data-live-analysis="${key}"]`);
+                            if (!target) return;
+                            target.innerHTML = (rows || []).map((row) => `<div class="grid w-full min-w-0 grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,0.6fr)] gap-2 text-slate-600"><span class="font-semibold text-slate-900">${escapeHtml(row[0])}</span><span>${escapeHtml(row[1])}</span><span>${escapeHtml(row[2])}</span><span>${escapeHtml(row[3])}</span><span>${escapeHtml(row[4])}</span></div>`).join('') || '<p class="text-slate-500">No data available.</p>';
+                        }
+
+                        function renderMonthly(rows) {
+                            const target = document.querySelector('[data-live-monthly-chart]');
+                            if (!target) return;
+                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                            const max = Math.max(1, ...(rows || []).map((row) => Number(row[0] || 0)));
+                            target.innerHTML = (rows || []).map((row) => {
+                                const total = Number(row[0] || 0);
+                                const resolved = Number(row[1] || 0);
+                                const open = Number(row[2] || 0);
+                                const pending = Math.max(0, total - resolved - open);
+                                return `<div class="flex h-full items-end justify-center gap-px" title="${total} issues"><span class="w-1/3 rounded-t-sm bg-blue-500" style="height:${Math.max(2, open / max * 100)}%"></span><span class="w-1/3 rounded-t-sm bg-emerald-500" style="height:${Math.max(2, resolved / max * 100)}%"></span><span class="w-1/3 rounded-t-sm bg-amber-400" style="height:${Math.max(2, pending / max * 100)}%"></span></div>`;
+                            }).join('');
+                            const labels = target.parentElement.querySelector('[data-live-month-labels]');
+                            if (labels) labels.innerHTML = months.map((month) => `<div class="text-center">${month}</div>`).join('');
+                        }
+
+                        function renderReport(rows) {
+                            const target = document.querySelector('[data-live-report]');
+                            if (!target) return;
+                            target.innerHTML = (rows || []).map((row, index) => `<tr class="hover:bg-slate-100 ${index % 2 ? 'bg-slate-50' : ''}">${row.map((value, column) => `<td class="truncate px-3 py-2 ${column === 0 ? 'font-semibold text-slate-900' : ''}">${escapeHtml(value)}</td>`).join('')}</tr>`).join('') || '<tr><td colspan="12" class="px-3 py-5 text-center text-slate-500">No issues found.</td></tr>';
+                        }
+
+                        async function refreshCentralDashboard() {
+                            try {
+                                const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+                                if (!response.ok) return;
+                                const data = await response.json();
+                                cards.forEach((card) => {
+                                    const value = Number(data[card.dataset.liveCard] || 0);
+                                    card.textContent = value.toLocaleString();
+                                });
+                                document.querySelectorAll('[data-live-metric]').forEach((metric) => {
+                                    metric.textContent = formatMetric(data[metric.dataset.liveMetric]);
+                                });
+                                const slaBar = document.querySelector('[data-live-sla-bar]');
+                                if (slaBar && data.sla_compliance !== '—') slaBar.style.width = `${Number.parseInt(data.sla_compliance, 10) || 0}%`;
+                                renderMonthly(data.monthly);
+                                renderAnalysisRows('state', data.state_rows);
+                                renderAnalysisRows('service', data.service_rows);
+                                renderAnalysisRows('vendor', data.vendor_rows);
+                                renderReport(data.recent_issues);
+                                if (updatedLabel) updatedLabel.textContent = data.updated_at || 'Just now';
+                            } catch (error) {
+                                return;
+                            }
+                        }
+
+                        refreshCentralDashboard();
+                        window.setInterval(refreshCentralDashboard, 5000);
+                    }());
+                </script>
